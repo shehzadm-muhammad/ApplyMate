@@ -1,10 +1,14 @@
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../theme/colors";
+import { RootStackParamList } from "../navigation/types";
 
-export default function SplashScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, "Splash">;
+
+export default function SplashScreen({ navigation }: Props) {
   const handleGetStarted = () => {
-    console.log("Get Started pressed");
+    navigation.navigate("Welcome");
   };
 
   return (
