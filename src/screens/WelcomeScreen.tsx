@@ -1,14 +1,19 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import type { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
-export default function WelcomeScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, "Welcome">;
+
+export default function WelcomeScreen({ navigation }: Readonly<Props>) {
   const handleCreateAccount = () => {
-    console.log("Create Account pressed");
+    navigation.navigate("Register");
   };
 
   const handleLogin = () => {
-    console.log("Log In pressed");
+    navigation.navigate("Login");
   };
 
   return (
@@ -26,6 +31,7 @@ export default function WelcomeScreen() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Create an ApplyMate account"
             onPress={handleCreateAccount}
             style={({ pressed }) => [
               styles.primaryButton,
@@ -37,6 +43,7 @@ export default function WelcomeScreen() {
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Log in to ApplyMate"
             onPress={handleLogin}
             style={({ pressed }) => [
               styles.secondaryButton,
