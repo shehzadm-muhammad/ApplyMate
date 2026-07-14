@@ -6,7 +6,8 @@ import SplashScreen from "../screens/SplashScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
 import type { RootStackParamList } from "./types";
 import { colors } from "../theme/colors";
-
+import MainTabNavigator from "./MainTabNavigator";
+import ApplicationDetailsScreen from "../screens/ApplicationDetailsScreen";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
@@ -44,6 +45,20 @@ export default function RootNavigator() {
           headerBackTitle: "Back",
         }}
       />
+      <Stack.Screen
+        name="MainApp"
+        component={MainTabNavigator}
+        />
+      <Stack.Screen
+        name="ApplicationDetails"
+        component={ApplicationDetailsScreen}
+        options={{
+            headerShown: true,
+            headerTitle: "",
+            headerShadowVisible: false,
+            headerBackTitle: "Applications",
+        }}
+        />  
     </Stack.Navigator>
   );
 }
