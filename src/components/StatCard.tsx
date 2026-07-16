@@ -1,18 +1,31 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 
 import { colors } from "../theme/colors";
 
 type StatCardProps = Readonly<{
   title: string;
   value: number | string;
+  onPress?: () => void;
 }>;
 
-export default function StatCard({ title, value }: StatCardProps) {
+export default function StatCard({
+  title,
+  value,
+  onPress,
+}: StatCardProps) {
   return (
-    <View style={styles.card}>
+    <Pressable
+      accessibilityRole={onPress ? "button" : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        pressed && onPress ? styles.cardPressed : undefined,
+      ]}
+    >
       <Text style={styles.value}>{value}</Text>
       <Text style={styles.title}>{title}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -26,6 +39,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 18,
     backgroundColor: colors.surface,
+  },
+
+  cardPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
 
   value: {

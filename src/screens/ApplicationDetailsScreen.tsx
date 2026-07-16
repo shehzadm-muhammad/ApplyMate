@@ -20,6 +20,7 @@ import {
   type JobApplication,
 } from "../services/applicationStorage";
 import { colors } from "../theme/colors";
+import StatusBadge from "../components/StatusBadge";
 
 type Props = NativeStackScreenProps<
   RootStackParamList,
@@ -43,7 +44,7 @@ function DetailRow({ label, value }: DetailRowProps) {
 export default function ApplicationDetailsScreen({
   navigation,
   route,
-}: Props) {
+}: Readonly<Props>) {
   const [application, setApplication] =
     useState<JobApplication | null>(null);
 
@@ -177,11 +178,9 @@ export default function ApplicationDetailsScreen({
             {application.jobTitle}
           </Text>
 
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>
-              {application.status}
-            </Text>
-          </View>
+          <View style={styles.statusSection}>
+            <StatusBadge status={application.status} />
+        </View>
         </View>
 
         <View style={styles.detailsCard}>
@@ -253,7 +252,9 @@ export default function ApplicationDetailsScreen({
           <PrimaryButton
             title="Edit Application"
             onPress={() =>
-              console.log("Edit application:", application.id)
+              navigation.navigate("EditApplication", {
+              applicationId: application.id,
+            })
             }
           />
 
@@ -307,20 +308,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 18,
     lineHeight: 26,
-  },
-
-  statusBadge: {
-    marginTop: 18,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#DBEAFE",
-  },
-
-  statusText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
   },
 
   detailsCard: {
@@ -453,4 +440,8 @@ const styles = StyleSheet.create({
   backButtonSection: {
     marginTop: 28,
   },
+
+  statusSection: {
+    marginTop: 18,
+    },
 });

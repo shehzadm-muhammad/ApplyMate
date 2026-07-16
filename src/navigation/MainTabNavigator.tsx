@@ -87,10 +87,18 @@ export default function MainTabNavigator() {
         options={{ tabBarLabel: "Home" }}
       />
 
-      <Tab.Screen
+        <Tab.Screen
         name="Applications"
         component={ApplicationsScreen}
-      />
+        listeners={({ navigation }) => ({
+            tabPress: () => {
+            navigation.setParams({
+                initialStatus: undefined,
+                resetKey: Date.now(),
+            });
+            },
+        })}
+        />
 
       <Tab.Screen
         name="AddApplication"

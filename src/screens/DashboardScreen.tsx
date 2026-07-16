@@ -24,12 +24,13 @@ import { colors } from "../theme/colors";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import ApplicationCard from "../components/ApplicationCard";
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Home">,
   NativeStackScreenProps<RootStackParamList>
 >;
-export default function DashboardScreen({ navigation }: Props) {
+export default function DashboardScreen({ navigation }: Readonly<Props>) {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
 
@@ -100,10 +101,43 @@ const responseRate =
         <Text style={styles.sectionTitle}>Your progress</Text>
 
         <View style={styles.statsGrid}>
-          <StatCard title="Applications" value={totalApplications} />
-          <StatCard title="Interviews" value={interviewCount} />
-          <StatCard title="Offers" value={offerCount} />
-          <StatCard title="Response rate" value={`${responseRate}%`} />
+          <StatCard
+  title="Applications"
+  value={totalApplications}
+  onPress={() =>
+    navigation.navigate("Applications", {
+      initialStatus: undefined,
+    })
+  }
+/>
+
+<StatCard
+  title="Interviews"
+  value={interviewCount}
+  onPress={() =>
+    navigation.navigate("Applications", {
+      initialStatus: "Interview",
+    })
+  }
+/>
+
+<StatCard
+  title="Offers"
+  value={offerCount}
+  onPress={() =>
+    navigation.navigate("Applications", {
+      initialStatus: "Offer",
+    })
+  }
+/>
+
+<StatCard
+  title="Response rate"
+  value={`${responseRate}%`}
+  onPress={() => {
+    console.log("Analytics screen will be added later");
+  }}
+/>
         </View>
 
         {applications.length === 0 ? (
@@ -139,36 +173,17 @@ const responseRate =
             </View>
 
             {applications.slice(0, 3).map((application) => (
-  <Pressable
-    key={application.id}
-    accessibilityRole="button"
-    onPress={() =>
-      navigation.navigate("ApplicationDetails", {
-        applicationId: application.id,
-      })
-    }
-    style={({ pressed }) => [
-      styles.applicationCard,
-      pressed ? styles.cardPressed : undefined,
-    ]}
-  >
-    <View style={styles.applicationContent}>
-      <Text style={styles.companyName}>
-        {application.company}
-      </Text>
-
-      <Text style={styles.jobTitle}>
-        {application.jobTitle}
-      </Text>
-    </View>
-
-    <View style={styles.statusBadge}>
-      <Text style={styles.statusText}>
-        {application.status}
-      </Text>
-    </View>
-  </Pressable>
-))}
+                <ApplicationCard
+                    key={application.id}
+                    application={application}
+                    compact
+                    onPress={() =>
+                    navigation.navigate("ApplicationDetails", {
+                        applicationId: application.id,
+                    })
+                    }
+                />
+                ))}
 
             <Pressable
               accessibilityRole="button"
@@ -293,49 +308,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  applicationCard: {
-    minHeight: 84,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-  },
-
-  applicationContent: {
-    flex: 1,
-    paddingRight: 12,
-  },
-
-  companyName: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  jobTitle: {
-    marginTop: 5,
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-
-  statusBadge: {
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: "#DBEAFE",
-  },
-
-  statusText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
   secondaryAddButton: {
     minHeight: 52,
     alignItems: "center",
@@ -351,10 +323,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 16,
     fontWeight: "700",
-  },
-
-  cardPressed: {
-  opacity: 0.85,
-  transform: [{ scale: 0.99 }],
   },
 });

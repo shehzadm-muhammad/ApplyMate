@@ -8,4 +8,7 @@ export type RootStackParamList = {
   ApplicationDetails: {
     applicationId: string;
   };
+  EditApplication: {
+    applicationId: string;
+};
 };

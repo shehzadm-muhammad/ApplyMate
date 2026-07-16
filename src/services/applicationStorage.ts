@@ -19,6 +19,13 @@ export type JobApplication = {
   salary: string;
   status: ApplicationStatus;
   notes: string;
+
+  jobDescription: string;
+  requiredSkills: string;
+  benefits: string;
+  recruiter: string;
+  applicationDeadline: string;
+
   createdAt: string;
 };
 
@@ -29,7 +36,28 @@ export async function getApplications(): Promise<JobApplication[]> {
     return [];
   }
 
-  return JSON.parse(storedApplications) as JobApplication[];
+  const parsedApplications = JSON.parse(
+    storedApplications
+  ) as Partial<JobApplication>[];
+
+  return parsedApplications.map((application) => ({
+    id: application.id ?? `${Date.now()}-${Math.random()}`,
+    jobUrl: application.jobUrl ?? "",
+    company: application.company ?? "",
+    jobTitle: application.jobTitle ?? "",
+    location: application.location ?? "",
+    salary: application.salary ?? "",
+    status: application.status ?? "Applied",
+    notes: application.notes ?? "",
+
+    jobDescription: application.jobDescription ?? "",
+    requiredSkills: application.requiredSkills ?? "",
+    benefits: application.benefits ?? "",
+    recruiter: application.recruiter ?? "",
+    applicationDeadline: application.applicationDeadline ?? "",
+
+    createdAt: application.createdAt ?? new Date().toISOString(),
+  }));
 }
 
 export async function getApplicationById(
@@ -60,6 +88,39 @@ export async function saveApplication(
   );
 
   return newApplication;
+}
+
+export async function updateApplication(
+  id: string,
+  updates: Omit<JobApplication, "id" | "createdAt">
+): Promise<JobApplication | null> {
+  const applications = await getApplications();
+
+  const existingApplication = applications.find(
+    (application) => application.id === id
+  );
+
+  if (!existingApplication) {
+    return null;
+  }
+
+  const updatedApplication: JobApplication = {
+    ...existingApplication,
+    ...updates,
+    id: existingApplication.id,
+    createdAt: existingApplication.createdAt,
+  };
+
+  const updatedApplications = applications.map((application) =>
+    application.id === id ? updatedApplication : application
+  );
+
+  await AsyncStorage.setItem(
+    APPLICATIONS_KEY,
+    JSON.stringify(updatedApplications)
+  );
+
+  return updatedApplication;
 }
 
 export async function deleteApplication(id: string): Promise<void> {

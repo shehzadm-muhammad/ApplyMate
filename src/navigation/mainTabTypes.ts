@@ -6,6 +6,7 @@ export type MainTabParamList = {
   Applications:
     | {
         initialStatus?: ApplicationStatus;
+        resetKey?: number;
       }
     | undefined;
 

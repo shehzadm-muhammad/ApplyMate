@@ -8,6 +8,8 @@ import type { RootStackParamList } from "./types";
 import { colors } from "../theme/colors";
 import MainTabNavigator from "./MainTabNavigator";
 import ApplicationDetailsScreen from "../screens/ApplicationDetailsScreen";
+import EditApplicationScreen from "../screens/EditApplicationScreen";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
@@ -57,6 +59,16 @@ export default function RootNavigator() {
             headerTitle: "",
             headerShadowVisible: false,
             headerBackTitle: "Applications",
+        }}
+        />
+        <Stack.Screen
+        name="EditApplication"
+        component={EditApplicationScreen}
+        options={{
+            headerShown: true,
+            headerTitle: "",
+            headerShadowVisible: false,
+            headerBackTitle: "Details",
         }}
         />  
     </Stack.Navigator>

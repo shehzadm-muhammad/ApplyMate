@@ -18,6 +18,7 @@ import {
   type JobApplication,
 } from "../services/applicationStorage";
 import { colors } from "../theme/colors";
+import ApplicationCard from "../components/ApplicationCard";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -46,17 +47,19 @@ const filters: StatusFilter[] = [
 export default function ApplicationsScreen({
   navigation,
   route,
-}: Props) {
+}: Readonly<Props>) {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] =
     useState<StatusFilter>("All");
 
-  useEffect(() => {
-    if (route.params?.initialStatus) {
-      setSelectedStatus(route.params.initialStatus);
-    }
-  }, [route.params?.initialStatus]);
+useEffect(() => {
+  setSelectedStatus(route.params?.initialStatus ?? "All");
+  setSearchQuery("");
+}, [
+  route.params?.initialStatus,
+  route.params?.resetKey,
+]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,29 +72,29 @@ export default function ApplicationsScreen({
     }, [])
   );
 
-  const filteredApplications = useMemo(() => {
-    const normalisedSearch = searchQuery.trim().toLowerCase();
+const filteredApplications = useMemo(() => {
+  const normalisedSearch = searchQuery.trim().toLowerCase();
 
-    return applications.filter((application) => {
-      const matchesStatus =
-        selectedStatus === "All" ||
-        application.status === selectedStatus;
+  return applications.filter((application) => {
+    const matchesStatus =
+      selectedStatus === "All" ||
+      application.status === selectedStatus;
 
-      const matchesSearch =
-        normalisedSearch.length === 0 ||
-        application.company
-          .toLowerCase()
-          .includes(normalisedSearch) ||
-        application.jobTitle
-          .toLowerCase()
-          .includes(normalisedSearch) ||
-        application.location
-          .toLowerCase()
-          .includes(normalisedSearch);
+    const matchesSearch =
+      normalisedSearch.length === 0 ||
+      application.company
+        .toLowerCase()
+        .includes(normalisedSearch) ||
+      application.jobTitle
+        .toLowerCase()
+        .includes(normalisedSearch) ||
+      application.location
+        .toLowerCase()
+        .includes(normalisedSearch);
 
-      return matchesStatus && matchesSearch;
-    });
-  }, [applications, searchQuery, selectedStatus]);
+    return matchesStatus && matchesSearch;
+  });
+}, [applications, searchQuery, selectedStatus]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -161,7 +164,7 @@ export default function ApplicationsScreen({
       >
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsText}>
-            {filteredApplications.length}{" "}
+            Showing {filteredApplications.length}{" "}
             {filteredApplications.length === 1
               ? "application"
               : "applications"}
@@ -198,64 +201,18 @@ export default function ApplicationsScreen({
             ) : null}
           </View>
         ) : (
-          filteredApplications.map((application) => (
-            <Pressable
-              key={application.id}
-              accessibilityRole="button"
-              onPress={() =>
-                navigation.navigate("ApplicationDetails", {
-                    applicationId: application.id,
-                })
-              }
-              style={({ pressed }) => [
-                styles.applicationCard,
-                pressed ? styles.cardPressed : undefined,
-              ]}
-            >
-              <View style={styles.applicationMain}>
-                <Text
-                  style={styles.companyName}
-                  numberOfLines={1}
-                >
-                  {application.company}
-                </Text>
-
-                <Text
-                  style={styles.jobTitle}
-                  numberOfLines={2}
-                >
-                  {application.jobTitle}
-                </Text>
-
-                {application.location ? (
-                  <Text
-                    style={styles.location}
-                    numberOfLines={1}
-                  >
-                    {application.location}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.cardRight}>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>
-                    {application.status}
-                  </Text>
-                </View>
-
-                <Text style={styles.dateText}>
-                  {new Date(
-                    application.createdAt
-                  ).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </Text>
-              </View>
-            </Pressable>
-          ))
-        )}
+        filteredApplications.map((application) => (
+        <ApplicationCard
+            key={application.id}
+            application={application}
+            onPress={() =>
+            navigation.navigate("ApplicationDetails", {
+                applicationId: application.id,
+            })
+            }
+        />
+        ))
+    )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -353,70 +310,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: "600",
-  },
-
-  applicationCard: {
-    minHeight: 112,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-  },
-
-  cardPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.99 }],
-  },
-
-  applicationMain: {
-    flex: 1,
-    paddingRight: 14,
-  },
-
-  companyName: {
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-
-  jobTitle: {
-    marginTop: 5,
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  location: {
-    marginTop: 7,
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
-
-  cardRight: {
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-
-  statusBadge: {
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: "#DBEAFE",
-  },
-
-  statusText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  dateText: {
-    color: colors.textSecondary,
-    fontSize: 12,
   },
 
   emptyCard: {
