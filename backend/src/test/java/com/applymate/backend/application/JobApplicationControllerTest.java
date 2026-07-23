@@ -97,7 +97,10 @@ class JobApplicationControllerTest {
         mockMvc.perform(get("/api/v1/applications")
                         .principal(() -> USER_ID.toString())
                         .param("status", "UNKNOWN"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message")
+                        .value("Invalid value for parameter 'status'"));
         }
 
     @Test
@@ -247,7 +250,11 @@ class JobApplicationControllerTest {
                         APPLICATION_ID
                 )
                         .principal(() -> USER_ID.toString()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message")
+                        .value("Job application was not found"));
     }
 
     @Test
@@ -262,7 +269,19 @@ class JobApplicationControllerTest {
                                   "status": null
                                 }
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("Request validation failed"))
+                .andExpect(jsonPath("$.path")
+                        .value("/api/v1/applications"))
+                .andExpect(jsonPath("$.fieldErrors.company")
+                        .value("Company is required"))
+                .andExpect(jsonPath("$.fieldErrors.jobTitle")
+                        .value("Job title is required"))
+                .andExpect(jsonPath("$.fieldErrors.status")
+                        .value("Status is required"));
     }
 
     private JobApplicationResponse testResponse() {
