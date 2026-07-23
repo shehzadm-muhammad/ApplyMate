@@ -24,6 +24,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
+import jakarta.servlet.DispatcherType;
 
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
@@ -41,6 +42,7 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(authorize -> authorize
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(
                                 "/api/v1/status",
                                 "/api/v1/auth/register",
