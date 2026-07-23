@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.security.Principal;
 import java.util.List;
@@ -44,15 +45,37 @@ public class JobApplicationController {
     }
 
     @GetMapping
-    public List<JobApplicationResponse> findAll(
-            Principal principal
-    ) {
+        public List<JobApplicationResponse> findAll(
+                Principal principal,
+                @RequestParam(required = false)
+                ApplicationStatus status,
+                @RequestParam(required = false)
+                String search
+        ) {
         UUID userId = getUserId(principal);
 
-        return applicationService.findAllForUser(userId);
-    }
+        if (status == null
+                && (search == null || search.isBlank())) {
+                return applicationService.findAllForUser(userId);
+        }
 
-    @GetMapping("/{applicationId}")
+        return applicationService.findAllForUser(
+                userId,
+                status,
+                search
+        );
+        }
+
+    @GetMapping("/summary")
+        public ApplicationSummaryResponse getSummary(
+                Principal principal
+        ) {
+        UUID userId = getUserId(principal);
+
+        return applicationService.getSummary(userId);
+}
+    
+        @GetMapping("/{applicationId}")
     public JobApplicationResponse findById(
             Principal principal,
             @PathVariable UUID applicationId

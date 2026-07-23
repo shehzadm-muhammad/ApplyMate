@@ -421,6 +421,133 @@ try {
         $listResponse.Body[0].company `
         "Example Bank" `
         "Applications list preserved the company"
+
+        # ---------------------------------------------------------
+    # Filtering and summary test data
+    # ---------------------------------------------------------
+
+        $savedApplicationBody = @{
+            jobUrl              = "https://example.com/jobs/data-analyst"
+            company             = "Insight Labs"
+            jobTitle            = "Data Analyst"
+            location            = "Birmingham"
+            salary              = "GBP 32,000"
+            status              = "SAVED"
+            notes               = "Saved for later"
+            jobDescription      = "Data analysis and reporting"
+            requiredSkills      = "SQL, Python, Power BI"
+            benefits            = "Flexible working"
+            recruiter           = "Alex Taylor"
+            applicationDeadline = "2026-09-30"
+        }
+
+        $savedCreateResponse = Invoke-JsonRequest `
+            -Method Post `
+            -Uri "$baseUrl/api/v1/applications" `
+            -Headers $authorizationHeaders `
+            -Body $savedApplicationBody
+
+        Assert-Equal `
+            $savedCreateResponse.StatusCode `
+            201 `
+            "Second application creation returned HTTP 201"
+
+        $savedApplicationId = $savedCreateResponse.Body.id
+
+        Assert-NotEmpty `
+            $savedApplicationId `
+            "Second application has an ID"
+
+        # ---------------------------------------------------------
+        # Status filter
+        # ---------------------------------------------------------
+
+        $statusFilterResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications?status=APPLIED" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            @($statusFilterResponse.Body).Count `
+            1 `
+            "Status filter returned one APPLIED application"
+
+        Assert-Equal `
+            $statusFilterResponse.Body[0].id `
+            $applicationId `
+            "Status filter returned the correct application"
+
+        # ---------------------------------------------------------
+        # Case-insensitive search
+        # ---------------------------------------------------------
+
+        $searchResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications?search=insight" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            @($searchResponse.Body).Count `
+            1 `
+            "Search returned one matching application"
+
+        Assert-Equal `
+            $searchResponse.Body[0].id `
+            $savedApplicationId `
+            "Search returned the Insight Labs application"
+
+        # ---------------------------------------------------------
+        # Combined status and search
+        # ---------------------------------------------------------
+
+        $combinedFilterResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications?status=APPLIED&search=bank" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            @($combinedFilterResponse.Body).Count `
+            1 `
+            "Combined status and search returned one application"
+
+        Assert-Equal `
+            $combinedFilterResponse.Body[0].id `
+            $applicationId `
+            "Combined filter returned the correct application"
+
+        # ---------------------------------------------------------
+        # Dashboard summary
+        # ---------------------------------------------------------
+
+        $summaryResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications/summary" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            $summaryResponse.StatusCode `
+            200 `
+            "Application summary returned HTTP 200"
+
+        Assert-Equal `
+            $summaryResponse.Body.total `
+            2 `
+            "Application summary total is correct"
+
+        Assert-Equal `
+            $summaryResponse.Body.applied `
+            1 `
+            "Application summary APPLIED count is correct"
+
+        Assert-Equal `
+            $summaryResponse.Body.saved `
+            1 `
+            "Application summary SAVED count is correct"
+
+        Assert-Equal `
+            $summaryResponse.Body.interview `
+            0 `
+            "Application summary INTERVIEW count is initially zero"    
     
         # ---------------------------------------------------------
     # 13. Retrieve one application
@@ -573,6 +700,16 @@ try {
             $deleteResponse.StatusCode `
             204 `
             "Application deletion returned HTTP 204"
+
+            $deleteSavedResponse = Invoke-JsonRequest `
+            -Method Delete `
+            -Uri "$baseUrl/api/v1/applications/$savedApplicationId" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            $deleteSavedResponse.StatusCode `
+            204 `
+            "Second application deletion returned HTTP 204"
 
         Assert-HttpError `
             -ExpectedStatus 404 `

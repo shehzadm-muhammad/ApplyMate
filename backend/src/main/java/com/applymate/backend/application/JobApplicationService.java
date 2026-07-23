@@ -4,6 +4,8 @@ import com.applymate.backend.user.AppUserRepository;
 import com.applymate.backend.user.UserNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
 import java.util.UUID;
@@ -65,6 +67,41 @@ public class JobApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<JobApplicationResponse> findAllForUser(
+            UUID userId,
+            ApplicationStatus status,
+            String search
+    ) {
+        verifyUserExists(userId);
+
+        Specification<JobApplication> specification =
+                JobApplicationSpecifications.belongsTo(userId);
+
+        if (status != null) {
+            specification = specification.and(
+                    JobApplicationSpecifications.hasStatus(status)
+            );
+        }
+
+        if (search != null && !search.isBlank()) {
+            specification = specification.and(
+                    JobApplicationSpecifications.containsSearch(search)
+            );
+        }
+
+        Sort newestFirst = Sort.by(
+                Sort.Direction.DESC,
+                "createdAt"
+        );
+
+        return applicationRepository
+                .findAll(specification, newestFirst)
+                .stream()
+                .map(JobApplicationResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public JobApplicationResponse findById(
             UUID userId,
             UUID applicationId
@@ -103,6 +140,15 @@ public class JobApplicationService {
                 applicationRepository.saveAndFlush(application);
 
         return JobApplicationResponse.from(updated);
+    }
+
+    @Transactional(readOnly = true)
+    public ApplicationSummaryResponse getSummary(UUID userId) {
+        verifyUserExists(userId);
+
+        return ApplicationSummaryResponse.from(
+                applicationRepository.countByStatusForUser(userId)
+        );
     }
 
     @Transactional

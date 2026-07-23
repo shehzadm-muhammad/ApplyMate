@@ -43,6 +43,64 @@ class JobApplicationControllerTest {
     private JobApplicationService applicationService;
 
     @Test
+        void shouldFilterApplicationsByStatusAndSearch() throws Exception {
+        when(applicationService.findAllForUser(
+                USER_ID,
+                ApplicationStatus.INTERVIEW,
+                "java"
+        )).thenReturn(List.of(updatedResponse()));
+
+        mockMvc.perform(get("/api/v1/applications")
+                        .principal(() -> USER_ID.toString())
+                        .param("status", "INTERVIEW")
+                        .param("search", "java"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id")
+                        .value(APPLICATION_ID.toString()))
+                .andExpect(jsonPath("$[0].jobTitle")
+                        .value("Senior Java Developer"))
+                .andExpect(jsonPath("$[0].status")
+                        .value("INTERVIEW"));
+        }
+
+        @Test
+        void shouldReturnApplicationSummary() throws Exception {
+        ApplicationSummaryResponse summary =
+                new ApplicationSummaryResponse(
+                        12,
+                        2,
+                        4,
+                        1,
+                        3,
+                        1,
+                        1
+                );
+
+        when(applicationService.getSummary(USER_ID))
+                .thenReturn(summary);
+
+        mockMvc.perform(get("/api/v1/applications/summary")
+                        .principal(() -> USER_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(12))
+                .andExpect(jsonPath("$.saved").value(2))
+                .andExpect(jsonPath("$.applied").value(4))
+                .andExpect(jsonPath("$.assessment").value(1))
+                .andExpect(jsonPath("$.interview").value(3))
+                .andExpect(jsonPath("$.offer").value(1))
+                .andExpect(jsonPath("$.rejected").value(1));
+        }
+
+        @Test
+        void shouldRejectUnknownApplicationStatus() throws Exception {
+        mockMvc.perform(get("/api/v1/applications")
+                        .principal(() -> USER_ID.toString())
+                        .param("status", "UNKNOWN"))
+                .andExpect(status().isBadRequest());
+        }
+
+    @Test
     void shouldCreateApplication() throws Exception {
         when(applicationService.create(
                 eq(USER_ID),
