@@ -20,6 +20,8 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import com.applymate.backend.common.error.SecurityErrorHandler;
+import org.springframework.security.config.Customizer;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -30,12 +32,17 @@ import jakarta.servlet.DispatcherType;
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+        @Bean
+        SecurityFilterChain securityFilterChain(
+                HttpSecurity http,
+                SecurityErrorHandler securityErrorHandler
+        ) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
+
+                .cors(Customizer.withDefaults())
+
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -51,8 +58,17 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth2 ->
-                        oauth2.jwt(Customizer.withDefaults())
+
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(securityErrorHandler)
+                        .accessDeniedHandler(securityErrorHandler)
+                )
+
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .authenticationEntryPoint(securityErrorHandler)
+                        .accessDeniedHandler(securityErrorHandler)
+                        .jwt(jwt -> {
+                        })
                 );
 
         return http.build();
