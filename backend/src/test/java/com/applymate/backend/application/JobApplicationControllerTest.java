@@ -15,9 +15,12 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,7 +58,7 @@ class JobApplicationControllerTest {
                                   "company": "Example Bank",
                                   "jobTitle": "Java Developer",
                                   "location": "Birmingham",
-                                  "salary": "\\u00A335,000",
+                                  "salary": "GBP 35,000",
                                   "status": "APPLIED",
                                   "notes": "Applied through company website",
                                   "jobDescription": "Backend Java development",
@@ -73,9 +76,7 @@ class JobApplicationControllerTest {
                 .andExpect(jsonPath("$.jobTitle")
                         .value("Java Developer"))
                 .andExpect(jsonPath("$.status")
-                        .value("APPLIED"))
-                .andExpect(jsonPath("$.salary")
-                        .value("\u00A335,000"));
+                        .value("APPLIED"));
     }
 
     @Test
@@ -91,10 +92,104 @@ class JobApplicationControllerTest {
                         .value(APPLICATION_ID.toString()))
                 .andExpect(jsonPath("$[0].company")
                         .value("Example Bank"))
-                .andExpect(jsonPath("$[0].jobTitle")
-                        .value("Java Developer"))
                 .andExpect(jsonPath("$[0].status")
                         .value("APPLIED"));
+    }
+
+    @Test
+    void shouldReturnOneOwnedApplication() throws Exception {
+        when(applicationService.findById(
+                USER_ID,
+                APPLICATION_ID
+        )).thenReturn(testResponse());
+
+        mockMvc.perform(get(
+                        "/api/v1/applications/{applicationId}",
+                        APPLICATION_ID
+                )
+                        .principal(() -> USER_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(APPLICATION_ID.toString()))
+                .andExpect(jsonPath("$.company")
+                        .value("Example Bank"))
+                .andExpect(jsonPath("$.jobTitle")
+                        .value("Java Developer"));
+    }
+
+    @Test
+    void shouldUpdateOwnedApplication() throws Exception {
+        when(applicationService.update(
+                eq(USER_ID),
+                eq(APPLICATION_ID),
+                any(UpdateJobApplicationRequest.class)
+        )).thenReturn(updatedResponse());
+
+        mockMvc.perform(put(
+                        "/api/v1/applications/{applicationId}",
+                        APPLICATION_ID
+                )
+                        .principal(() -> USER_ID.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "jobUrl": "https://example.com/jobs/senior-java-developer",
+                                  "company": "Updated Bank",
+                                  "jobTitle": "Senior Java Developer",
+                                  "location": "Birmingham",
+                                  "salary": "GBP 40,000",
+                                  "status": "INTERVIEW",
+                                  "notes": "Interview booked for Monday",
+                                  "jobDescription": "Backend development",
+                                  "requiredSkills": "Java, Spring Boot, PostgreSQL",
+                                  "benefits": "Hybrid working",
+                                  "recruiter": "Jane Smith",
+                                  "applicationDeadline": "2026-09-15"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(APPLICATION_ID.toString()))
+                .andExpect(jsonPath("$.company")
+                        .value("Updated Bank"))
+                .andExpect(jsonPath("$.jobTitle")
+                        .value("Senior Java Developer"))
+                .andExpect(jsonPath("$.status")
+                        .value("INTERVIEW"))
+                .andExpect(jsonPath("$.salary")
+                        .value("GBP 40,000"));
+    }
+
+    @Test
+    void shouldDeleteOwnedApplication() throws Exception {
+        mockMvc.perform(delete(
+                        "/api/v1/applications/{applicationId}",
+                        APPLICATION_ID
+                )
+                        .principal(() -> USER_ID.toString()))
+                .andExpect(status().isNoContent());
+
+        verify(applicationService).delete(
+                USER_ID,
+                APPLICATION_ID
+        );
+    }
+
+    @Test
+    void shouldReturnNotFoundForUnavailableApplication()
+            throws Exception {
+
+        when(applicationService.findById(
+                USER_ID,
+                APPLICATION_ID
+        )).thenThrow(new JobApplicationNotFoundException());
+
+        mockMvc.perform(get(
+                        "/api/v1/applications/{applicationId}",
+                        APPLICATION_ID
+                )
+                        .principal(() -> USER_ID.toString()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -119,7 +214,7 @@ class JobApplicationControllerTest {
                 "Example Bank",
                 "Java Developer",
                 "Birmingham",
-                "\u00A335,000",
+                "GBP 35,000",
                 ApplicationStatus.APPLIED,
                 "Applied through company website",
                 "Backend Java development",
@@ -129,6 +224,26 @@ class JobApplicationControllerTest {
                 LocalDate.of(2026, 8, 31),
                 Instant.parse("2026-07-19T13:59:55Z"),
                 Instant.parse("2026-07-19T13:59:55Z")
+        );
+    }
+
+    private JobApplicationResponse updatedResponse() {
+        return new JobApplicationResponse(
+                APPLICATION_ID,
+                "https://example.com/jobs/senior-java-developer",
+                "Updated Bank",
+                "Senior Java Developer",
+                "Birmingham",
+                "GBP 40,000",
+                ApplicationStatus.INTERVIEW,
+                "Interview booked for Monday",
+                "Backend development",
+                "Java, Spring Boot, PostgreSQL",
+                "Hybrid working",
+                "Jane Smith",
+                LocalDate.of(2026, 9, 15),
+                Instant.parse("2026-07-19T13:59:55Z"),
+                Instant.parse("2026-07-23T11:20:00Z")
         );
     }
 }

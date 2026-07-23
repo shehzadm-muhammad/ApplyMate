@@ -52,7 +52,9 @@ public class JobApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public List<JobApplicationResponse> findAllForUser(UUID userId) {
+    public List<JobApplicationResponse> findAllForUser(
+            UUID userId
+    ) {
         verifyUserExists(userId);
 
         return applicationRepository
@@ -60,6 +62,69 @@ public class JobApplicationService {
                 .stream()
                 .map(JobApplicationResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public JobApplicationResponse findById(
+            UUID userId,
+            UUID applicationId
+    ) {
+        JobApplication application =
+                findOwnedApplication(userId, applicationId);
+
+        return JobApplicationResponse.from(application);
+    }
+
+    @Transactional
+    public JobApplicationResponse update(
+            UUID userId,
+            UUID applicationId,
+            UpdateJobApplicationRequest request
+    ) {
+        JobApplication application =
+                findOwnedApplication(userId, applicationId);
+
+        application.update(
+                clean(request.jobUrl()),
+                request.company().trim(),
+                request.jobTitle().trim(),
+                clean(request.location()),
+                clean(request.salary()),
+                request.status(),
+                clean(request.notes()),
+                clean(request.jobDescription()),
+                clean(request.requiredSkills()),
+                clean(request.benefits()),
+                clean(request.recruiter()),
+                request.applicationDeadline()
+        );
+
+        JobApplication updated =
+                applicationRepository.saveAndFlush(application);
+
+        return JobApplicationResponse.from(updated);
+    }
+
+    @Transactional
+    public void delete(
+            UUID userId,
+            UUID applicationId
+    ) {
+        JobApplication application =
+                findOwnedApplication(userId, applicationId);
+
+        applicationRepository.delete(application);
+    }
+
+    private JobApplication findOwnedApplication(
+            UUID userId,
+            UUID applicationId
+    ) {
+        return applicationRepository
+                .findByIdAndUserId(applicationId, userId)
+                .orElseThrow(
+                        JobApplicationNotFoundException::new
+                );
     }
 
     private void verifyUserExists(UUID userId) {

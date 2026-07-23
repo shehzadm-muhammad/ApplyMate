@@ -111,6 +111,34 @@ public class JobApplication {
         this.applicationDeadline = applicationDeadline;
     }
 
+    public void update(
+            String jobUrl,
+            String company,
+            String jobTitle,
+            String location,
+            String salary,
+            ApplicationStatus status,
+            String notes,
+            String jobDescription,
+            String requiredSkills,
+            String benefits,
+            String recruiter,
+            LocalDate applicationDeadline
+    ) {
+        this.jobUrl = jobUrl;
+        this.company = company;
+        this.jobTitle = jobTitle;
+        this.location = location;
+        this.salary = salary;
+        this.status = status;
+        this.notes = notes;
+        this.jobDescription = jobDescription;
+        this.requiredSkills = requiredSkills;
+        this.benefits = benefits;
+        this.recruiter = recruiter;
+        this.applicationDeadline = applicationDeadline;
+    }
+
     @PrePersist
     void initialiseTimestamps() {
         Instant now = Instant.now();

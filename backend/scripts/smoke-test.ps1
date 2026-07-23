@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 $baseUrl = "http://localhost:8080"
 $testEmail = "smoke.$(Get-Date -Format 'yyyyMMddHHmmssfff')@example.com"
 $testPassword = "ApplyMate123!"
+$secondEmail = $null
 
 function Write-Pass {
     param([string]$Message)
@@ -420,6 +421,178 @@ try {
         $listResponse.Body[0].company `
         "Example Bank" `
         "Applications list preserved the company"
+    
+        # ---------------------------------------------------------
+    # 13. Retrieve one application
+    # ---------------------------------------------------------
+
+        $singleResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications/$applicationId" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            $singleResponse.StatusCode `
+            200 `
+            "Single application request returned HTTP 200"
+
+        Assert-Equal `
+            $singleResponse.Body.id `
+            $applicationId `
+            "Single application endpoint returned the correct record"
+
+        # ---------------------------------------------------------
+        # 14. Update application
+        # ---------------------------------------------------------
+
+        $updateBody = @{
+            jobUrl              = "https://example.com/jobs/senior-java-developer"
+            company             = "Updated Bank"
+            jobTitle            = "Senior Java Developer"
+            location            = "Birmingham"
+            salary              = "GBP 40,000"
+            status              = "INTERVIEW"
+            notes               = "Interview booked for Monday"
+            jobDescription      = "Backend development"
+            requiredSkills      = "Java, Spring Boot, PostgreSQL"
+            benefits            = "Hybrid working"
+            recruiter           = "Jane Smith"
+            applicationDeadline = "2026-09-15"
+        }
+
+        $updateResponse = Invoke-JsonRequest `
+            -Method Put `
+            -Uri "$baseUrl/api/v1/applications/$applicationId" `
+            -Headers $authorizationHeaders `
+            -Body $updateBody
+
+        Assert-Equal `
+            $updateResponse.StatusCode `
+            200 `
+            "Application update returned HTTP 200"
+
+        Assert-Equal `
+            $updateResponse.Body.company `
+            "Updated Bank" `
+            "Application update changed the company"
+
+        Assert-Equal `
+            $updateResponse.Body.status `
+            "INTERVIEW" `
+            "Application update changed the status"
+
+        Assert-Equal `
+            $updateResponse.Body.jobTitle `
+            "Senior Java Developer" `
+            "Application update changed the job title"
+
+        # ---------------------------------------------------------
+        # 15. Create second user for ownership testing
+        # ---------------------------------------------------------
+
+        $secondEmail =
+            "smoke.second.$(Get-Date -Format 'yyyyMMddHHmmssfff')@example.com"
+
+        $secondRegistrationBody = @{
+            firstName = "Second"
+            lastName  = "Tester"
+            email     = $secondEmail
+            password  = $testPassword
+        }
+
+        $secondRegistrationResponse = Invoke-JsonRequest `
+            -Method Post `
+            -Uri "$baseUrl/api/v1/auth/register" `
+            -Body $secondRegistrationBody
+
+        Assert-Equal `
+            $secondRegistrationResponse.StatusCode `
+            201 `
+            "Second user registration returned HTTP 201"
+
+        $secondLoginBody = @{
+            email    = $secondEmail
+            password = $testPassword
+        }
+
+        $secondLoginResponse = Invoke-JsonRequest `
+            -Method Post `
+            -Uri "$baseUrl/api/v1/auth/login" `
+            -Body $secondLoginBody
+
+        $secondHeaders = @{
+            Authorization =
+                "Bearer $($secondLoginResponse.Body.accessToken)"
+        }
+
+        # ---------------------------------------------------------
+        # 16. Ownership protection
+        # ---------------------------------------------------------
+
+        Assert-HttpError `
+            -ExpectedStatus 404 `
+            -Message "Second user viewing another user's application" `
+            -Action {
+                Invoke-JsonRequest `
+                    -Method Get `
+                    -Uri "$baseUrl/api/v1/applications/$applicationId" `
+                    -Headers $secondHeaders
+            }
+
+        Assert-HttpError `
+            -ExpectedStatus 404 `
+            -Message "Second user updating another user's application" `
+            -Action {
+                Invoke-JsonRequest `
+                    -Method Put `
+                    -Uri "$baseUrl/api/v1/applications/$applicationId" `
+                    -Headers $secondHeaders `
+                    -Body $updateBody
+            }
+
+        Assert-HttpError `
+            -ExpectedStatus 404 `
+            -Message "Second user deleting another user's application" `
+            -Action {
+                Invoke-JsonRequest `
+                    -Method Delete `
+                    -Uri "$baseUrl/api/v1/applications/$applicationId" `
+                    -Headers $secondHeaders
+            }
+
+        # ---------------------------------------------------------
+        # 17. Delete application as its owner
+        # ---------------------------------------------------------
+
+        $deleteResponse = Invoke-JsonRequest `
+            -Method Delete `
+            -Uri "$baseUrl/api/v1/applications/$applicationId" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            $deleteResponse.StatusCode `
+            204 `
+            "Application deletion returned HTTP 204"
+
+        Assert-HttpError `
+            -ExpectedStatus 404 `
+            -Message "Deleted application retrieval" `
+            -Action {
+                Invoke-JsonRequest `
+                    -Method Get `
+                    -Uri "$baseUrl/api/v1/applications/$applicationId" `
+                    -Headers $authorizationHeaders
+            }
+
+        $finalListResponse = Invoke-JsonRequest `
+            -Method Get `
+            -Uri "$baseUrl/api/v1/applications" `
+            -Headers $authorizationHeaders
+
+        Assert-Equal `
+            @($finalListResponse.Body).Count `
+            0 `
+            "Applications list is empty after deletion"    
 
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
@@ -432,12 +605,25 @@ try {
 finally {
     Write-Host "Removing smoke-test account and application..."
 
-    docker exec applymate-postgres psql `
-        -U applymate `
-        -d applymate `
-        -v ON_ERROR_STOP=1 `
-        -c "DELETE FROM app_users WHERE email = '$testEmail';" `
-        | Out-Null
+        $escapedTestEmail = $testEmail.Replace("'", "''")
+
+        docker exec applymate-postgres psql `
+            -U applymate `
+            -d applymate `
+            -v ON_ERROR_STOP=1 `
+            -c "DELETE FROM app_users WHERE email = '$escapedTestEmail';" `
+            | Out-Null
+
+        if (-not [string]::IsNullOrWhiteSpace($secondEmail)) {
+            $escapedSecondEmail = $secondEmail.Replace("'", "''")
+
+            docker exec applymate-postgres psql `
+                -U applymate `
+                -d applymate `
+                -v ON_ERROR_STOP=1 `
+                -c "DELETE FROM app_users WHERE email = '$escapedSecondEmail';" `
+                | Out-Null
+        }
 
     Write-Pass "Smoke-test data removed"
 }
