@@ -10,39 +10,22 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { RootStackParamList } from "../navigation/types";
-import { getSession } from "../services/authStorage";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Splash">;
 
 export default function SplashScreen({ navigation }: Props) {
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [showGetStarted, setShowGetStarted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const hasSession = await getSession();
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 900);
 
-        // Keep the splash visible briefly so it does not flash too quickly.
-        await new Promise((resolve) => setTimeout(resolve, 900));
-
-        if (hasSession) {
-          navigation.replace("MainApp");
-          return;
-        }
-
-        setShowGetStarted(true);
-      } catch (error) {
-        console.error("Unable to check ApplyMate session:", error);
-        setShowGetStarted(true);
-      } finally {
-        setIsCheckingSession(false);
-      }
+    return () => {
+      clearTimeout(timer);
     };
-
-    void checkSession();
-  }, [navigation]);
+  }, []);
 
   const handleGetStarted = () => {
     navigation.navigate("Welcome");
@@ -66,14 +49,14 @@ export default function SplashScreen({ navigation }: Props) {
           </Text>
         </View>
 
-        {isCheckingSession ? (
+        {isLoading ? (
           <View style={styles.loadingSection}>
             <ActivityIndicator
               size="small"
               color={colors.primary}
             />
           </View>
-        ) : showGetStarted ? (
+        ) : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Get started with ApplyMate"
@@ -85,8 +68,6 @@ export default function SplashScreen({ navigation }: Props) {
           >
             <Text style={styles.buttonText}>Get Started</Text>
           </Pressable>
-        ) : (
-          <View style={styles.bottomPlaceholder} />
         )}
       </View>
     </SafeAreaView>
@@ -155,10 +136,6 @@ const styles = StyleSheet.create({
     minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  bottomPlaceholder: {
-    minHeight: 56,
   },
 
   button: {

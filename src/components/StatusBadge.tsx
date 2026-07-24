@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import type { ApplicationStatus } from "../services/applicationStorage";
+import type { ApplicationStatus } from "../services/applicationService";
 
 type StatusBadgeProps = Readonly<{
   status: ApplicationStatus;

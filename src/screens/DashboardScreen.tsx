@@ -15,11 +15,8 @@ import type { MainTabParamList } from "../navigation/mainTabTypes";
 import {
   getApplications,
   type JobApplication,
-} from "../services/applicationStorage";
-import {
-  getStoredUser,
-  type StoredUser,
-} from "../services/authStorage";
+} from "../services/applicationService";
+import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -31,7 +28,7 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 export default function DashboardScreen({ navigation }: Readonly<Props>) {
-  const [user, setUser] = useState<StoredUser | null>(null);
+  const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
 
   const currentHour = new Date().getHours();
@@ -46,12 +43,8 @@ export default function DashboardScreen({ navigation }: Readonly<Props>) {
   useFocusEffect(
     useCallback(() => {
       const loadDashboardData = async () => {
-        const [storedUser, storedApplications] = await Promise.all([
-          getStoredUser(),
-          getApplications(),
-        ]);
+        const storedApplications = await getApplications();
 
-        setUser(storedUser);
         setApplications(storedApplications);
       };
 

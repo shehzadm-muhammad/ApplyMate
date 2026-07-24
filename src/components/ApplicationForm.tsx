@@ -16,7 +16,7 @@ import TextField from "./TextField";
 import type {
   ApplicationStatus,
   JobApplication,
-} from "../services/applicationStorage";
+} from "../services/applicationService";
 import { colors } from "../theme/colors";
 
 export type ApplicationFormValues = Omit<

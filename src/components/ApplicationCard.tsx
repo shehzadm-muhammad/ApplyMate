@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { JobApplication } from "../services/applicationStorage";
+import type { JobApplication } from "../services/applicationService";
 import { colors } from "../theme/colors";
 import StatusBadge from "./StatusBadge";
 

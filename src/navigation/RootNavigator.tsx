@@ -1,21 +1,40 @@
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import RegisterScreen from "../screens/RegisterScreen";
-import LoginScreen from "../screens/LoginScreen";
 import SplashScreen from "../screens/SplashScreen";
 import WelcomeScreen from "../screens/WelcomeScreen";
-import type { RootStackParamList } from "./types";
-import { colors } from "../theme/colors";
+import RegisterScreen from "../screens/RegisterScreen";
+import LoginScreen from "../screens/LoginScreen";
 import MainTabNavigator from "./MainTabNavigator";
 import ApplicationDetailsScreen from "../screens/ApplicationDetailsScreen";
 import EditApplicationScreen from "../screens/EditApplicationScreen";
 
+import type { RootStackParamList } from "./types";
+import { colors } from "../theme/colors";
+import { useAuth } from "../context/AuthContext";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const { user, isBootstrapping } = useAuth();
+
+  if (isBootstrapping) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
       screenOptions={{
         headerShown: false,
         contentStyle: {
@@ -23,54 +42,70 @@ export default function RootNavigator() {
         },
       }}
     >
-      <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      {user ? (
+        <>
+          <Stack.Screen
+            name="MainApp"
+            component={MainTabNavigator}
+          />
 
-      <Stack.Screen
-        name="Register"
-        component={RegisterScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "",
-          headerShadowVisible: false,
-          headerBackTitle: "Back",
-        }}
-      />
+          <Stack.Screen
+            name="ApplicationDetails"
+            component={ApplicationDetailsScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Applications",
+            }}
+          />
 
-      <Stack.Screen
-        name="Login"
-        component={LoginScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "",
-          headerShadowVisible: false,
-          headerBackTitle: "Back",
-        }}
-      />
-      <Stack.Screen
-        name="MainApp"
-        component={MainTabNavigator}
-        />
-      <Stack.Screen
-        name="ApplicationDetails"
-        component={ApplicationDetailsScreen}
-        options={{
-            headerShown: true,
-            headerTitle: "",
-            headerShadowVisible: false,
-            headerBackTitle: "Applications",
-        }}
-        />
-        <Stack.Screen
-        name="EditApplication"
-        component={EditApplicationScreen}
-        options={{
-            headerShown: true,
-            headerTitle: "",
-            headerShadowVisible: false,
-            headerBackTitle: "Details",
-        }}
-        />  
+          <Stack.Screen
+            name="EditApplication"
+            component={EditApplicationScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Details",
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <Stack.Screen
+            name="Splash"
+            component={SplashScreen}
+          />
+
+          <Stack.Screen
+            name="Welcome"
+            component={WelcomeScreen}
+          />
+
+          <Stack.Screen
+            name="Register"
+            component={RegisterScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Back",
+            }}
+          />
+
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Back",
+            }}
+          />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

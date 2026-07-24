@@ -16,7 +16,7 @@ import {
   getApplications,
   type ApplicationStatus,
   type JobApplication,
-} from "../services/applicationStorage";
+} from "../services/applicationService";
 import { colors } from "../theme/colors";
 import ApplicationCard from "../components/ApplicationCard";
 import type { CompositeScreenProps } from "@react-navigation/native";
@@ -62,15 +62,32 @@ useEffect(() => {
 ]);
 
   useFocusEffect(
-    useCallback(() => {
-      const loadApplications = async () => {
-        const storedApplications = await getApplications();
-        setApplications(storedApplications);
-      };
+  useCallback(() => {
+    let isActive = true;
 
-      void loadApplications();
-    }, [])
-  );
+    const loadApplications = async () => {
+      try {
+        const backendApplications = await getApplications();
+
+        if (isActive) {
+          setApplications(backendApplications);
+        }
+      } catch (error) {
+        console.error("Unable to load applications:", error);
+
+        if (isActive) {
+          setApplications([]);
+        }
+      }
+    };
+
+    void loadApplications();
+
+    return () => {
+      isActive = false;
+    };
+  }, [])
+);
 
 const filteredApplications = useMemo(() => {
   const normalisedSearch = searchQuery.trim().toLowerCase();

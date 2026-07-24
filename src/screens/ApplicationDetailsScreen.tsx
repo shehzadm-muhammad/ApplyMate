@@ -18,7 +18,7 @@ import {
   deleteApplication,
   getApplicationById,
   type JobApplication,
-} from "../services/applicationStorage";
+} from "../services/applicationService";
 import { colors } from "../theme/colors";
 import StatusBadge from "../components/StatusBadge";
 
