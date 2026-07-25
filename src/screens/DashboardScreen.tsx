@@ -13,7 +13,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import StatCard from "../components/StatCard";
 import type { MainTabParamList } from "../navigation/mainTabTypes";
 import {
+  getApplicationSummary,
   getApplications,
+  type ApplicationSummary,
   type JobApplication,
 } from "../services/applicationService";
 import { useAuth } from "../context/AuthContext";
@@ -23,6 +25,16 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import ApplicationCard from "../components/ApplicationCard";
 
+const EMPTY_APPLICATION_SUMMARY: ApplicationSummary = {
+  total: 0,
+  saved: 0,
+  applied: 0,
+  assessment: 0,
+  interview: 0,
+  offer: 0,
+  rejected: 0,
+};
+
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Home">,
   NativeStackScreenProps<RootStackParamList>
@@ -30,6 +42,10 @@ type Props = CompositeScreenProps<
 export default function DashboardScreen({ navigation }: Readonly<Props>) {
   const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
+
+  const [summary, setSummary] = useState<ApplicationSummary>(
+  EMPTY_APPLICATION_SUMMARY
+);
 
   const currentHour = new Date().getHours();
 
@@ -41,42 +57,38 @@ export default function DashboardScreen({ navigation }: Readonly<Props>) {
         : "Good evening";
 
   useFocusEffect(
-    useCallback(() => {
-      const loadDashboardData = async () => {
-        const storedApplications = await getApplications();
+  useCallback(() => {
+    const loadDashboardData = async () => {
+      const [storedApplications, applicationSummary] = await Promise.all([
+        getApplications(),
+        getApplicationSummary(),
+      ]);
 
-        setApplications(storedApplications);
-      };
+      setApplications(storedApplications);
+      setSummary(applicationSummary);
+    };
 
-      void loadDashboardData();
-    }, [])
-  );
-
-  const totalApplications = applications.length;
-
-  const interviewCount = applications.filter(
-    (application) => application.status === "Interview"
-  ).length;
-
-  const offerCount = applications.filter(
-    (application) => application.status === "Offer"
-  ).length;
-
-const submittedApplications = applications.filter(
-  (application) => application.status !== "Saved"
+    void loadDashboardData();
+  }, [])
 );
 
-const respondedApplications = submittedApplications.filter((application) =>
-  ["Assessment", "Interview", "Offer", "Rejected"].includes(
-    application.status
-  )
-).length;
+  const totalApplications = summary.total;
+const interviewCount = summary.interview;
+const offerCount = summary.offer;
+
+const submittedApplications = summary.total - summary.saved;
+
+const respondedApplications =
+  summary.assessment +
+  summary.interview +
+  summary.offer +
+  summary.rejected;
 
 const responseRate =
-  submittedApplications.length === 0
+  submittedApplications === 0
     ? 0
     : Math.round(
-        (respondedApplications / submittedApplications.length) * 100
+        (respondedApplications / submittedApplications) * 100
       );
 
   return (

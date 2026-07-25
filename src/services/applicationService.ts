@@ -27,6 +27,16 @@ export type JobApplication = {
   createdAt: string;
 };
 
+export type ApplicationSummary = {
+  total: number;
+  saved: number;
+  applied: number;
+  assessment: number;
+  interview: number;
+  offer: number;
+  rejected: number;
+};
+
 export type ApplicationFormValues = Omit<
   JobApplication,
   "id" | "createdAt"
@@ -149,6 +159,12 @@ export async function getApplications(): Promise<JobApplication[]> {
   );
 
   return applications.map(mapBackendApplication);
+}
+
+export async function getApplicationSummary(): Promise<ApplicationSummary> {
+  return apiRequest<ApplicationSummary>(
+    "/api/v1/applications/summary"
+  );
 }
 
 export async function getApplicationById(
