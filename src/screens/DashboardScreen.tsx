@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
   type ApplicationSummary,
   type JobApplication,
 } from "../services/applicationService";
+import { ApiError } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/colors";
 import type { CompositeScreenProps } from "@react-navigation/native";
@@ -56,23 +58,39 @@ export default function DashboardScreen({ navigation }: Readonly<Props>) {
         ? "Good afternoon"
         : "Good evening";
 
-  useFocusEffect(
-  useCallback(() => {
-    const loadDashboardData = async () => {
-      const [storedApplications, applicationSummary] = await Promise.all([
+  const loadDashboardData = useCallback(async () => {
+  setIsLoading(true);
+  setErrorMessage(null);
+
+  try {
+    const [storedApplications, applicationSummary] =
+      await Promise.all([
         getApplications(),
         getApplicationSummary(),
       ]);
 
-      setApplications(storedApplications);
-      setSummary(applicationSummary);
-    };
+    setApplications(storedApplications);
+    setSummary(applicationSummary);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      setErrorMessage(error.message);
+    } else {
+      setErrorMessage(
+        "Something went wrong while loading your dashboard."
+      );
+    }
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
+useFocusEffect(
+  useCallback(() => {
     void loadDashboardData();
-  }, [])
+  }, [loadDashboardData])
 );
 
-  const totalApplications = summary.total;
+const totalApplications = summary.total;
 const interviewCount = summary.interview;
 const offerCount = summary.offer;
 
@@ -90,6 +108,9 @@ const responseRate =
     : Math.round(
         (respondedApplications / submittedApplications) * 100
       );
+  
+const [isLoading, setIsLoading] = useState(true);
+const [errorMessage, setErrorMessage] = useState<string | null>(null);      
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -103,107 +124,147 @@ const responseRate =
           {user?.firstName ?? "Job seeker"} 👋
         </Text>
 
-        <Text style={styles.sectionTitle}>Your progress</Text>
+        {isLoading ? (
+  <View style={styles.loadingCard}>
+    <ActivityIndicator
+      accessibilityLabel="Loading dashboard"
+      size="large"
+      color={colors.primary}
+    />
 
-        <View style={styles.statsGrid}>
-          <StatCard
-  title="Applications"
-  value={totalApplications}
-  onPress={() =>
-    navigation.navigate("Applications", {
-      initialStatus: undefined,
-    })
-  }
-/>
+    <Text style={styles.loadingText}>
+      Loading your dashboard...
+    </Text>
+  </View>
+) : errorMessage ? (
+  <View style={styles.errorCard}>
+    <Text style={styles.errorTitle}>
+      Couldn't load your dashboard
+    </Text>
 
-<StatCard
-  title="Interviews"
-  value={interviewCount}
-  onPress={() =>
-    navigation.navigate("Applications", {
-      initialStatus: "Interview",
-    })
-  }
-/>
+    <Text style={styles.errorDescription}>
+      {errorMessage}
+    </Text>
 
-<StatCard
-  title="Offers"
-  value={offerCount}
-  onPress={() =>
-    navigation.navigate("Applications", {
-      initialStatus: "Offer",
-    })
-  }
-/>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Try loading the dashboard again"
+      onPress={() => void loadDashboardData()}
+      style={({ pressed }) => [
+        styles.retryButton,
+        pressed ? styles.addButtonPressed : undefined,
+      ]}
+    >
+      <Text style={styles.retryButtonText}>Try again</Text>
+    </Pressable>
+  </View>
+) : (
+  <>
+    <Text style={styles.sectionTitle}>Your progress</Text>
 
-<StatCard
-  title="Response rate"
-  value={`${responseRate}%`}
-  onPress={() => {
-    console.log("Analytics screen will be added later");
-  }}
-/>
+    <View style={styles.statsGrid}>
+      <StatCard
+        title="Applications"
+        value={totalApplications}
+        onPress={() =>
+          navigation.navigate("Applications", {
+            initialStatus: undefined,
+          })
+        }
+      />
+
+      <StatCard
+        title="Interviews"
+        value={interviewCount}
+        onPress={() =>
+          navigation.navigate("Applications", {
+            initialStatus: "Interview",
+          })
+        }
+      />
+
+      <StatCard
+        title="Offers"
+        value={offerCount}
+        onPress={() =>
+          navigation.navigate("Applications", {
+            initialStatus: "Offer",
+          })
+        }
+      />
+
+      <StatCard
+        title="Response rate"
+        value={`${responseRate}%`}
+        onPress={() => {
+          console.log("Analytics screen will be added later");
+        }}
+      />
+    </View>
+
+    {applications.length === 0 ? (
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyTitle}>No applications yet</Text>
+
+        <Text style={styles.emptyDescription}>
+          Add your first application and start tracking your job search.
+        </Text>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("AddApplication")}
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed ? styles.addButtonPressed : undefined,
+          ]}
+        >
+          <Text style={styles.addButtonText}>Add Application</Text>
+        </Pressable>
+      </View>
+    ) : (
+      <View style={styles.recentSection}>
+        <View style={styles.recentHeader}>
+          <Text style={styles.recentTitle}>
+            Recent applications
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate("Applications")}
+          >
+            <Text style={styles.viewAllText}>View all</Text>
+          </Pressable>
         </View>
 
-        {applications.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No applications yet</Text>
+        {applications.slice(0, 3).map((application) => (
+          <ApplicationCard
+            key={application.id}
+            application={application}
+            compact
+            onPress={() =>
+              navigation.navigate("ApplicationDetails", {
+                applicationId: application.id,
+              })
+            }
+          />
+        ))}
 
-            <Text style={styles.emptyDescription}>
-              Add your first application and start tracking your job search.
-            </Text>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("AddApplication")}
-              style={({ pressed }) => [
-                styles.addButton,
-                pressed ? styles.addButtonPressed : undefined,
-              ]}
-            >
-              <Text style={styles.addButtonText}>Add Application</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.recentSection}>
-            <View style={styles.recentHeader}>
-              <Text style={styles.recentTitle}>Recent applications</Text>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => navigation.navigate("Applications")}
-              >
-                <Text style={styles.viewAllText}>View all</Text>
-              </Pressable>
-            </View>
-
-            {applications.slice(0, 3).map((application) => (
-                <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    compact
-                    onPress={() =>
-                    navigation.navigate("ApplicationDetails", {
-                        applicationId: application.id,
-                    })
-                    }
-                />
-                ))}
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("AddApplication")}
-              style={({ pressed }) => [
-                styles.secondaryAddButton,
-                pressed ? styles.addButtonPressed : undefined,
-              ]}
-            >
-              <Text style={styles.secondaryAddButtonText}>
-                Add another application
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("AddApplication")}
+          style={({ pressed }) => [
+            styles.secondaryAddButton,
+            pressed ? styles.addButtonPressed : undefined,
+          ]}
+        >
+          <Text style={styles.secondaryAddButtonText}>
+            Add another application
+          </Text>
+        </Pressable>
+      </View>
+    )}
+  </>
+)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -232,6 +293,61 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
   },
+
+  loadingCard: {
+  minHeight: 180,
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 36,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 20,
+  backgroundColor: colors.surface,
+},
+
+loadingText: {
+  marginTop: 14,
+  color: colors.textSecondary,
+  fontSize: 15,
+  fontWeight: "600",
+},
+
+errorCard: {
+  marginTop: 36,
+  padding: 24,
+  borderWidth: 1,
+  borderColor: colors.danger,
+  borderRadius: 20,
+  backgroundColor: colors.surface,
+},
+
+errorTitle: {
+  color: colors.textPrimary,
+  fontSize: 20,
+  fontWeight: "700",
+},
+
+errorDescription: {
+  marginTop: 10,
+  color: colors.textSecondary,
+  fontSize: 15,
+  lineHeight: 22,
+},
+
+retryButton: {
+  minHeight: 48,
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 20,
+  borderRadius: 14,
+  backgroundColor: colors.primary,
+},
+
+retryButtonText: {
+  color: "#FFFFFF",
+  fontSize: 16,
+  fontWeight: "700",
+},
 
   sectionTitle: {
     marginTop: 36,
