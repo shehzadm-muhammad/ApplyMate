@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -58,31 +60,46 @@ export default function DashboardScreen({ navigation }: Readonly<Props>) {
         ? "Good afternoon"
         : "Good evening";
 
-  const loadDashboardData = useCallback(async () => {
-  setIsLoading(true);
-  setErrorMessage(null);
-
-  try {
-    const [storedApplications, applicationSummary] =
-      await Promise.all([
-        getApplications(),
-        getApplicationSummary(),
-      ]);
-
-    setApplications(storedApplications);
-    setSummary(applicationSummary);
-  } catch (error) {
-    if (error instanceof ApiError) {
-      setErrorMessage(error.message);
+const loadDashboardData = useCallback(
+  async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
     } else {
-      setErrorMessage(
-        "Something went wrong while loading your dashboard."
-      );
+      setIsLoading(true);
+      setErrorMessage(null);
     }
-  } finally {
-    setIsLoading(false);
-  }
-}, []);
+
+    try {
+      const [storedApplications, applicationSummary] =
+        await Promise.all([
+          getApplications(),
+          getApplicationSummary(),
+        ]);
+
+      setApplications(storedApplications);
+      setSummary(applicationSummary);
+      setErrorMessage(null);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong while loading your dashboard.";
+
+      if (isRefresh) {
+        Alert.alert("Unable to refresh dashboard", message);
+      } else {
+        setErrorMessage(message);
+      }
+    } finally {
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  },
+  []
+);
 
 useFocusEffect(
   useCallback(() => {
@@ -111,12 +128,19 @@ const responseRate =
   
 const [isLoading, setIsLoading] = useState(true);
 const [errorMessage, setErrorMessage] = useState<string | null>(null);      
-
+const [isRefreshing, setIsRefreshing] = useState(false);
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+         refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void loadDashboardData(true)}
+            tintColor={colors.primary}
+          />
+        }
       >
         <Text style={styles.greeting}>{greeting},</Text>
 
