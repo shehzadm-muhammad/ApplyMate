@@ -1,6 +1,11 @@
+param(
+    [ValidateNotNullOrEmpty()]
+    [string]$ApiBaseUrl = "http://localhost:8080"
+)
+
 $ErrorActionPreference = "Stop"
 
-$baseUrl = "http://localhost:8080"
+$baseUrl = $ApiBaseUrl.TrimEnd("/")
 $testEmail = "smoke.$(Get-Date -Format 'yyyyMMddHHmmssfff')@example.com"
 $testPassword = "ApplyMate123!"
 $secondEmail = $null

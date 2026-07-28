@@ -1,0 +1,31 @@
+# Git and editor metadata
+.git
+.gitignore
+.github
+.idea
+.vscode
+*.iml
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Maven and generated output
+target
+.mvn
+mvnw
+mvnw.cmd
+
+# Tests are executed by CI before the image is built
+src/test
+
+# Local development and documentation files
+compose.yaml
+README.md
+HELP.md
+scripts
+
+# Operating-system files
+.DS_Store
+Thumbs.db
