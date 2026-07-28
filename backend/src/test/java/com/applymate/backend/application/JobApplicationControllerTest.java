@@ -284,6 +284,77 @@ class JobApplicationControllerTest {
                         .value("Status is required"));
     }
 
+    @Test
+void shouldRejectInvalidUrlAndOversizedRecruiterOnCreate()
+        throws Exception {
+
+    String oversizedRecruiter = "x".repeat(201);
+
+    String requestBody = """
+            {
+              "jobUrl": "not-a-real-url",
+              "company": "Example Bank",
+              "jobTitle": "Java Developer",
+              "status": "APPLIED",
+              "recruiter": "%s"
+            }
+            """.formatted(oversizedRecruiter);
+
+    mockMvc.perform(post("/api/v1/applications")
+                    .principal(() -> USER_ID.toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.message")
+                    .value("Request validation failed"))
+            .andExpect(jsonPath("$.fieldErrors.jobUrl")
+                    .value(
+                            "Job URL must start with http:// or https://"
+                    ))
+            .andExpect(jsonPath("$.fieldErrors.recruiter")
+                    .value(
+                            "Recruiter must not exceed 200 characters"
+                    ));
+}
+
+@Test
+void shouldRejectInvalidUrlAndOversizedRecruiterOnUpdate()
+        throws Exception {
+
+    String oversizedRecruiter = "x".repeat(201);
+
+    String requestBody = """
+            {
+              "jobUrl": "still-not-a-real-url",
+              "company": "Example Bank",
+              "jobTitle": "Senior Java Developer",
+              "status": "INTERVIEW",
+              "recruiter": "%s"
+            }
+            """.formatted(oversizedRecruiter);
+
+    mockMvc.perform(put(
+                    "/api/v1/applications/{applicationId}",
+                    APPLICATION_ID
+            )
+                    .principal(() -> USER_ID.toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.message")
+                    .value("Request validation failed"))
+            .andExpect(jsonPath("$.fieldErrors.jobUrl")
+                    .value(
+                            "Job URL must start with http:// or https://"
+                    ))
+            .andExpect(jsonPath("$.fieldErrors.recruiter")
+                    .value(
+                            "Recruiter must not exceed 200 characters"
+                    ));
+}
+
     private JobApplicationResponse testResponse() {
         return new JobApplicationResponse(
                 APPLICATION_ID,
