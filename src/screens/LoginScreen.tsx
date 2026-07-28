@@ -18,13 +18,22 @@ import TextField from "../components/TextField";
 import type { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
+import { useAuth } from "../context/AuthContext";
+import { ApiError } from "../services/apiClient";
+
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
-export default function LoginScreen({ navigation }: Readonly<Props>) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function LoginScreen({
+  navigation,
+  route,
+}: Readonly<Props>) {
+const [email, setEmail] = useState(
+  route.params?.registeredEmail ?? "",
+);  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
+  const [generalError, setGeneralError] = useState("");
 
   const [touched, setTouched] = useState({
     email: false,
@@ -49,31 +58,40 @@ export default function LoginScreen({ navigation }: Readonly<Props>) {
       : undefined;
 
   const handleLogin = async () => {
-    setTouched({
-      email: true,
-      password: true,
+  setTouched({
+    email: true,
+    password: true,
+  });
+
+  setGeneralError("");
+
+  if (!isFormValid || isLoading) {
+    return;
+  }
+
+  Keyboard.dismiss();
+  setIsLoading(true);
+
+  try {
+    await signIn({
+      email: trimmedEmail.toLowerCase(),
+      password,
     });
 
-    if (!isFormValid || isLoading) {
-      return;
+    // AuthContext updates the user.
+    // RootNavigator automatically displays MainApp.
+  } catch (error) {
+    if (error instanceof ApiError) {
+      setGeneralError(error.message);
+    } else {
+      setGeneralError(
+        "Something went wrong while logging in.",
+      );
     }
-
-    Keyboard.dismiss();
-    setIsLoading(true);
-
-    try {
-      // Temporary delay until the Spring Boot API is connected.
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      console.log({
-        email: trimmedEmail.toLowerCase(),
-        rememberMe,
-      });
-      navigation.replace("MainApp");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -162,6 +180,12 @@ export default function LoginScreen({ navigation }: Readonly<Props>) {
               <Text style={styles.forgotPassword}>Forgot Password?</Text>
             </Pressable>
           </View>
+
+          {generalError ? (
+            <Text style={styles.generalError}>
+              {generalError}
+            </Text>
+          ) : null}
 
           <View style={styles.buttonSection}>
             <PrimaryButton
@@ -361,4 +385,12 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: "center",
   },
+
+  generalError: {
+  marginTop: 18,
+  color: "#DC2626",
+  fontSize: 14,
+  lineHeight: 20,
+},
+
 });

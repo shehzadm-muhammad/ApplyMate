@@ -17,7 +17,9 @@ import PrimaryButton from "../components/PrimaryButton";
 import TextField from "../components/TextField";
 import type { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
-import { saveSession } from "../services/authStorage";
+import { registerUser } from "../services/authService";
+import { ApiError } from "../services/apiClient";
+
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
 export default function RegisterScreen({ navigation }: Readonly<Props>) {
@@ -26,6 +28,9 @@ export default function RegisterScreen({ navigation }: Readonly<Props>) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState("");
 
   const [touched, setTouched] = useState({
     firstName: false,
@@ -88,29 +93,49 @@ export default function RegisterScreen({ navigation }: Readonly<Props>) {
       ? "Passwords do not match"
       : undefined;
 
-  const handleCreateAccount = async () => {
-    setTouched({
-      firstName: true,
-      lastName: true,
-      email: true,
-      password: true,
-      confirmPassword: true,
-    });
+const handleCreateAccount = async () => {
+  setTouched({
+    firstName: true,
+    lastName: true,
+    email: true,
+    password: true,
+    confirmPassword: true,
+  });
 
-    if (!isFormValid) {
-      return;
-    }
+  setGeneralError("");
 
-    Keyboard.dismiss();
+  if (!isFormValid || isLoading) {
+    return;
+  }
 
-    await saveSession({
+  Keyboard.dismiss();
+  setIsLoading(true);
+
+  const normalisedEmail = trimmedEmail.toLowerCase();
+
+  try {
+    await registerUser({
       firstName: trimmedFirstName,
       lastName: trimmedLastName,
-      email: trimmedEmail.toLowerCase(),
-});
+      email: normalisedEmail,
+      password,
+    });
 
-navigation.replace("MainApp");
-  };
+    navigation.replace("Login", {
+      registeredEmail: normalisedEmail,
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      setGeneralError(error.message);
+    } else {
+      setGeneralError(
+        "Something went wrong while creating your account.",
+      );
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -206,11 +231,22 @@ navigation.replace("MainApp");
             />
           </View>
 
+          {generalError ? (
+            <Text style={styles.generalError}>
+              {generalError}
+            </Text>
+          ) : null}
+
           <View style={styles.buttonSection}>
             <PrimaryButton
-              title="Create Account"
-              onPress={handleCreateAccount}
-            />
+  title={
+    isLoading
+      ? "Creating Account..."
+      : "Create Account"
+  }
+  disabled={!isFormValid || isLoading}
+  onPress={handleCreateAccount}
+/>
           </View>
 
           <View style={styles.loginRow}>
@@ -306,4 +342,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "600",
   },
+
+  generalError: {
+  marginTop: 18,
+  color: "#DC2626",
+  fontSize: 14,
+  lineHeight: 20,
+},
+
 });

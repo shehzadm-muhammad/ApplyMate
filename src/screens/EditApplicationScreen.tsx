@@ -11,7 +11,7 @@ import type { RootStackParamList } from "../navigation/types";
 import {
   getApplicationById,
   updateApplication,
-} from "../services/applicationStorage";
+} from "../services/applicationService";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<
@@ -83,13 +83,20 @@ export default function EditApplicationScreen({
         initialValues={initialValues}
         submitLabel="Save Changes"
         onSubmit={async (values) => {
-          await updateApplication(
-            route.params.applicationId,
-            values
-          );
+  try {
+    await updateApplication(
+      route.params.applicationId,
+      values
+    );
 
-          navigation.goBack();
-        }}
+    navigation.goBack();
+  } catch (error) {
+    console.error(
+      "Unable to update application:",
+      error
+    );
+  }
+}}
       />
     </SafeAreaView>
   );

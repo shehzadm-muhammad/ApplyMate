@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ApplicationForm from "../components/ApplicationForm";
 import type { MainTabParamList } from "../navigation/mainTabTypes";
-import { saveApplication } from "../services/applicationStorage";
+import { saveApplication } from "../services/applicationService";
 import { colors } from "../theme/colors";
 
 type Props = BottomTabScreenProps<
@@ -26,9 +26,14 @@ export default function AddApplicationScreen({
       <ApplicationForm
         submitLabel="Save Application"
         onSubmit={async (values) => {
-          await saveApplication(values);
-          navigation.navigate("Home");
-        }}
+  try {
+    await saveApplication(values);
+    navigation.navigate("Home");
+  } catch (error) {
+    console.error("Unable to save application:", error);
+    throw error;
+  }
+}}
       />
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import type { ApplicationStatus } from "../services/applicationStorage";
+import type { ApplicationStatus } from "../services/applicationService";
 
 export type MainTabParamList = {
   Home: undefined;

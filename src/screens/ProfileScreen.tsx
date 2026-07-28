@@ -20,12 +20,8 @@ import type { RootStackParamList } from "../navigation/types";
 import {
   getApplications,
   type JobApplication,
-} from "../services/applicationStorage";
-import {
-  clearSession,
-  getStoredUser,
-  type StoredUser,
-} from "../services/authStorage";
+} from "../services/applicationService";
+import { useAuth } from "../context/AuthContext";
 import {
   getSettings,
   saveSettings,
@@ -41,7 +37,7 @@ type Props = CompositeScreenProps<
 export default function ProfileScreen({
   navigation,
 }: Props) {
-  const [user, setUser] = useState<StoredUser | null>(null);
+  const { user, signOut } = useAuth();
   const [applications, setApplications] = useState<
     JobApplication[]
   >([]);
@@ -55,18 +51,15 @@ export default function ProfileScreen({
     useCallback(() => {
       const loadProfile = async () => {
         const [
-          storedUser,
-          storedApplications,
-          storedSettings,
-        ] = await Promise.all([
-          getStoredUser(),
-          getApplications(),
-          getSettings(),
-        ]);
+  storedApplications,
+  storedSettings,
+] = await Promise.all([
+  getApplications(),
+  getSettings(),
+]);
 
-        setUser(storedUser);
-        setApplications(storedApplications);
-        setSettings(storedSettings);
+setApplications(storedApplications);
+setSettings(storedSettings);
       };
 
       void loadProfile();
@@ -108,13 +101,8 @@ export default function ProfileScreen({
   };
 
   const performLogout = async () => {
-    await clearSession();
-
-    navigation.getParent()?.reset({
-      index: 0,
-      routes: [{ name: "Welcome" }],
-    });
-  };
+  await signOut();
+};
 
   const handleLogout = () => {
     Alert.alert(

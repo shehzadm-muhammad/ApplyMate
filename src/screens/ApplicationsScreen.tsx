@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,12 +17,12 @@ import {
   getApplications,
   type ApplicationStatus,
   type JobApplication,
-} from "../services/applicationStorage";
+} from "../services/applicationService";
 import { colors } from "../theme/colors";
 import ApplicationCard from "../components/ApplicationCard";
 import type { CompositeScreenProps } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-
+import { Ionicons } from "@expo/vector-icons";
 import type { RootStackParamList } from "../navigation/types";
 
 type Props = CompositeScreenProps<
@@ -34,6 +35,8 @@ type Props = CompositeScreenProps<
 
 type StatusFilter = "All" | ApplicationStatus;
 
+type SortOption = "Newest" | "Oldest" | "Company A-Z";
+
 const filters: StatusFilter[] = [
   "All",
   "Saved",
@@ -44,6 +47,12 @@ const filters: StatusFilter[] = [
   "Rejected",
 ];
 
+const sortOptions: SortOption[] = [
+  "Newest",
+  "Oldest",
+  "Company A-Z",
+];
+
 export default function ApplicationsScreen({
   navigation,
   route,
@@ -52,6 +61,17 @@ export default function ApplicationsScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] =
     useState<StatusFilter>("All");
+  const [selectedSort, setSelectedSort] =
+  useState<SortOption>("Newest");  
+  const [isSortMenuOpen, setIsSortMenuOpen] =
+  useState(false);
+  const sortButtonRef = useRef<View>(null);
+
+const [sortMenuPosition, setSortMenuPosition] = useState({
+  top: 0,
+  left: 0,
+});
+
 
 useEffect(() => {
   setSelectedStatus(route.params?.initialStatus ?? "All");
@@ -62,39 +82,101 @@ useEffect(() => {
 ]);
 
   useFocusEffect(
-    useCallback(() => {
-      const loadApplications = async () => {
-        const storedApplications = await getApplications();
-        setApplications(storedApplications);
-      };
+  useCallback(() => {
+    let isActive = true;
 
-      void loadApplications();
-    }, [])
-  );
+    const loadApplications = async () => {
+      try {
+        const backendApplications = await getApplications();
 
-const filteredApplications = useMemo(() => {
+        if (isActive) {
+          setApplications(backendApplications);
+        }
+      } catch (error) {
+        console.error("Unable to load applications:", error);
+
+        if (isActive) {
+          setApplications([]);
+        }
+      }
+    };
+
+    void loadApplications();
+
+    return () => {
+      isActive = false;
+    };
+  }, [])
+);
+
+const visibleApplications = useMemo(() => {
   const normalisedSearch = searchQuery.trim().toLowerCase();
 
-  return applications.filter((application) => {
-    const matchesStatus =
-      selectedStatus === "All" ||
-      application.status === selectedStatus;
+  const matchingApplications = applications.filter(
+    (application) => {
+      const matchesStatus =
+        selectedStatus === "All" ||
+        application.status === selectedStatus;
 
-    const matchesSearch =
-      normalisedSearch.length === 0 ||
-      application.company
-        .toLowerCase()
-        .includes(normalisedSearch) ||
-      application.jobTitle
-        .toLowerCase()
-        .includes(normalisedSearch) ||
-      application.location
-        .toLowerCase()
-        .includes(normalisedSearch);
+      const matchesSearch =
+        normalisedSearch.length === 0 ||
+        application.company
+          .toLowerCase()
+          .includes(normalisedSearch) ||
+        application.jobTitle
+          .toLowerCase()
+          .includes(normalisedSearch) ||
+        application.location
+          .toLowerCase()
+          .includes(normalisedSearch);
 
-    return matchesStatus && matchesSearch;
+      return matchesStatus && matchesSearch;
+    }
+  );
+
+  return [...matchingApplications].sort((first, second) => {
+    if (selectedSort === "Oldest") {
+      return (
+        new Date(first.createdAt).getTime() -
+        new Date(second.createdAt).getTime()
+      );
+    }
+
+    if (selectedSort === "Company A-Z") {
+      return first.company.localeCompare(second.company);
+    }
+
+    return (
+      new Date(second.createdAt).getTime() -
+      new Date(first.createdAt).getTime()
+    );
   });
-}, [applications, searchQuery, selectedStatus]);
+}, [
+  applications,
+  searchQuery,
+  selectedStatus,
+  selectedSort,
+]);
+
+const handleSortButtonPress = () => {
+  if (isSortMenuOpen) {
+    setIsSortMenuOpen(false);
+    return;
+  }
+
+  sortButtonRef.current?.measureInWindow(
+    (x, y, width, height) => {
+      const menuWidth = 200;
+
+      setSortMenuPosition({
+        top: y + height + 8,
+        left: Math.max(16, x + width - menuWidth),
+      });
+
+      setIsSortMenuOpen(true);
+    }
+  );
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -158,20 +240,39 @@ const filteredApplications = useMemo(() => {
         </ScrollView>
       </View>
 
+
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.resultsHeader}>
-          <Text style={styles.resultsText}>
-            Showing {filteredApplications.length}{" "}
-            {filteredApplications.length === 1
-              ? "application"
-              : "applications"}
-          </Text>
-        </View>
+  <Text style={styles.resultsText}>
+    Showing {visibleApplications.length}{" "}
+    {visibleApplications.length === 1
+      ? "application"
+      : "applications"}
+  </Text>
 
-        {filteredApplications.length === 0 ? (
+<Pressable
+  ref={sortButtonRef}
+  accessibilityRole="button"
+  accessibilityLabel={`Sort applications. Current sorting: ${selectedSort}`}
+  accessibilityState={{ expanded: isSortMenuOpen }}
+  onPress={handleSortButtonPress}
+  style={({ pressed }) => [
+    styles.sortIconButton,
+    pressed ? styles.buttonPressed : undefined,
+  ]}
+>
+  <Ionicons
+    name="swap-vertical-outline"
+    size={21}
+    color={colors.textPrimary}
+  />
+</Pressable>
+</View>
+
+        {visibleApplications.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>
               No matching applications
@@ -201,7 +302,7 @@ const filteredApplications = useMemo(() => {
             ) : null}
           </View>
         ) : (
-        filteredApplications.map((application) => (
+        visibleApplications.map((application) => (
         <ApplicationCard
             key={application.id}
             application={application}
@@ -214,6 +315,78 @@ const filteredApplications = useMemo(() => {
         ))
     )}
       </ScrollView>
+      <Modal
+  transparent
+  visible={isSortMenuOpen}
+  animationType="fade"
+  statusBarTranslucent
+  onRequestClose={() => setIsSortMenuOpen(false)}
+>
+  <View style={styles.sortModalRoot}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Close sorting menu"
+      onPress={() => setIsSortMenuOpen(false)}
+      style={styles.sortBackdrop}
+    />
+
+    <View
+      style={[
+        styles.sortMenu,
+        {
+          top: sortMenuPosition.top,
+          left: sortMenuPosition.left,
+        },
+      ]}
+    >
+      <Text style={styles.sortMenuTitle}>
+        Sort applications
+      </Text>
+
+      {sortOptions.map((option) => {
+        const isSelected = selectedSort === option;
+
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
+            onPress={() => {
+              setSelectedSort(option);
+              setIsSortMenuOpen(false);
+            }}
+            style={({ pressed }) => [
+              styles.sortMenuOption,
+              isSelected
+                ? styles.sortMenuOptionSelected
+                : undefined,
+              pressed ? styles.buttonPressed : undefined,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sortMenuOptionText,
+                isSelected
+                  ? styles.sortMenuOptionTextSelected
+                  : undefined,
+              ]}
+            >
+              {option}
+            </Text>
+
+            {isSelected ? (
+              <Ionicons
+                name="checkmark"
+                size={19}
+                color={colors.primary}
+              />
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
@@ -302,10 +475,6 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
 
-  resultsHeader: {
-    marginBottom: 12,
-  },
-
   resultsText: {
     color: colors.textSecondary,
     fontSize: 14,
@@ -353,4 +522,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+
+  resultsHeader: {
+  position: "relative",
+  zIndex: 20,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 12,
+},
+
+sortIconButton: {
+  width: 40,
+  height: 40,
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 12,
+  backgroundColor: colors.surface,
+},
+
+sortMenu: {
+  position: "absolute",
+  width: 200,
+  paddingVertical: 8,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: 16,
+  backgroundColor: colors.surface,
+
+  shadowColor: "#000000",
+  shadowOffset: {
+    width: 0,
+    height: 8,
+  },
+  shadowOpacity: 0.12,
+  shadowRadius: 16,
+  elevation: 8,
+},
+
+sortMenuTitle: {
+  paddingHorizontal: 14,
+  paddingVertical: 8,
+  color: colors.textSecondary,
+  fontSize: 13,
+  fontWeight: "700",
+},
+
+sortMenuOption: {
+  minHeight: 44,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingHorizontal: 14,
+},
+
+sortMenuOptionSelected: {
+  backgroundColor: colors.background,
+},
+
+sortMenuOptionText: {
+  color: colors.textPrimary,
+  fontSize: 15,
+  fontWeight: "600",
+},
+
+sortMenuOptionTextSelected: {
+  color: colors.primary,
+},
+
+sortModalRoot: {
+  flex: 1,
+},
+
+sortBackdrop: {
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: "transparent",
+},
+
 });
