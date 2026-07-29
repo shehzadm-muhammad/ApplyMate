@@ -89,3 +89,46 @@ jobs:
       - name: Test and package backend
         working-directory: backend
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+
+  docker:
+    name: Backend Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    needs:
+      - frontend
+      - backend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build production backend image
+        run: docker build --pull --tag applymate-backend:ci backend
+
+      - name: Verify image runtime configuration
+        run: |
+          configured_user="$(
+            docker image inspect applymate-backend:ci \
+              --format '{{.Config.User}}'
+          )"
+
+          if [ "$configured_user" != "applymate" ]; then
+            echo "Expected image user 'applymate' but found '$configured_user'."
+            exit 1
+          fi
+
+          healthcheck="$(
+            docker image inspect applymate-backend:ci \
+              --format '{{json .Config.Healthcheck.Test}}'
+          )"
+
+          if [ "$healthcheck" = "null" ] || [ -z "$healthcheck" ]; then
+            echo "Docker image does not define a health check."
+            exit 1
+          fi
+
+          docker image inspect applymate-backend:ci \
+            --format \
+            'User={{.Config.User}} Size={{.Size}} Healthcheck={{json .Config.Healthcheck.Test}}'        
