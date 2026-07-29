@@ -131,4 +131,4 @@ jobs:
 
           docker image inspect applymate-backend:ci \
             --format \
-            'User={{.Config.User}} Size={{.Size}} Healthcheck={{json .Config.Healthcheck.Test}}'        
+            'User={{.Config.User}} Size={{.Size}} Healthcheck={{json .Config.Healthcheck.Test}}'
