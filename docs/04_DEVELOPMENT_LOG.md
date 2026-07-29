@@ -2,13 +2,16 @@
 
 ## Current Status
 
-* **Current phase:** Deployment & Production Readiness
-* **Stable branch:** `main`
-* **Working branch:** `chore/deployment-readiness`
-* **Latest completed milestone:** Full-stack MVP integration and polish
-* **Current release tag:** `v1.1.0-mvp`
+- **Current phase:** Mobile Distribution & Release Readiness
+- **Stable branch:** `main`
+- **Working branch:** `docs/production-closeout`
+- **Latest completed milestone:** Production deployment and full smoke testing
+- **Current release tag:** `v1.1.0-mvp`
+- **Next planned release tag:** `v1.2.0`
 
-The purpose of the current phase is to prepare the completed application for production deployment without redesigning the interface or adding new product features.
+The frontend MVP, backend MVP, full-stack integration, MVP polish, continuous integration and production deployment phases are complete.
+
+The production backend is running on Render and connects to PostgreSQL hosted by Neon.
 
 ---
 
@@ -253,100 +256,292 @@ The repository was ready to enter the deployment-readiness phase.
 
 ## 28 July 2026 — Deployment & Production Readiness Started
 
-### Completed so far
+### Documentation
 
-* Confirmed that local `main` matched `origin/main`.
-* Confirmed that the working tree was clean before starting.
-* Created the deployment-readiness branch:
+- Reviewed the public `main` branch and repository history.
+- Corrected outdated source documentation.
+- Expanded the architecture documentation.
+- Completed the API reference.
+- Updated the development log and roadmap.
+- Added a root project README.
+- Corrected the inherited Expo licence.
+- Confirmed the MIT licence identifies Muhammad Shahzaib Shehzad as the copyright holder.
+
+### Continuous integration
+
+- Added GitHub Actions CI.
+- Added frontend dependency installation using `npm ci`.
+- Added TypeScript validation.
+- Added Expo web export validation.
+- Added Java 21 setup.
+- Added PostgreSQL for backend CI.
+- Added Maven tests and packaging.
+- Added production Docker image building.
+- Added verification of the non-root Docker user.
+- Added verification of the Docker health check.
+- Confirmed all three CI jobs passed.
+
+### Production configuration
+
+- Added `application-prod.properties`.
+- Added environment-based production database configuration.
+- Added environment-based JWT configuration.
+- Added platform-provided server-port support.
+- Added production CORS configuration.
+- Restricted Actuator exposure to the health endpoint.
+- Disabled destructive Flyway cleaning in production.
+- Disabled detailed framework-error exposure.
+- Added database connection-pool limits.
+- Preserved the existing local-development configuration.
+
+### Backend containerisation
+
+- Added a multi-stage Java 21 Dockerfile.
+- Built the application with Maven in the build stage.
+- Copied only the executable Spring Boot JAR into the runtime image.
+- Added a non-root `applymate` user.
+- Added a Docker health check using `/actuator/health`.
+- Added `.dockerignore`.
+- Prevented `.env` files, local secrets, test sources and development files from entering the image.
+- Built the Docker image locally.
+- Confirmed the container ran as the `applymate` user.
+- Confirmed the container became healthy.
+- Confirmed the container connected to PostgreSQL.
+- Confirmed Flyway validated the database migrations.
+
+### Smoke-test improvements
+
+- Updated the PowerShell smoke-test script to accept a configurable API base URL.
+- Preserved `http://localhost:8080` as the default.
+- Enabled the same script to test local, Docker and production backends.
+
+### Outcome
+
+ApplyMate gained repeatable CI, a production Spring profile and a verified production Docker image.
+
+---
+
+## 29 July 2026 — Production Database Deployed
+
+### Completed
+
+- Created the Neon production project.
+- Created the `applymate` PostgreSQL database.
+- Used PostgreSQL 17.
+- Selected the Frankfurt region.
+- Created the `production` database branch.
+- Required SSL for the database connection.
+- Stored database credentials outside Git.
+- Confirmed the application remained independent of Neon-specific APIs or authentication.
+
+### Outcome
+
+ApplyMate gained a hosted PostgreSQL production database while preserving portability to other PostgreSQL providers.
+
+---
+
+## 29 July 2026 — Production Backend Deployed
+
+### Completed
+
+- Created a Render Docker web service.
+- Connected Render to the ApplyMate GitHub repository.
+- Deployed from the stable `main` branch.
+- Configured `backend` as the service root directory.
+- Used `backend/Dockerfile`.
+- Selected the Frankfurt region.
+- Configured the free Render instance.
+- Added production environment variables:
+  - `SPRING_PROFILES_ACTIVE`
+  - `DB_URL`
+  - `DB_USERNAME`
+  - `DB_PASSWORD`
+  - `JWT_SECRET`
+  - `APP_CORS_ALLOWED_ORIGIN_PATTERNS`
+- Configured `/actuator/health` as the Render health-check path.
+- Corrected the initial Dockerfile-path typo.
+- Corrected the initial Neon-host placeholder in `DB_URL`.
+- Confirmed Flyway connected to Neon and applied or validated the schema.
+- Confirmed the public HTTPS service became live.
+
+### Production URL
 
 ```text
-chore/deployment-readiness
+https://applymate-api-bami.onrender.com
 ```
 
-* Reviewed the public repository and stable commit history.
-* Identified outdated project documentation.
-* Updated `docs/01_PROJECT_CONTEXT.md`.
-* Updated `docs/02_ARCHITECTURE.md`.
-* Updated `docs/03_API_REFERENCE.md`.
-* Began updating `docs/04_DEVELOPMENT_LOG.md`.
+### Outcome
 
-### Current task
-
-Complete and verify all project documentation.
-
-### Deployment-readiness scope
-
-The following work is permitted during this phase:
-
-* Documentation corrections
-* Repository documentation
-* Licence correction
-* Continuous integration
-* Production configuration
-* Backend containerisation
-* Deployment-platform configuration
-* Managed PostgreSQL deployment
-* Production API configuration
-* Production smoke testing
-* Reliability and security fixes required for deployment
-
-The following work is outside the current scope:
-
-* New product features
-* Interface redesign
-* AI features
-* CV analysis
-* Job parsing
-* Cover-letter generation
-* Moving local reminders to the backend
-* Store-release work before backend deployment is verified
+The Spring Boot Docker backend became publicly available over HTTPS and connected successfully to the Neon PostgreSQL database.
 
 ---
 
-## Deployment & Production Readiness Plan
+## 29 July 2026 — Production Backend Smoke Test Passed
 
-The agreed order is:
+### Public endpoint checks
 
-1. Update project documentation.
-2. Add the root README.
-3. Correct the repository licence.
-4. Add continuous integration.
-5. Prepare production backend configuration.
-6. Add the backend Dockerfile.
-7. Deploy PostgreSQL.
-8. Deploy the Spring Boot backend.
-9. Connect the mobile application to the production API.
-10. Run a complete production smoke test.
+The following endpoints returned `UP`:
+
+```text
+GET /api/v1/status
+GET /actuator/health
+```
+
+### Automated smoke-test coverage
+
+The production smoke test passed:
+
+- Registration
+- Duplicate-registration rejection
+- Login
+- Invalid-password rejection
+- JWT authentication
+- Current-user profile
+- Request validation
+- Application creation
+- Application listing
+- Application details
+- Application editing
+- Search
+- Status filtering
+- Dashboard summary
+- Application deletion
+- Unauthenticated-request rejection
+- Cross-user application isolation
+- Smoke-test data cleanup
+
+### Outcome
+
+The deployed Render backend and Neon database passed the complete automated backend workflow.
 
 ---
 
-## Current Progress
+## 29 July 2026 — Mobile Production Integration Passed
 
-| Area                          | Status      |
-| ----------------------------- | ----------- |
-| Frontend MVP                  | Complete    |
-| Backend MVP                   | Complete    |
-| PostgreSQL integration        | Complete    |
-| JWT authentication            | Complete    |
-| Application CRUD              | Complete    |
-| User isolation                | Complete    |
-| Dashboard summary             | Complete    |
-| Search and filtering          | Complete    |
-| Sorting                       | Complete    |
-| Validation                    | Complete    |
-| Automated backend tests       | Complete    |
-| Local smoke test              | Complete    |
-| Documentation refresh         | In progress |
-| Root README                   | Not started |
-| Licence correction            | Not started |
-| Continuous integration        | Not started |
-| Production configuration      | Not started |
-| Backend Dockerfile            | Not started |
-| Managed PostgreSQL deployment | Not started |
-| Backend deployment            | Not started |
-| Production mobile connection  | Not started |
-| Production smoke test         | Not started |
+### Completed
+
+- Configured the Expo frontend to use:
+
+```text
+EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
+```
+
+- Confirmed `.env.local` remained ignored by Git.
+- Started Expo with a cleared development cache.
+- Registered a production user from the mobile application.
+- Logged in through the production backend.
+- Stored the returned JWT access token.
+- Loaded the authenticated user profile.
+- Created a job application.
+- Confirmed the dashboard count changed.
+- Edited the application.
+- Tested application search.
+- Tested status filtering.
+- Logged out.
+- Logged back in.
+- Confirmed the application persisted in Neon.
+- Deleted the application.
+
+### Outcome
+
+The complete production path was verified:
+
+```text
+Expo mobile application
+    -> Render Spring Boot Docker API
+    -> Neon PostgreSQL
+```
+
+The deployed MVP worked end to end from the mobile interface.
+
+---
+
+## 29 July 2026 — Deployment & Production Readiness Completed
+
+### Completed milestone
+
+The deployment phase is complete.
+
+ApplyMate now includes:
+
+- React Native and Expo mobile frontend
+- Spring Boot REST API
+- PostgreSQL persistence
+- JWT authentication
+- User-specific data isolation
+- Full job-application CRUD
+- Search, filtering and sorting
+- Dashboard summary data
+- Backend request validation
+- Consistent error responses
+- Automated backend tests
+- GitHub Actions CI
+- Production Docker image
+- Render HTTPS backend
+- Neon PostgreSQL database
+- Automated production smoke testing
+- Successful mobile-to-production testing
+
+### Known free-tier behaviour
+
+The current deployment uses free portfolio-tier services.
+
+Render may stop the backend after inactivity, and Neon may suspend inactive database compute.
+
+The first request after inactivity may therefore take longer while the services resume.
+
+This is acceptable for the current portfolio and testing stage.
+
+---
+
+## Production Deployment Summary
+
+| Area | Status |
+|---|---|
+| Frontend MVP | Complete |
+| Backend MVP | Complete |
+| PostgreSQL integration | Complete |
+| JWT authentication | Complete |
+| Application CRUD | Complete |
+| User isolation | Complete |
+| Dashboard summary | Complete |
+| Search and filtering | Complete |
+| Sorting | Complete |
+| Validation | Complete |
+| Automated backend tests | Complete |
+| Documentation refresh | Complete |
+| Root README | Complete |
+| Licence correction | Complete |
+| Continuous integration | Complete |
+| Production configuration | Complete |
+| Backend Dockerfile | Complete |
+| Docker image verification | Complete |
+| Neon PostgreSQL deployment | Complete |
+| Render backend deployment | Complete |
+| Public HTTPS API | Complete |
+| Production backend smoke test | Complete |
+| Mobile production connection | Complete |
+| Mobile production smoke test | Complete |
+
+---
+
+## Next Phase
+
+The next phase is:
+
+**Mobile Distribution & Release Readiness**
+
+Planned work includes:
+
+1. Configure Expo Application Services.
+2. Configure production application identifiers.
+3. Configure release-build environment variables.
+4. Create internal Android and iOS builds.
+5. Test release builds on physical devices.
+6. Prepare privacy and store documentation.
+7. Prepare Google Play and Apple App Store listings.
+8. Submit builds after release testing passes.
 
 ## Next Immediate Task
 
-Update `docs/05_ROADMAP.md`, then verify and commit the completed documentation refresh.
+Complete the production close-out documentation, run final validation, merge the documentation branch, confirm CI and create release tag `v1.2.0`.
