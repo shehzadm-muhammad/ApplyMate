@@ -22,7 +22,20 @@ Users can create an account, sign in securely, manage their job applications and
 
 The completed MVP includes the mobile frontend, backend API, persistent database, JWT authentication, application management, search, filtering, sorting, validation and automated backend testing.
 
-The project is currently in the **Deployment & Production Readiness** phase.
+The production MVP is deployed and has passed automated backend and mobile end-to-end smoke testing.
+
+The project is currently entering the **Mobile Distribution & Release Readiness** phase.
+
+## Live Production Deployment
+
+ApplyMate currently uses:
+
+```text
+Expo mobile application
+    -> Render Spring Boot Docker API
+    -> Neon PostgreSQL
+
+```
 
 ## Features
 
@@ -91,10 +104,16 @@ Device features currently remain local and are not synchronised with the backend
 
 ### Database and infrastructure
 
-* PostgreSQL 17
-* Flyway
-* Docker Compose
-* Testcontainers
+- PostgreSQL 17
+- Flyway
+- Hibernate
+- HikariCP
+- Docker Compose
+- Production Docker image
+- Render
+- Neon
+- GitHub Actions
+- Testcontainers
 
 ### Testing
 
@@ -125,7 +144,23 @@ The backend authenticates JWT access tokens, validates requests, enforces per-us
 
 Flyway controls database schema changes.
 
-For a detailed explanation, see [Architecture](docs/02_ARCHITECTURE.md).
+## Architecture
+
+### Production
+
+```text
+React Native / Expo application
+              |
+              | HTTPS and JSON
+              | Authorization: Bearer <JWT>
+              v
+Render Spring Boot Docker API
+              |
+              | JDBC over TLS
+              v
+Neon PostgreSQL 17
+
+```
 
 ## Repository Structure
 
@@ -360,8 +395,15 @@ The frontend service layer maps these values to user-facing labels.
 
 From the repository root:
 
+npm run typecheck
+
+### Frontend production export
+
 ```powershell
-npx tsc --noEmit
+$env:EXPO_PUBLIC_API_URL = "http://localhost:8080"
+npm run build:web
+Remove-Item Env:EXPO_PUBLIC_API_URL
+
 ```
 
 ### Backend tests
@@ -376,19 +418,43 @@ Docker must be available for tests that use Testcontainers.
 
 ### Backend package verification
 
-```powershell
-.\mvnw.cmd clean package
-```
+.\mvnw.cmd clean verify
 
 ### End-to-end backend smoke test
 
-Start PostgreSQL and the backend first, then run:
+Start PostgreSQL and the local backend first, then run from `backend/`:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
+powershell -ExecutionPolicy Bypass `
+  -File .\scripts\smoke-test.ps1
+
 ```
 
-The smoke test verifies the main authentication and application-management flow, including user-isolation protection.
+## Continuous Integration
+
+GitHub Actions runs three validation jobs on pushes and pull requests.
+
+### Frontend checks
+
+- Installs dependencies with `npm ci`
+- Runs TypeScript validation
+- Produces an Expo web export
+
+### Backend checks
+
+- Configures Java 21
+- Starts PostgreSQL
+- Runs Maven verification
+- Executes JUnit, MockMvc and Testcontainers tests
+- Packages the Spring Boot application
+
+### Docker checks
+
+- Builds the production backend image
+- Confirms the image runs as the non-root `applymate` user
+- Confirms the image contains a health check
+
+CI uses temporary test configuration and never receives production credentials.
 
 ## Database Management
 
@@ -426,6 +492,37 @@ backend/src/main/resources/db/migration/
 
 Existing migrations that have already been applied must not be edited. New schema changes should use a new migration file.
 
+## Production Deployment
+
+### Backend
+
+- Provider: Render
+- Runtime: Docker
+- Region: Frankfurt
+- Health check: `/actuator/health`
+- Production profile: `prod`
+
+### Database
+
+- Provider: Neon
+- PostgreSQL version: 17
+- Database: `applymate`
+- Branch: `production`
+- SSL required
+
+Production configuration is supplied through platform-managed environment variables:
+
+```text
+SPRING_PROFILES_ACTIVE
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+APP_CORS_ALLOWED_ORIGIN_PATTERNS
+PORT
+
+```
+
 ## Security Notes
 
 * Passwords are stored as secure hashes, not plaintext.
@@ -450,19 +547,23 @@ Existing migrations that have already been applied must not be edited. New schem
 
 ## Current Project Phase
 
-The full-stack MVP and MVP-polish phases are complete.
+The following phases are complete:
 
-Current deployment-readiness work includes:
+- Frontend MVP
+- Backend MVP
+- Frontend and backend integration
+- MVP polish
+- Continuous integration
+- Production backend configuration
+- Backend containerisation
+- Neon PostgreSQL deployment
+- Render backend deployment
+- Automated production smoke testing
+- Mobile production integration testing
 
-1. Repository documentation and licence correction
-2. Continuous integration
-3. Production backend configuration
-4. Backend containerisation
-5. Managed PostgreSQL and backend deployment
-6. Mobile production API configuration
-7. Full production smoke testing
+The next phase is **Mobile Distribution & Release Readiness**, including EAS configuration, internal Android and iOS builds, physical-device testing, privacy documentation and store preparation.
 
-New product features and interface redesigns are intentionally deferred until the deployed MVP is stable.
+New product features remain deferred until release builds are stable.
 
 ## Licence
 

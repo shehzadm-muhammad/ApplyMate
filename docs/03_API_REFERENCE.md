@@ -8,21 +8,6 @@ All primary application endpoints use the following prefix:
 
 ```text
 /api/v1
-```
-
-The default local-development base URL is:
-
-```text
-http://localhost:8080
-```
-
-A complete local endpoint therefore looks like:
-
-```text
-http://localhost:8080/api/v1/status
-```
-
-The production hostname will be documented after deployment.
 
 ## Content Type
 
@@ -124,6 +109,14 @@ A typical healthy response is:
 This endpoint is intended for deployment-platform health checks.
 
 ---
+
+### Production verification
+
+The deployed production endpoints are:
+
+```text
+https://applymate-api-bami.onrender.com/api/v1/status
+https://applymate-api-bami.onrender.com/actuator/health
 
 # Authentication Endpoints
 
@@ -722,3 +715,15 @@ Application access is always scoped using both:
 * The authenticated user's identifier
 
 The API intentionally returns `404 Not Found` when a requested application belongs to another user. This avoids exposing whether another user's application identifier exists.
+
+---
+
+# Production Behaviour
+
+The production backend is hosted on Render's free service tier.
+
+After a period of inactivity, the first request may take longer while the backend and database resume.
+
+Clients should treat this as a temporary connection delay rather than an authentication failure.
+
+The mobile application communicates only with the public HTTPS API. It never receives or stores PostgreSQL connection details.

@@ -1,317 +1,455 @@
 # ApplyMate Project Context
 
 ## Product
-ApplyMate is a React Native job-application tracker with a Spring Boot API
-and PostgreSQL database.
 
-## Current Stack
+ApplyMate is a full-stack mobile job-application tracker.
 
-### Frontend
-- React Native
-- Expo
-- TypeScript
-- React Navigation
-
-### Backend
-- Java 21
-- Spring Boot 3.5
-- Maven
-- PostgreSQL 17
-- Flyway
-- JWT authentication
-- Docker Compose
-
-## Current Git State
-- Current branch: feat/frontend-api-integration
-- Latest completed milestone: Application CRUD frontend/backend integration
-
-## Completed Features
-- Registration
-- Login
-- JWT authentication
-- Protected navigation
-- Current-user profile
-- Create application
-- List applications
-- Application details
-- Edit application
-- Delete application
-- User-specific application separation
-- Dashboard reads backend application data
-- Profile reads backend application data
-
-## Application API
-- GET /api/v1/applications
-- POST /api/v1/applications
-- GET /api/v1/applications/{id}
-- PUT /api/v1/applications/{id}
-- DELETE /api/v1/applications/{id}
-- GET /api/v1/applications/summary
-
-## Status Mapping
-
-Frontend:
-- Saved
-- Applied
-- Assessment
-- Interview
-- Offer
-- Rejected
-
-Backend:
-- SAVED
-- APPLIED
-- ASSESSMENT
-- INTERVIEW
-- OFFER
-- REJECTED
-
-## Local-Only Features
-These remain in AsyncStorage for now:
-- Reminders
-- Local notifications
-- Face ID preference
-- Notification settings
-
-## Important Decisions
-- Application data must always use the backend.
-- Reminders remain local until notification synchronisation is designed.
-- Do not redesign screens during backend migration.
-- Preserve existing TypeScript service function names where practical.
-
-## Current Sprint
-MVP polish.
-
-### Planned Order
-1. Dashboard summary endpoint
-2. Frontend loading and error states
-3. Pull-to-refresh
-4. Application search
-5. Status filtering
-6. Sorting
-7. Backend validation
-8. Global backend exception handling
-9. Tests and code cleanup
-
-## Next Immediate Task
-Connect DashboardScreen to:
-GET /api/v1/applications/summary# ApplyMate Project Context
-
-## Product
-
-ApplyMate is a full-stack job-application tracking application.
-
-It allows authenticated users to manage their job applications, monitor application progress and view dashboard statistics from a React Native mobile interface backed by a Spring Boot REST API and PostgreSQL database.
+It allows authenticated users to record job applications, monitor their progress, search and filter applications, and view dashboard statistics.
 
 ## Current Phase
 
-**Deployment & Production Readiness**
+**Mobile Distribution & Release Readiness**
 
-The full-stack MVP and MVP-polish phases are complete.
+The following phases are complete:
 
-The current goal is to prepare the existing application for reliable production deployment without redesigning the interface or adding new product features.
+- Frontend MVP
+- Backend MVP
+- Frontend and backend integration
+- MVP polish
+- Deployment and production readiness
+
+The deployed MVP is running successfully against a production Spring Boot backend and PostgreSQL database.
 
 ## Current Git State
 
-* Stable branch: `main`
-* Working branch: `chore/deployment-readiness`
-* Latest completed milestone: Full-stack MVP integration and polish
-* Current release tag: `v1.1.0-mvp`
-* Stable release commit: `a2e6b31`
+- Stable branch: `main`
+- Current documentation branch: `docs/production-closeout`
+- Latest completed milestone: Production deployment and smoke testing
+- Current release tag: `v1.1.0-mvp`
+- Next planned release tag: `v1.2.0`
+
+The `v1.2.0` tag will be created after the production close-out documentation is merged and CI passes.
 
 ## Technology Stack
 
-### Frontend
+### Mobile frontend
 
-* React Native
-* Expo
-* TypeScript
-* React Navigation
-* AsyncStorage
-* Expo SecureStore
-* Expo Notifications
+- React Native
+- Expo SDK 54
+- TypeScript
+- React Navigation
+- Expo SecureStore
+- AsyncStorage
+- Expo Notifications
 
 ### Backend
 
-* Java 21
-* Spring Boot 4.1
-* Maven
-* Spring Security
-* OAuth2 Resource Server
-* Spring Data JPA
-* Bean Validation
-* Spring Boot Actuator
-* PostgreSQL 17
-* Flyway
-* Docker Compose
+- Java 21
+- Spring Boot 4.1
+- Maven
+- Spring Security
+- OAuth2 Resource Server
+- Spring Data JPA
+- Bean Validation
+- Spring Boot Actuator
+
+### Database
+
+- PostgreSQL 17
+- Flyway
+- Hibernate
+- HikariCP
+
+### Local development
+
+- Docker Desktop
+- Docker Compose
+- Local PostgreSQL container
+- Maven Wrapper
+- Expo development server
+
+### Production infrastructure
+
+- Render Docker web service
+- Neon PostgreSQL
+- HTTPS public API
+- Platform-managed environment variables
+- Render health checks
+- GitHub Actions continuous integration
 
 ### Testing
 
-* JUnit
-* MockMvc
-* Mockito
-* Testcontainers
-* PowerShell end-to-end smoke-test script
+- TypeScript compiler checks
+- Expo web export
+- JUnit
+- MockMvc
+- Mockito
+- Testcontainers
+- Maven verification
+- Docker image verification
+- PowerShell backend smoke testing
+- Manual mobile-to-production smoke testing
 
-## Current Architecture
+## Production Architecture
 
 ```text
-React Native application
-        |
-        v
-TypeScript service layer
-        |
-        v
-Spring Boot REST API
-        |
-        +--> JWT authentication and authorization
-        |
-        v
+React Native / Expo application
+               |
+               | HTTPS and JSON
+               | Authorization: Bearer <JWT>
+               v
+Render
+Spring Boot Docker service
+               |
+               | Encrypted PostgreSQL connection
+               v
+Neon
+PostgreSQL database# ApplyMate Project Context
+
+## Product
+
+ApplyMate is a full-stack mobile job-application tracker.
+
+It allows authenticated users to record job applications, monitor their progress, search and filter applications, and view dashboard statistics.
+
+## Current Phase
+
+**Mobile Distribution & Release Readiness**
+
+The following phases are complete:
+
+- Frontend MVP
+- Backend MVP
+- Frontend and backend integration
+- MVP polish
+- Deployment and production readiness
+
+The deployed MVP is running successfully against a production Spring Boot backend and PostgreSQL database.
+
+## Current Git State
+
+- Stable branch: `main`
+- Current documentation branch: `docs/production-closeout`
+- Latest completed milestone: Production deployment and smoke testing
+- Current release tag: `v1.1.0-mvp`
+- Next planned release tag: `v1.2.0`
+
+The `v1.2.0` tag will be created after the production close-out documentation is merged and CI passes.
+
+## Technology Stack
+
+### Mobile frontend
+
+- React Native
+- Expo SDK 54
+- TypeScript
+- React Navigation
+- Expo SecureStore
+- AsyncStorage
+- Expo Notifications
+
+### Backend
+
+- Java 21
+- Spring Boot 4.1
+- Maven
+- Spring Security
+- OAuth2 Resource Server
+- Spring Data JPA
+- Bean Validation
+- Spring Boot Actuator
+
+### Database
+
+- PostgreSQL 17
+- Flyway
+- Hibernate
+- HikariCP
+
+### Local development
+
+- Docker Desktop
+- Docker Compose
+- Local PostgreSQL container
+- Maven Wrapper
+- Expo development server
+
+### Production infrastructure
+
+- Render Docker web service
+- Neon PostgreSQL
+- HTTPS public API
+- Platform-managed environment variables
+- Render health checks
+- GitHub Actions continuous integration
+
+### Testing
+
+- TypeScript compiler checks
+- Expo web export
+- JUnit
+- MockMvc
+- Mockito
+- Testcontainers
+- Maven verification
+- Docker image verification
+- PowerShell backend smoke testing
+- Manual mobile-to-production smoke testing
+
+## Production Architecture
+
+```text
+React Native / Expo application
+               |
+               | HTTPS and JSON
+               | Authorization: Bearer <JWT>
+               v
+Render
+Spring Boot Docker service
+               |
+               | Encrypted PostgreSQL connection
+               v
+Neon
 PostgreSQL database
-```
 
-The mobile application communicates with the backend through the frontend service layer.
+The mobile application communicates only with the Spring Boot API. It never connects directly to PostgreSQL.
 
-The backend validates requests, authenticates users through JWT bearer tokens, applies per-user data ownership rules and persists application data in PostgreSQL.
+Production Services
+Backend
+Provider: Render
+Service type: Docker web service
+Region: Frankfurt
+Public API base URL:
+https://applymate-api-bami.onrender.com
+API status endpoint:
+https://applymate-api-bami.onrender.com/api/v1/status
+Health endpoint:
+https://applymate-api-bami.onrender.com/actuator/health
+Database
+Provider: Neon
+Database name: applymate
+PostgreSQL version: 17
+Production branch: production
+SSL required
+Credentials stored only in Render environment variables
+Continuous Integration
 
-## Completed Authentication Features
+GitHub Actions validates the repository on pushes and pull requests.
 
-* User registration
-* User login
-* Secure password hashing
-* JWT access-token generation
-* JWT bearer-token validation
-* Protected application navigation
-* Authenticated current-user profile
-* Per-user application ownership
-* Unauthorized-request handling
+Frontend job
+Installs dependencies with npm ci
+Runs TypeScript validation
+Produces an Expo web export
+Backend job
+Configures Java 21
+Starts PostgreSQL for CI
+Runs Maven tests
+Packages the Spring Boot application
+Runs Testcontainers integration tests
+Docker job
+Builds the production backend image
+Confirms the image runs as the non-root applymate user
+Confirms the image includes a health check
 
-## Completed Application Features
+All CI jobs passed before production deployment was completed.
 
-* Create a job application
-* List the authenticated user's applications
-* View application details
-* Edit an application
-* Delete an application
-* Search by company or role
-* Filter by application status
-* Sort applications
-* Dashboard application-summary counts
-* Loading states
-* Error states
-* Pull-to-refresh
-* Backend request validation
-* Consistent backend error responses
+Authentication
 
-## Application Statuses
+ApplyMate uses backend-managed authentication.
 
-### Frontend display values
+Completed authentication behaviour includes:
 
-* Saved
-* Applied
-* Assessment
-* Interview
-* Offer
-* Rejected
+User registration
+Secure password hashing
+Login
+JWT access-token generation
+JWT bearer-token validation
+Protected API routes
+Current-user profile
+Authenticated session restoration
+Invalid-token handling
+Per-user application ownership
 
-### Backend enum values
+The production JWT secret is stored in Render and is never committed to Git.
 
-* `SAVED`
-* `APPLIED`
-* `ASSESSMENT`
-* `INTERVIEW`
-* `OFFER`
-* `REJECTED`
+Completed Application Features
+Create a job application
+List the authenticated user's applications
+View application details
+Edit an application
+Delete an application
+Search applications
+Filter by application status
+Sort applications
+Dashboard summary counts
+Loading states
+Error states
+Pull-to-refresh
+Backend request validation
+Consistent backend error responses
+User-specific data isolation
+Application Statuses
+Frontend values
+Saved
+Applied
+Assessment
+Interview
+Offer
+Rejected
+Backend values
+SAVED
+APPLIED
+ASSESSMENT
+INTERVIEW
+OFFER
+REJECTED
 
-The frontend service layer is responsible for mapping between display values and backend enum values.
+The frontend service layer maps between user-facing labels and backend enum values.
 
-## Main API Routes
+Main API Routes
 
-All main application routes use the `/api/v1` prefix.
+All primary API routes use the /api/v1 prefix.
 
-### System
-
-* `GET /api/v1/status`
-
-### Authentication
-
-* `POST /api/v1/auth/register`
-* `POST /api/v1/auth/login`
-
-### Users
-
-* `GET /api/v1/users/me`
-
-### Applications
-
-* `GET /api/v1/applications`
-* `POST /api/v1/applications`
-* `GET /api/v1/applications/{id}`
-* `PUT /api/v1/applications/{id}`
-* `DELETE /api/v1/applications/{id}`
-* `GET /api/v1/applications/summary`
-
-## Data Ownership
+System
+GET /api/v1/status
+GET /actuator/health
+Authentication
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+Users
+GET /api/v1/users/me
+Applications
+GET /api/v1/applications
+POST /api/v1/applications
+GET /api/v1/applications/{id}
+PUT /api/v1/applications/{id}
+DELETE /api/v1/applications/{id}
+GET /api/v1/applications/summary
+Data Ownership
 
 Every job application belongs to one authenticated user.
 
-Backend services and repository queries must always scope application access to the authenticated user. A user must never be able to read, update or delete another user's applications.
+Backend services and repository queries must scope application access to the authenticated user.
 
-Application data must always be stored through the backend and PostgreSQL database.
+A user must never be able to read, update or delete another user's application.
 
-## Local-Only Features
+Requests for applications owned by another user return 404 Not Found rather than revealing that the record exists.
 
-The following features currently remain on the device:
+Local-Only Features
 
-* Reminders
-* Local notifications
-* Face ID preference
-* Notification settings
+The following features remain on the device:
 
-These features use local device storage and are not synchronised with the backend.
+Reminders
+Local notifications
+Face ID preference
+Notification settings
 
-They must remain local during the deployment-readiness phase.
+These features use local device storage and are not currently synchronised with the backend.
 
-## Environment Strategy
+Environment Strategy
+Local development
+Expo runs on the developer computer or test device.
+Spring Boot runs locally.
+PostgreSQL runs through Docker Compose.
+Local configuration is stored in ignored environment files.
+The frontend may use localhost or the developer computer's LAN address.
+Production
+Spring Boot runs from the production Docker image on Render.
+PostgreSQL runs on Neon.
+The mobile application uses the Render HTTPS API URL.
+Database credentials and JWT secrets are stored in Render.
+Flyway applies and validates database migrations during startup.
+Render monitors /actuator/health.
+Production Verification
+Public endpoint verification
 
-### Local Development
+The following production endpoints returned UP:
 
-* React Native and Expo run on the developer machine or test device.
-* Spring Boot runs locally.
-* PostgreSQL runs through Docker Compose.
-* Local environment variables configure database credentials, JWT secrets and frontend API access.
+/api/v1/status
+/actuator/health
+Automated backend smoke test
 
-### Production
+The production smoke test passed:
 
-* The Spring Boot backend will run as a deployed containerised service.
-* PostgreSQL will run as a managed production database.
-* Secrets and database credentials will be supplied through deployment-platform environment variables.
-* The mobile app will use the production HTTPS API base URL.
-* Local development configuration must continue to work separately from production configuration.
+Registration
+Duplicate-registration rejection
+Login
+Invalid-password rejection
+JWT authentication
+Current-user profile
+Request validation
+Application creation
+Application listing
+Application details
+Application editing
+Search
+Status filtering
+Dashboard summary
+Application deletion
+Unauthenticated-request rejection
+Two-user application isolation
+Smoke-test data cleanup
+Mobile production smoke test
 
-## Production-Readiness Order
+The Expo mobile application successfully completed:
 
-1. Update project documentation.
-2. Add the root README and correct the licence.
-3. Add continuous integration.
-4. Prepare production configuration and the backend Dockerfile.
-5. Deploy the Spring Boot backend and PostgreSQL database.
-6. Connect the mobile application to the production API.
-7. Run a complete production smoke test.
+Registration
+Login
+Application creation
+Dashboard count refresh
+Application editing
+Search and filtering
+Logout
+Login after logout
+Persistent application retrieval
+Application deletion
 
-## Current Constraints
+This confirms the complete production path:
 
-During this phase:
+Expo mobile application
+    -> Render Spring Boot API
+    -> Neon PostgreSQL
+Portability
 
-* Do not redesign the application.
-* Do not add new product features.
-* Do not move local-only features to the backend.
-* Do not change application behaviour unless required for production reliability.
-* Do not commit secrets, passwords, tokens or production credentials.
-* Keep local development working while production support is added.
-* Use environment variables for environment-specific configuration.
-* Preserve existing API behaviour unless a production-readiness fix requires a documented change.
+ApplyMate uses standard PostgreSQL and normal JDBC configuration.
 
-## Next Immediate Task
+The production database can later move to another PostgreSQL provider by changing:
 
-Complete and verify the project documentation before creating the root repository README and correcting the licence.
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+
+Flyway migrations remain the source of truth for recreating the schema.
+
+Existing data can be moved using standard PostgreSQL backup and restore tools.
+
+ApplyMate does not depend on Neon-specific authentication, storage, APIs or client libraries.
+
+Security Rules
+Never commit .env or .env.local.
+Never commit database credentials.
+Never commit JWT signing secrets.
+Store production secrets in the hosting platform.
+Require HTTPS for production traffic.
+Keep PostgreSQL inaccessible to the mobile client.
+Preserve user-isolation checks.
+Run CI before merging production changes.
+Run smoke tests after deployment changes.
+Next Phase
+
+The next phase is:
+
+Mobile Distribution & Release Readiness
+
+Planned work includes:
+
+Review Expo Application Services configuration.
+Configure production application identifiers.
+Configure release-build environment variables.
+Create internal Android and iOS builds.
+Test release builds on physical devices.
+Prepare privacy and store documentation.
+Prepare Google Play and Apple App Store listings.
+Submit builds after release testing passes.
+
+New product features remain deferred until the release-build process is stable.
