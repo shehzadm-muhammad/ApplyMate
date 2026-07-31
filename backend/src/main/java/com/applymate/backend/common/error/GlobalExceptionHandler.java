@@ -4,6 +4,7 @@ import com.applymate.backend.application.JobApplicationNotFoundException;
 import com.applymate.backend.auth.EmailAlreadyExistsException;
 import com.applymate.backend.auth.InvalidCredentialsException;
 import com.applymate.backend.user.UserNotFoundException;
+import com.applymate.backend.reminder.ReminderNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,8 +54,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             UserNotFoundException.class,
-            JobApplicationNotFoundException.class
-    })
+            JobApplicationNotFoundException.class,
+            ReminderNotFoundException.class
+})
+
     public ResponseEntity<ApiErrorResponse> handleNotFound(
             RuntimeException exception,
             HttpServletRequest request

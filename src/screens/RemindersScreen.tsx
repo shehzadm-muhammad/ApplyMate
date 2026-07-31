@@ -15,15 +15,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import PrimaryButton from "../components/PrimaryButton";
 import TextField from "../components/TextField";
+import { useAuth } from "../context/AuthContext";
 import {
   deleteReminder,
   getReminders,
   saveReminder,
   updateReminder,
-  toggleReminder,
   type Reminder,
   type ReminderType,
+} from "../services/reminderService";
+import {
+  getReminderNotificationId,
+  setReminderNotificationId,
 } from "../services/reminderStorage";
+import {
+  cancelReminderNotification,
+  scheduleReminderNotification,
+} from "../services/notificationService";
 import { colors } from "../theme/colors";
 
 const reminderTypes: ReminderType[] = [
@@ -35,6 +43,9 @@ const reminderTypes: ReminderType[] = [
 ];
 
 export default function RemindersScreen() {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -55,9 +66,14 @@ export default function RemindersScreen() {
   });
 
   const loadReminders = useCallback(async () => {
-    const storedReminders = await getReminders();
-    setReminders(storedReminders);
-  }, []);
+    if (!userId) {
+      setReminders([]);
+      return;
+    }
+
+    const backendReminders = await getReminders();
+    setReminders(backendReminders);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -192,6 +208,10 @@ const timeError =
 };
 
 const handleSave = async () => {
+  if (!userId) {
+    return;
+  }
+
   setTouched({
     title: true,
     date: true,
@@ -211,20 +231,129 @@ const handleSave = async () => {
     notes: notes.trim(),
   };
 
-  if (editingReminderId) {
-    await updateReminder(editingReminderId, values);
-  } else {
-    await saveReminder(values);
-  }
+  try {
+    if (editingReminderId) {
+      const existingReminder = reminders.find(
+        (reminder) => reminder.id === editingReminderId
+      );
 
-  resetForm();
-  setIsAdding(false);
-  await loadReminders();
+      if (!existingReminder) {
+        return;
+      }
+
+      const previousNotificationId =
+        await getReminderNotificationId(
+          userId,
+          existingReminder.id
+        );
+
+      await cancelReminderNotification(previousNotificationId);
+
+      const updatedReminder = await updateReminder({
+        ...existingReminder,
+        ...values,
+      });
+
+      const notificationId = updatedReminder.completed
+        ? null
+        : await scheduleReminderNotification({
+            reminderId: updatedReminder.id,
+            title: updatedReminder.title,
+            company: updatedReminder.company,
+            type: updatedReminder.type,
+            dueDate: updatedReminder.dueDate,
+            dueTime: updatedReminder.dueTime,
+          });
+
+      await setReminderNotificationId(
+        userId,
+        updatedReminder.id,
+        notificationId
+      );
+    } else {
+      const createdReminder = await saveReminder(values);
+
+      const notificationId =
+        await scheduleReminderNotification({
+          reminderId: createdReminder.id,
+          title: createdReminder.title,
+          company: createdReminder.company,
+          type: createdReminder.type,
+          dueDate: createdReminder.dueDate,
+          dueTime: createdReminder.dueTime,
+        });
+
+      await setReminderNotificationId(
+        userId,
+        createdReminder.id,
+        notificationId
+      );
+    }
+
+    resetForm();
+    setIsAdding(false);
+    await loadReminders();
+  } catch (error) {
+    console.error("Unable to save reminder:", error);
+    Alert.alert(
+      "Unable to save reminder",
+      "Please check your connection and try again."
+    );
+  }
 };
 
   const handleToggle = async (id: string) => {
-    await toggleReminder(id);
-    await loadReminders();
+    if (!userId) {
+      return;
+    }
+
+    const reminder = reminders.find(
+      (item) => item.id === id
+    );
+
+    if (!reminder) {
+      return;
+    }
+
+    try {
+      const completed = !reminder.completed;
+      const notificationId =
+        await getReminderNotificationId(userId, id);
+
+      if (completed) {
+        await cancelReminderNotification(notificationId);
+      }
+
+      const updatedReminder = await updateReminder({
+        ...reminder,
+        completed,
+      });
+
+      const nextNotificationId = completed
+        ? null
+        : await scheduleReminderNotification({
+            reminderId: updatedReminder.id,
+            title: updatedReminder.title,
+            company: updatedReminder.company,
+            type: updatedReminder.type,
+            dueDate: updatedReminder.dueDate,
+            dueTime: updatedReminder.dueTime,
+          });
+
+      await setReminderNotificationId(
+        userId,
+        id,
+        nextNotificationId
+      );
+
+      await loadReminders();
+    } catch (error) {
+      console.error("Unable to update reminder:", error);
+      Alert.alert(
+        "Unable to update reminder",
+        "Please check your connection and try again."
+      );
+    }
   };
 
   const handleDelete = (reminder: Reminder) => {
@@ -241,8 +370,37 @@ const handleSave = async () => {
           style: "destructive",
           onPress: () => {
             void (async () => {
-              await deleteReminder(reminder.id);
-              await loadReminders();
+              if (!userId) {
+                return;
+              }
+
+              try {
+                const notificationId =
+                  await getReminderNotificationId(
+                    userId,
+                    reminder.id
+                  );
+
+                await cancelReminderNotification(
+                  notificationId
+                );
+                await deleteReminder(reminder.id);
+                await setReminderNotificationId(
+                  userId,
+                  reminder.id,
+                  null
+                );
+                await loadReminders();
+              } catch (error) {
+                console.error(
+                  "Unable to delete reminder:",
+                  error
+                );
+                Alert.alert(
+                  "Unable to delete reminder",
+                  "Please check your connection and try again."
+                );
+              }
             })();
           },
         },
