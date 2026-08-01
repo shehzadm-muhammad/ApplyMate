@@ -1,5 +1,6 @@
 package com.applymate.backend.security;
 
+import com.applymate.backend.auth.RefreshTokenProperties;
 import com.applymate.backend.user.AppUserRepository;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +30,10 @@ import java.util.Base64;
 import jakarta.servlet.DispatcherType;
 
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({
+        JwtProperties.class,
+        RefreshTokenProperties.class
+})
 public class SecurityConfig {
 
         @Bean
