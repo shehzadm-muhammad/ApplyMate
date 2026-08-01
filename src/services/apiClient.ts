@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "../config/apiConfig";
 import type { ApiErrorResponse } from "../types/api";
+import { notifySessionExpired } from "./sessionEvents";
 import { getAccessToken, removeAccessToken } from "./tokenStorage";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
@@ -96,6 +97,7 @@ export async function apiRequest<T>(
 
     if (response.status === 401 && authenticated) {
       await removeAccessToken();
+      notifySessionExpired();
     }
 
     throw new ApiError(

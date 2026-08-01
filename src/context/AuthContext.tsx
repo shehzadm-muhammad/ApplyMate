@@ -18,6 +18,7 @@ import {
   logoutUser,
 } from "../services/authService";
 
+import { setSessionExpiredHandler } from "../services/sessionEvents";
 import { getAccessToken } from "../services/tokenStorage";
 
 interface AuthContextValue {
@@ -44,6 +45,12 @@ export function AuthProvider({
 
   const [isBootstrapping, setIsBootstrapping] =
     useState(true);
+
+  useEffect(() => {
+    return setSessionExpiredHandler(() => {
+      setUser(null);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

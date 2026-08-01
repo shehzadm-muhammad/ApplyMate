@@ -80,6 +80,10 @@ const loadDashboardData = useCallback(
       setSummary(applicationSummary);
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        return;
+      }
+
       const message =
         error instanceof ApiError
           ? error.message
