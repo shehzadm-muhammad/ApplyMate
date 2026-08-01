@@ -8,21 +8,25 @@ import java.time.Instant;
 
 public record UpdateReminderRequest(
 
-        @NotBlank
-        @Size(max = 200)
+        @NotBlank(message = "Title is required")
+        @Size(
+                max = 200,
+                message = "Title must not exceed 200 characters"
+        )
         String title,
 
-        @NotBlank
-        @Size(max = 200)
+        @Size(
+                max = 200,
+                message = "Company must not exceed 200 characters"
+        )
         String company,
 
-        @NotNull
+        @NotNull(message = "Type is required")
         ReminderType type,
 
-        @NotNull
+        @NotNull(message = "Due date and time are required")
         Instant dueAt,
 
-        @NotBlank
         String notes,
 
         boolean completed

@@ -232,15 +232,11 @@ class ReminderControllerTest {
                 .andExpect(jsonPath("$.path")
                         .value("/api/v1/reminders"))
                 .andExpect(jsonPath("$.fieldErrors.title")
-                        .value("must not be blank"))
-                .andExpect(jsonPath("$.fieldErrors.company")
-                        .value("must not be blank"))
+                        .value("Title is required"))
                 .andExpect(jsonPath("$.fieldErrors.type")
-                        .value("must not be null"))
+                        .value("Type is required"))
                 .andExpect(jsonPath("$.fieldErrors.dueAt")
-                        .value("must not be null"))
-                .andExpect(jsonPath("$.fieldErrors.notes")
-                        .value("must not be blank"));
+                        .value("Due date and time are required"));
     }
 
     private ReminderResponse testResponse() {
