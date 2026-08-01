@@ -1,7 +1,16 @@
 import { API_BASE_URL } from "../config/apiConfig";
-import type { ApiErrorResponse } from "../types/api";
+import type {
+  ApiErrorResponse,
+  LoginResponse,
+  RefreshTokenRequest,
+} from "../types/api";
 import { notifySessionExpired } from "./sessionEvents";
-import { getAccessToken, removeAccessToken } from "./tokenStorage";
+import {
+  getAccessToken,
+  getRefreshToken,
+  removeAuthTokens,
+  saveAuthTokens,
+} from "./tokenStorage";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -11,6 +20,13 @@ interface ApiRequestOptions {
   authenticated?: boolean;
   headers?: Record<string, string>;
 }
+
+interface RequestResult {
+  response: Response;
+  parsedBody: unknown;
+}
+
+let refreshPromise: Promise<void> | null = null;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -29,7 +45,9 @@ export class ApiError extends Error {
   }
 }
 
-async function parseResponseBody(response: Response): Promise<unknown> {
+async function parseResponseBody(
+  response: Response,
+): Promise<unknown> {
   const content = await response.text();
 
   if (!content) {
@@ -43,17 +61,34 @@ async function parseResponseBody(response: Response): Promise<unknown> {
   }
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
-  const {
-    method = "GET",
-    body,
-    authenticated = true,
-    headers = {},
-  } = options;
+function getErrorResponse(
+  parsedBody: unknown,
+): ApiErrorResponse | null {
+  if (typeof parsedBody !== "object" || parsedBody === null) {
+    return null;
+  }
 
+  return parsedBody as ApiErrorResponse;
+}
+
+function createApiError(result: RequestResult): ApiError {
+  const errorResponse = getErrorResponse(result.parsedBody);
+
+  return new ApiError(
+    result.response.status,
+    errorResponse?.message ??
+      `Request failed with HTTP ${result.response.status}.`,
+    errorResponse,
+  );
+}
+
+async function executeRequest(
+  path: string,
+  method: HttpMethod,
+  body: unknown,
+  headers: Record<string, string>,
+  accessToken: string | null,
+): Promise<RequestResult> {
   const requestHeaders: Record<string, string> = {
     Accept: "application/json",
     ...headers,
@@ -63,12 +98,8 @@ export async function apiRequest<T>(
     requestHeaders["Content-Type"] = "application/json";
   }
 
-  if (authenticated) {
-    const token = await getAccessToken();
-
-    if (token) {
-      requestHeaders.Authorization = `Bearer ${token}`;
-    }
+  if (accessToken) {
+    requestHeaders.Authorization = `Bearer ${accessToken}`;
   }
 
   let response: Response;
@@ -87,26 +118,177 @@ export async function apiRequest<T>(
     );
   }
 
-  const parsedBody = await parseResponseBody(response);
+  return {
+    response,
+    parsedBody: await parseResponseBody(response),
+  };
+}
 
-  if (!response.ok) {
-    const errorResponse =
-      typeof parsedBody === "object" && parsedBody !== null
-        ? (parsedBody as ApiErrorResponse)
-        : null;
+async function expireSession(): Promise<void> {
+  try {
+    await removeAuthTokens();
+  } finally {
+    notifySessionExpired();
+  }
+}
 
-    if (response.status === 401 && authenticated) {
-      await removeAccessToken();
-      notifySessionExpired();
-    }
+function isLoginResponse(value: unknown): value is LoginResponse {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const response = value as Partial<LoginResponse>;
+
+  return (
+    typeof response.accessToken === "string" &&
+    response.accessToken.length > 0 &&
+    typeof response.refreshToken === "string" &&
+    response.refreshToken.length > 0
+  );
+}
+
+async function performTokenRefresh(): Promise<void> {
+  const refreshToken = await getRefreshToken();
+
+  if (!refreshToken) {
+    await expireSession();
 
     throw new ApiError(
-      response.status,
-      errorResponse?.message ??
-        `Request failed with HTTP ${response.status}.`,
-      errorResponse,
+      401,
+      "Your session has expired. Please log in again.",
+      null,
     );
   }
 
-  return parsedBody as T;
+  const request: RefreshTokenRequest = {
+    refreshToken,
+  };
+
+  const result = await executeRequest(
+    "/api/v1/auth/refresh",
+    "POST",
+    request,
+    {},
+    null,
+  );
+
+  if (!result.response.ok) {
+    const error = createApiError(result);
+
+    /*
+     * A rejected refresh token means the session has genuinely ended.
+     * Server and connection errors remain retryable and do not erase
+     * the local session.
+     */
+    if (
+      result.response.status === 400 ||
+      result.response.status === 401
+    ) {
+      await expireSession();
+
+      throw new ApiError(
+        401,
+        "Your session has expired. Please log in again.",
+        error.response,
+      );
+    }
+
+    throw error;
+  }
+
+  if (!isLoginResponse(result.parsedBody)) {
+    await expireSession();
+
+    throw new ApiError(
+      401,
+      "Your session has expired. Please log in again.",
+      null,
+    );
+  }
+
+  await saveAuthTokens(
+    result.parsedBody.accessToken,
+    result.parsedBody.refreshToken,
+  );
+}
+
+async function refreshSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = performTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const {
+    method = "GET",
+    body,
+    authenticated = true,
+    headers = {},
+  } = options;
+
+  const initialAccessToken = authenticated
+    ? await getAccessToken()
+    : null;
+
+  let result = await executeRequest(
+    path,
+    method,
+    body,
+    headers,
+    initialAccessToken,
+  );
+
+  if (authenticated && result.response.status === 401) {
+    const latestAccessToken = await getAccessToken();
+
+    /*
+     * Another request may already have refreshed the session while
+     * this request was waiting for its original 401 response.
+     */
+    if (
+      latestAccessToken &&
+      latestAccessToken !== initialAccessToken
+    ) {
+      result = await executeRequest(
+        path,
+        method,
+        body,
+        headers,
+        latestAccessToken,
+      );
+    } else {
+      await refreshSession();
+
+      const refreshedAccessToken = await getAccessToken();
+
+      result = await executeRequest(
+        path,
+        method,
+        body,
+        headers,
+        refreshedAccessToken,
+      );
+    }
+
+    /*
+     * Retry exactly once. A second 401 means the refreshed session
+     * cannot be used and the user must authenticate again.
+     */
+    if (result.response.status === 401) {
+      await expireSession();
+    }
+  }
+
+  if (!result.response.ok) {
+    throw createApiError(result);
+  }
+
+  return result.parsedBody as T;
 }

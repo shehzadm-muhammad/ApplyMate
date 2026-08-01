@@ -19,7 +19,10 @@ import {
 } from "../services/authService";
 
 import { setSessionExpiredHandler } from "../services/sessionEvents";
-import { getAccessToken } from "../services/tokenStorage";
+import {
+  getAccessToken,
+  getRefreshToken,
+} from "../services/tokenStorage";
 
 interface AuthContextValue {
   user: CurrentUserResponse | null;
@@ -57,9 +60,12 @@ export function AuthProvider({
 
     async function restoreSession(): Promise<void> {
       try {
-        const token = await getAccessToken();
+        const [accessToken, refreshToken] = await Promise.all([
+          getAccessToken(),
+          getRefreshToken(),
+        ]);
 
-        if (!token) {
+        if (!accessToken && !refreshToken) {
           return;
         }
 
@@ -69,8 +75,11 @@ export function AuthProvider({
           setUser(currentUser);
         }
       } catch {
-        await logoutUser();
-
+        /*
+         * The API client removes genuinely invalid sessions.
+         * Keep stored tokens during temporary connection or server
+         * failures so restoration can be attempted again later.
+         */
         if (!cancelled) {
           setUser(null);
         }
