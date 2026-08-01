@@ -2,13 +2,15 @@ import type {
   CurrentUserResponse,
   LoginRequest,
   LoginResponse,
+  RefreshTokenRequest,
   RegisterRequest,
   RegisterResponse,
 } from "../types/api";
 import { apiRequest } from "./apiClient";
 import {
-  removeAccessToken,
-  saveAccessToken,
+  getRefreshToken,
+  removeAuthTokens,
+  saveAuthTokens,
 } from "./tokenStorage";
 
 export async function registerUser(
@@ -33,7 +35,10 @@ export async function loginUser(
     },
   );
 
-  await saveAccessToken(response.accessToken);
+  await saveAuthTokens(
+    response.accessToken,
+    response.refreshToken,
+  );
 
   return response;
 }
@@ -43,5 +48,26 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
 }
 
 export async function logoutUser(): Promise<void> {
-  await removeAccessToken();
+  const refreshToken = await getRefreshToken();
+
+  try {
+    if (refreshToken) {
+      const request: RefreshTokenRequest = {
+        refreshToken,
+      };
+
+      await apiRequest<void>("/api/v1/auth/logout", {
+        method: "POST",
+        authenticated: false,
+        body: request,
+      });
+    }
+  } catch {
+    /*
+     * Logout remains successful on the device even when the backend
+     * cannot be reached. The server-side token will eventually expire.
+     */
+  } finally {
+    await removeAuthTokens();
+  }
 }

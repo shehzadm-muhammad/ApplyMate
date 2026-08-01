@@ -45,10 +45,16 @@ export interface LoginResponse {
   accessToken: string;
   tokenType: "Bearer";
   expiresAt: string;
+  refreshToken: string;
+  refreshExpiresAt: string;
   userId: string;
   email: string;
   firstName: string;
   lastName: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }
 
 export interface CurrentUserResponse {
