@@ -49,6 +49,13 @@ export async function setReminderNotificationId(
   await storeNotificationIds(userId, ids);
 }
 
+export async function getAllReminderNotificationIds(
+  userId: string
+): Promise<string[]> {
+  const ids = await getNotificationIds(userId);
+  return Object.values(ids);
+}
+
 export async function clearReminderNotificationIds(
   userId: string
 ): Promise<void> {

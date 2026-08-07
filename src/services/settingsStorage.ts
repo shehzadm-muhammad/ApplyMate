@@ -33,3 +33,7 @@ export async function saveSettings(
     JSON.stringify(settings)
   );
 }
+
+export async function clearSettings(): Promise<void> {
+  await AsyncStorage.removeItem(SETTINGS_KEY);
+}
