@@ -22,4 +22,13 @@ public class UserService {
 
         return UserProfileResponse.from(user);
     }
+
+    @Transactional
+    public void deleteUser(UUID userId) {
+        AppUser user = appUserRepository
+                .findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        appUserRepository.delete(user);
+    }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import {
   Alert,
+  Linking,
   ScrollView,
   Share,
   StyleSheet,
@@ -37,7 +38,7 @@ type Props = CompositeScreenProps<
 export default function ProfileScreen({
   navigation,
 }: Props) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const [applications, setApplications] = useState<
     JobApplication[]
   >([]);
@@ -51,15 +52,15 @@ export default function ProfileScreen({
     useCallback(() => {
       const loadProfile = async () => {
         const [
-  storedApplications,
-  storedSettings,
-] = await Promise.all([
-  getApplications(),
-  getSettings(),
-]);
+          storedApplications,
+          storedSettings,
+        ] = await Promise.all([
+          getApplications(),
+          getSettings(),
+        ]);
 
-setApplications(storedApplications);
-setSettings(storedSettings);
+        setApplications(storedApplications);
+        setSettings(storedSettings);
       };
 
       void loadProfile();
@@ -101,8 +102,8 @@ setSettings(storedSettings);
   };
 
   const performLogout = async () => {
-  await signOut();
-};
+    await signOut();
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -123,6 +124,59 @@ setSettings(storedSettings);
       ]
     );
   };
+
+  const performDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+    } catch {
+      Alert.alert(
+        "Couldn't delete account",
+        "Your account was not deleted. Please check your connection and try again."
+      );
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete your ApplyMate account?",
+      "This permanently deletes your account, applications and reminders. This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Permanently delete account?",
+              "All of your ApplyMate account data will be permanently deleted.",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Delete Account",
+                  style: "destructive",
+                  onPress: () => {
+                    void performDeleteAccount();
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePrivacyPolicy = async () => {
+  await Linking.openURL(
+    "https://shehzadm-muhammad.github.io/ApplyMate/privacy-policy.html"
+  );
+};
 
   const fullName = user
     ? `${user.firstName} ${user.lastName}`.trim()
@@ -220,6 +274,23 @@ setSettings(storedSettings);
             onPress={() => {
               void handleExportData();
             }}
+          />
+
+          <SettingsRow
+            icon="document-text-outline"
+            title="Privacy Policy"
+            description="Read how ApplyMate handles your information."
+            onPress={() => {
+              void handlePrivacyPolicy();
+            }}
+          />
+
+          <SettingsRow
+            icon="trash-outline"
+            title="Delete Account"
+            description="Permanently delete your account and ApplyMate data."
+            destructive
+            onPress={handleDeleteAccount}
           />
 
           <SettingsRow

@@ -19,6 +19,7 @@ import {
 } from "../services/authService";
 
 import { setSessionExpiredHandler } from "../services/sessionEvents";
+import { deleteAccount as deleteAccountService } from "../services/accountService";
 import {
   getAccessToken,
   getRefreshToken,
@@ -29,6 +30,7 @@ interface AuthContextValue {
   isBootstrapping: boolean;
   signIn: (request: LoginRequest) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -98,45 +100,56 @@ export function AuthProvider({
   }, []);
 
   async function signIn(request: LoginRequest): Promise<void> {
-  console.log("AUTH: signIn started", request.email);
+    console.log("AUTH: signIn started", request.email);
 
-  try {
-    const loginResponse = await loginUser(request);
+    try {
+      const loginResponse = await loginUser(request);
 
-    console.log(
-      "AUTH: login successful",
-      loginResponse.email,
-    );
+      console.log(
+        "AUTH: login successful",
+        loginResponse.email,
+      );
 
-    const token = await getAccessToken();
+      const token = await getAccessToken();
 
-    console.log(
-      "AUTH: token stored",
-      token ? "YES" : "NO",
-    );
+      console.log(
+        "AUTH: token stored",
+        token ? "YES" : "NO",
+      );
 
-    const currentUser = await getCurrentUser();
+      const currentUser = await getCurrentUser();
 
-    console.log(
-      "AUTH: current user loaded",
-      currentUser,
-    );
+      console.log(
+        "AUTH: current user loaded",
+        currentUser,
+      );
 
-    setUser(currentUser);
+      setUser(currentUser);
 
-    console.log("AUTH: user state updated");
-  } catch (error) {
-    console.error("AUTH: signIn failed", error);
+      console.log("AUTH: user state updated");
+    } catch (error) {
+      console.error("AUTH: signIn failed", error);
 
-    await logoutUser();
-    setUser(null);
+      await logoutUser();
+      setUser(null);
 
-    throw error;
+      throw error;
+    }
   }
-}
 
   async function signOut(): Promise<void> {
     await logoutUser();
+    setUser(null);
+  }
+
+  async function deleteAccount(): Promise<void> {
+    if (!user) {
+      return;
+    }
+
+    const userId = user.id;
+
+    await deleteAccountService(userId);
     setUser(null);
   }
 
@@ -151,6 +164,7 @@ export function AuthProvider({
       isBootstrapping,
       signIn,
       signOut,
+      deleteAccount,
       refreshUser,
     }),
     [user, isBootstrapping],
