@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import {
   Alert,
+  Linking,
   ScrollView,
   Share,
   StyleSheet,
@@ -171,6 +172,12 @@ export default function ProfileScreen({
     );
   };
 
+  const handlePrivacyPolicy = async () => {
+  await Linking.openURL(
+    "https://shehzadm-muhammad.github.io/ApplyMate/privacy-policy.html"
+  );
+};
+
   const fullName = user
     ? `${user.firstName} ${user.lastName}`.trim()
     : "ApplyMate user";
@@ -266,6 +273,15 @@ export default function ProfileScreen({
             description="Share a copy of your locally stored account and application data."
             onPress={() => {
               void handleExportData();
+            }}
+          />
+
+          <SettingsRow
+            icon="document-text-outline"
+            title="Privacy Policy"
+            description="Read how ApplyMate handles your information."
+            onPress={() => {
+              void handlePrivacyPolicy();
             }}
           />
 
