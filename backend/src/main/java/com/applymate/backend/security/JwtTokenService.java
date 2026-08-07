@@ -1,6 +1,5 @@
 package com.applymate.backend.security;
 
-import com.applymate.backend.auth.LoginResponse;
 import com.applymate.backend.user.AppUser;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -23,7 +22,7 @@ public class JwtTokenService {
         this.properties = properties;
     }
 
-    public LoginResponse createAccessToken(AppUser user) {
+    public AccessTokenGrant createAccessToken(AppUser user) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(
                 properties.accessTokenTtl()
@@ -42,14 +41,10 @@ public class JwtTokenService {
                 .encode(JwtEncoderParameters.from(claims))
                 .getTokenValue();
 
-        return new LoginResponse(
+        return new AccessTokenGrant(
                 accessToken,
                 "Bearer",
-                expiresAt,
-                user.getId(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName()
+                expiresAt
         );
     }
 }

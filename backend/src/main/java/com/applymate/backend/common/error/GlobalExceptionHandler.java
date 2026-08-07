@@ -3,6 +3,7 @@ package com.applymate.backend.common.error;
 import com.applymate.backend.application.JobApplicationNotFoundException;
 import com.applymate.backend.auth.EmailAlreadyExistsException;
 import com.applymate.backend.auth.InvalidCredentialsException;
+import com.applymate.backend.auth.InvalidRefreshTokenException;
 import com.applymate.backend.user.UserNotFoundException;
 import com.applymate.backend.reminder.ReminderNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(
             InvalidCredentialsException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.UNAUTHORIZED,
+                exception.getMessage(),
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidRefreshToken(
+            InvalidRefreshTokenException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
