@@ -4,21 +4,30 @@
 
 ApplyMate exposes a JSON REST API from the Spring Boot backend.
 
-All primary application endpoints use the following prefix:
+All primary application endpoints use:
 
 ```text
 /api/v1
+````
+
+Production API:
+
+```text
+https://applymate-api-bami.onrender.com
+```
 
 ## Content Type
 
-Requests containing a JSON body should include:
+Requests containing JSON should use:
 
 ```http
 Content-Type: application/json
 Accept: application/json
 ```
 
-## Authentication
+---
+
+# Authentication
 
 Protected endpoints require a JWT access token:
 
@@ -26,20 +35,50 @@ Protected endpoints require a JWT access token:
 Authorization: Bearer <access-token>
 ```
 
-The access token is returned by the login endpoint.
+ApplyMate uses:
 
-The following routes are public:
+* Short-lived JWT access tokens
+* Long-lived refresh tokens
+* Refresh-token rotation
+* Server-side refresh-session revocation
 
-* `GET /api/v1/status`
-* `POST /api/v1/auth/register`
-* `POST /api/v1/auth/login`
-* `GET /actuator/health`
+Production session configuration:
 
-All user and application routes require authentication.
+```text
+Access token lifetime: 1 hour
+Refresh session lifetime: 30 days
+```
 
-## Application Status Values
+## Public Routes
 
-The backend accepts these exact uppercase values:
+These routes do not require a valid access token:
+
+```text
+GET  /api/v1/status
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /actuator/health
+```
+
+The refresh endpoint must remain public because it is specifically used when an access token has expired.
+
+Logout also accepts a refresh token directly and does not require the access token to remain valid.
+
+## Protected Routes
+
+User, application and reminder routes require:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+---
+
+# Application Status Values
+
+The backend accepts:
 
 ```text
 SAVED
@@ -50,13 +89,37 @@ OFFER
 REJECTED
 ```
 
-Invalid status values result in `400 Bad Request`.
+Invalid status values result in:
+
+```text
+400 Bad Request
+```
+
+---
+
+# Reminder Type Values
+
+The backend accepts:
+
+```text
+INTERVIEW
+ASSESSMENT
+FOLLOW_UP
+DEADLINE
+OTHER
+```
+
+Invalid reminder types result in:
+
+```text
+400 Bad Request
+```
 
 ---
 
 # System Endpoints
 
-## Get API status
+## Get API Status
 
 ```http
 GET /api/v1/status
@@ -66,7 +129,7 @@ GET /api/v1/status
 
 Not required.
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
@@ -78,13 +141,11 @@ Not required.
 }
 ```
 
-This endpoint confirms that the application API is responding.
-
-It does not provide detailed database-health information.
+This verifies that the main application API is responding.
 
 ---
 
-## Get operational health
+## Get Operational Health
 
 ```http
 GET /actuator/health
@@ -94,33 +155,36 @@ GET /actuator/health
 
 Not required.
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
-A typical healthy response is:
+A healthy production response may look like:
 
 ```json
 {
+  "groups": [
+    "liveness",
+    "readiness"
+  ],
   "status": "UP"
 }
 ```
 
-This endpoint is intended for deployment-platform health checks.
+This endpoint is intended for operational and deployment health checks.
 
----
-
-### Production verification
-
-The deployed production endpoints are:
+### Production URLs
 
 ```text
 https://applymate-api-bami.onrender.com/api/v1/status
 https://applymate-api-bami.onrender.com/actuator/health
+```
+
+---
 
 # Authentication Endpoints
 
-## Register a user
+## Register a User
 
 ```http
 POST /api/v1/auth/register
@@ -130,7 +194,7 @@ POST /api/v1/auth/register
 
 Not required.
 
-### Request body
+### Request Body
 
 ```json
 {
@@ -143,16 +207,16 @@ Not required.
 
 ### Validation
 
-| Field       | Required | Rules                                                 |
-| ----------- | -------: | ----------------------------------------------------- |
-| `firstName` |      Yes | Must not be blank; maximum 100 characters             |
-| `lastName`  |      Yes | Must not be blank; maximum 100 characters             |
-| `email`     |      Yes | Must be a valid email address; maximum 320 characters |
-| `password`  |      Yes | Between 8 and 72 characters                           |
+| Field       | Required | Rules                                       |
+| ----------- | -------: | ------------------------------------------- |
+| `firstName` |      Yes | Must not be blank; maximum 100 characters   |
+| `lastName`  |      Yes | Must not be blank; maximum 100 characters   |
+| `email`     |      Yes | Valid email address; maximum 320 characters |
+| `password`  |      Yes | Between 8 and 72 characters                 |
 
-Email addresses are trimmed and normalised to lowercase before storage.
+Email addresses are normalised before storage.
 
-### Successful response
+### Successful Response
 
 **Status:** `201 Created`
 
@@ -162,19 +226,19 @@ Email addresses are trimmed and normalised to lowercase before storage.
   "email": "muhammad@example.com",
   "firstName": "Muhammad",
   "lastName": "Shehzad",
-  "createdAt": "2026-07-28T10:30:00Z"
+  "createdAt": "2026-08-08T08:00:00Z"
 }
 ```
 
-### Possible errors
+### Possible Errors
 
-* `400 Bad Request` — request validation failed
-* `409 Conflict` — an account already exists for the supplied email
+* `400 Bad Request` — validation failed
+* `409 Conflict` — email already exists
 * `500 Internal Server Error` — unexpected backend failure
 
 ---
 
-## Log in
+## Log In
 
 ```http
 POST /api/v1/auth/login
@@ -184,7 +248,7 @@ POST /api/v1/auth/login
 
 Not required.
 
-### Request body
+### Request Body
 
 ```json
 {
@@ -195,12 +259,12 @@ Not required.
 
 ### Validation
 
-| Field      | Required | Rules                         |
-| ---------- | -------: | ----------------------------- |
-| `email`    |      Yes | Must be a valid email address |
-| `password` |      Yes | Must not be blank             |
+| Field      | Required | Rules               |
+| ---------- | -------: | ------------------- |
+| `email`    |      Yes | Valid email address |
+| `password` |      Yes | Must not be blank   |
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
@@ -208,7 +272,9 @@ Not required.
 {
   "accessToken": "<jwt-access-token>",
   "tokenType": "Bearer",
-  "expiresAt": "2026-07-28T10:45:00Z",
+  "expiresAt": "2026-08-08T09:00:00Z",
+  "refreshToken": "<opaque-refresh-token>",
+  "refreshExpiresAt": "2026-09-07T08:00:00Z",
   "userId": "9cb0a8ba-1117-4af0-a04f-32a383459987",
   "email": "muhammad@example.com",
   "firstName": "Muhammad",
@@ -216,23 +282,125 @@ Not required.
 }
 ```
 
-The frontend must send the returned token with subsequent protected requests:
+The access token is used for protected API requests:
 
 ```http
 Authorization: Bearer <jwt-access-token>
 ```
 
-### Possible errors
+The refresh token must be stored securely and used only with the refresh/logout endpoints.
 
-* `400 Bad Request` — malformed or invalid request body
-* `401 Unauthorized` — email or password is incorrect
+### Possible Errors
+
+* `400 Bad Request` — malformed or invalid request
+* `401 Unauthorized` — credentials are incorrect
 * `500 Internal Server Error` — unexpected backend failure
+
+---
+
+## Refresh an Authentication Session
+
+```http
+POST /api/v1/auth/refresh
+```
+
+### Authentication
+
+No access token required.
+
+### Request Body
+
+```json
+{
+  "refreshToken": "<current-refresh-token>"
+}
+```
+
+The refresh token must not be blank.
+
+### Successful Response
+
+**Status:** `200 OK`
+
+The endpoint returns the same authentication response structure as login:
+
+```json
+{
+  "accessToken": "<new-jwt-access-token>",
+  "tokenType": "Bearer",
+  "expiresAt": "2026-08-08T10:00:00Z",
+  "refreshToken": "<new-refresh-token>",
+  "refreshExpiresAt": "2026-09-07T09:00:00Z",
+  "userId": "9cb0a8ba-1117-4af0-a04f-32a383459987",
+  "email": "muhammad@example.com",
+  "firstName": "Muhammad",
+  "lastName": "Shehzad"
+}
+```
+
+### Rotation Behaviour
+
+A successful refresh:
+
+```text
+Current refresh token
+        |
+        v
+Validate session
+        |
+        v
+Revoke current refresh token
+        |
+        v
+Issue new access token
+        |
+        v
+Issue new refresh token
+```
+
+The client must replace the previous token pair with the newly returned pair.
+
+### Possible Errors
+
+* `400 Bad Request` — refresh token is missing/blank
+* `401 Unauthorized` — refresh token is invalid, expired, revoked or otherwise unusable
+* `500 Internal Server Error` — unexpected backend failure
+
+---
+
+## Log Out
+
+```http
+POST /api/v1/auth/logout
+```
+
+### Authentication
+
+No valid access token required.
+
+### Request Body
+
+```json
+{
+  "refreshToken": "<current-refresh-token>"
+}
+```
+
+### Successful Response
+
+**Status:** `204 No Content`
+
+No response body is returned.
+
+Logout revokes the backend refresh session represented by the supplied token.
+
+The client should then remove its locally stored access and refresh tokens.
 
 ---
 
 # User Endpoints
 
-## Get the current user
+## Get Current User
 
 ```http
 GET /api/v1/users/me
@@ -242,7 +410,7 @@ GET /api/v1/users/me
 
 Required.
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
@@ -253,14 +421,51 @@ Required.
   "firstName": "Muhammad",
   "lastName": "Shehzad",
   "enabled": true,
-  "createdAt": "2026-07-28T10:30:00Z"
+  "createdAt": "2026-08-08T08:00:00Z"
 }
 ```
 
-### Possible errors
+### Possible Errors
 
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — the authenticated user no longer exists
+* `401 Unauthorized` — access token missing, invalid or expired
+* `404 Not Found` — authenticated user no longer exists
+* `500 Internal Server Error` — unexpected backend failure
+
+---
+
+## Delete Current User
+
+```http
+DELETE /api/v1/users/me
+```
+
+### Authentication
+
+Required.
+
+### Successful Response
+
+**Status:** `204 No Content`
+
+No body is returned.
+
+The backend derives the user ID from the authenticated JWT.
+
+The client cannot supply another user's identifier.
+
+Deleting the user permanently removes the user's backend-owned data, including:
+
+* User account
+* Job applications
+* Reminders
+* Refresh-token sessions
+
+The mobile client separately performs local cleanup after the server confirms successful deletion.
+
+### Possible Errors
+
+* `401 Unauthorized` — access token missing, invalid or expired
+* `404 Not Found` — authenticated user no longer exists
 * `500 Internal Server Error` — unexpected backend failure
 
 ---
@@ -271,11 +476,13 @@ All application endpoints operate only on records owned by the authenticated use
 
 A user cannot retrieve, update or delete another user's application.
 
-When an application does not exist or does not belong to the authenticated user, the API returns `404 Not Found`.
+When an application does not exist or does not belong to the authenticated user, the API returns:
 
-## Application object
+```text
+404 Not Found
+```
 
-Application responses use this structure:
+## Application Object
 
 ```json
 {
@@ -292,33 +499,33 @@ Application responses use this structure:
   "benefits": "Hybrid working and pension",
   "recruiter": "Jane Smith",
   "applicationDeadline": "2026-08-15",
-  "createdAt": "2026-07-28T11:00:00Z",
-  "updatedAt": "2026-07-28T11:00:00Z"
+  "createdAt": "2026-08-08T08:00:00Z",
+  "updatedAt": "2026-08-08T08:00:00Z"
 }
 ```
 
-## Application fields
+## Application Fields
 
-| Field                 | Required | Validation                                                                |
-| --------------------- | -------: | ------------------------------------------------------------------------- |
-| `jobUrl`              |       No | Maximum 2,000 characters; empty or beginning with `http://` or `https://` |
-| `company`             |      Yes | Must not be blank; maximum 200 characters                                 |
-| `jobTitle`            |      Yes | Must not be blank; maximum 200 characters                                 |
-| `location`            |       No | Maximum 200 characters                                                    |
-| `salary`              |       No | Maximum 200 characters                                                    |
-| `status`              |      Yes | Must be one of the supported backend status values                        |
-| `notes`               |       No | Maximum 5,000 characters                                                  |
-| `jobDescription`      |       No | Maximum 20,000 characters                                                 |
-| `requiredSkills`      |       No | Maximum 10,000 characters                                                 |
-| `benefits`            |       No | Maximum 10,000 characters                                                 |
-| `recruiter`           |       No | Maximum 200 characters                                                    |
-| `applicationDeadline` |       No | ISO date in `YYYY-MM-DD` format                                           |
+| Field                 | Required | Validation                                        |
+| --------------------- | -------: | ------------------------------------------------- |
+| `jobUrl`              |       No | Maximum 2,000 characters; empty or HTTP/HTTPS URL |
+| `company`             |      Yes | Must not be blank; maximum 200 characters         |
+| `jobTitle`            |      Yes | Must not be blank; maximum 200 characters         |
+| `location`            |       No | Maximum 200 characters                            |
+| `salary`              |       No | Maximum 200 characters                            |
+| `status`              |      Yes | Supported application status                      |
+| `notes`               |       No | Maximum 5,000 characters                          |
+| `jobDescription`      |       No | Maximum 20,000 characters                         |
+| `requiredSkills`      |       No | Maximum 10,000 characters                         |
+| `benefits`            |       No | Maximum 10,000 characters                         |
+| `recruiter`           |       No | Maximum 200 characters                            |
+| `applicationDeadline` |       No | ISO date `YYYY-MM-DD`                             |
 
-Optional text fields may be supplied as empty strings.
+Optional text values may be supplied as empty strings.
 
 ---
 
-## List applications
+## List Applications
 
 ```http
 GET /api/v1/applications
@@ -328,18 +535,18 @@ GET /api/v1/applications
 
 Required.
 
-### Query parameters
+### Query Parameters
 
-| Parameter | Required | Description                                     |
-| --------- | -------: | ----------------------------------------------- |
-| `status`  |       No | Filters by one exact backend application status |
-| `search`  |       No | Performs a case-insensitive text search         |
+| Parameter | Required | Description                              |
+| --------- | -------: | ---------------------------------------- |
+| `status`  |       No | Filter by one backend application status |
+| `search`  |       No | Case-insensitive text search             |
 
-The parameters may be used individually or together.
+The parameters may be used independently or together.
 
-### Search fields
+### Search Fields
 
-The `search` value is matched against:
+Search applies to:
 
 * Company
 * Job title
@@ -349,33 +556,23 @@ The `search` value is matched against:
 
 ### Examples
 
-List all applications:
-
 ```http
 GET /api/v1/applications
 ```
-
-Filter by status:
 
 ```http
 GET /api/v1/applications?status=INTERVIEW
 ```
 
-Search by text:
-
 ```http
 GET /api/v1/applications?search=java
 ```
-
-Combine filtering and search:
 
 ```http
 GET /api/v1/applications?status=APPLIED&search=barclays
 ```
 
-Query values must be URL encoded by the client.
-
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
@@ -395,30 +592,23 @@ Query values must be URL encoded by the client.
     "benefits": "",
     "recruiter": "",
     "applicationDeadline": null,
-    "createdAt": "2026-07-28T11:00:00Z",
-    "updatedAt": "2026-07-28T11:00:00Z"
+    "createdAt": "2026-08-08T08:00:00Z",
+    "updatedAt": "2026-08-08T08:00:00Z"
   }
 ]
 ```
 
-Applications are returned with the newest created records first.
+Applications are returned newest-first.
 
-An authenticated user with no matching applications receives:
+If there are no matching applications:
 
 ```json
 []
 ```
 
-### Possible errors
-
-* `400 Bad Request` — invalid query-parameter value
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — the authenticated user no longer exists
-* `500 Internal Server Error` — unexpected backend failure
-
 ---
 
-## Create an application
+## Create Application
 
 ```http
 POST /api/v1/applications
@@ -428,7 +618,7 @@ POST /api/v1/applications
 
 Required.
 
-### Request body
+### Request Body
 
 ```json
 {
@@ -447,22 +637,15 @@ Required.
 }
 ```
 
-### Successful response
+### Successful Response
 
 **Status:** `201 Created`
 
-The response body contains the newly created application object, including its generated `id`, `createdAt` and `updatedAt` values.
-
-### Possible errors
-
-* `400 Bad Request` — validation failed or the request body is malformed
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — the authenticated user no longer exists
-* `500 Internal Server Error` — unexpected backend failure
+The response contains the created application including generated ID and timestamps.
 
 ---
 
-## Get an application
+## Get Application
 
 ```http
 GET /api/v1/applications/{applicationId}
@@ -472,34 +655,19 @@ GET /api/v1/applications/{applicationId}
 
 Required.
 
-### Path parameter
+### Path Parameter
 
-| Parameter       | Description             |
-| --------------- | ----------------------- |
-| `applicationId` | UUID of the application |
+`applicationId` must be a valid UUID.
 
-### Example
-
-```http
-GET /api/v1/applications/06feb388-7a80-409a-a8b3-9cff672b083c
-```
-
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
-The response body contains the requested application object.
-
-### Possible errors
-
-* `400 Bad Request` — `applicationId` is not a valid UUID
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — application does not exist or belongs to another user
-* `500 Internal Server Error` — unexpected backend failure
+The response contains the requested application.
 
 ---
 
-## Update an application
+## Update Application
 
 ```http
 PUT /api/v1/applications/{applicationId}
@@ -509,11 +677,11 @@ PUT /api/v1/applications/{applicationId}
 
 Required.
 
-### Request body
+This is a full update operation.
 
-The update request uses the same fields and validation rules as the create request.
+Required fields such as `company`, `jobTitle` and `status` must still be supplied.
 
-This is a full update operation. Required fields such as `company`, `jobTitle` and `status` must still be supplied.
+### Example Request
 
 ```json
 {
@@ -532,22 +700,15 @@ This is a full update operation. Required fields such as `company`, `jobTitle` a
 }
 ```
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
-The response body contains the updated application object.
-
-### Possible errors
-
-* `400 Bad Request` — invalid UUID, validation failure or malformed request body
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — application does not exist or belongs to another user
-* `500 Internal Server Error` — unexpected backend failure
+The response contains the updated application.
 
 ---
 
-## Delete an application
+## Delete Application
 
 ```http
 DELETE /api/v1/applications/{applicationId}
@@ -557,22 +718,13 @@ DELETE /api/v1/applications/{applicationId}
 
 Required.
 
-### Successful response
+### Successful Response
 
 **Status:** `204 No Content`
 
-The response contains no body.
-
-### Possible errors
-
-* `400 Bad Request` — `applicationId` is not a valid UUID
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — application does not exist or belongs to another user
-* `500 Internal Server Error` — unexpected backend failure
-
 ---
 
-## Get application summary
+## Get Application Summary
 
 ```http
 GET /api/v1/applications/summary
@@ -582,7 +734,7 @@ GET /api/v1/applications/summary
 
 Required.
 
-### Successful response
+### Successful Response
 
 **Status:** `200 OK`
 
@@ -598,25 +750,231 @@ Required.
 }
 ```
 
-All supported status fields are included, even when their count is zero.
+All status fields are returned even when a count is zero.
 
-The `total` value is the sum of all status counts belonging to the authenticated user.
+---
 
-### Possible errors
+# Reminder Endpoints
 
-* `401 Unauthorized` — token is missing, invalid or expired
-* `404 Not Found` — the authenticated user no longer exists
-* `500 Internal Server Error` — unexpected backend failure
+Reminder data is persisted by the backend and scoped to the authenticated user.
+
+The operating-system notification itself is scheduled separately by the mobile client.
+
+A user cannot retrieve, modify or delete another user's reminder.
+
+## Reminder Object
+
+```json
+{
+  "id": "83f619c6-c55a-4ac0-a868-364468299d85",
+  "title": "Prepare for interview",
+  "company": "Example Company",
+  "type": "INTERVIEW",
+  "dueAt": "2026-08-12T09:30:00Z",
+  "notes": "Review Java and Spring Boot examples.",
+  "completed": false,
+  "createdAt": "2026-08-08T08:00:00Z",
+  "updatedAt": "2026-08-08T08:00:00Z"
+}
+```
+
+## Reminder Fields
+
+| Field       |          Create |             Update | Rules                             |
+| ----------- | --------------: | -----------------: | --------------------------------- |
+| `title`     |        Required |           Required | Non-blank; maximum 200 characters |
+| `company`   |       Supported |          Supported | Maximum 200 characters            |
+| `type`      |        Required |           Required | Valid reminder type               |
+| `dueAt`     |        Required |           Required | ISO-8601 instant                  |
+| `notes`     |        Optional |           Optional | Text                              |
+| `completed` | Backend default | Required on update | Boolean                           |
+
+When no company is required, the mobile client uses an empty string.
+
+## Create Reminder
+
+```http
+POST /api/v1/reminders
+```
+
+### Authentication
+
+Required.
+
+### Request Body
+
+```json
+{
+  "title": "Prepare for interview",
+  "company": "Example Company",
+  "type": "INTERVIEW",
+  "dueAt": "2026-08-12T09:30:00Z",
+  "notes": "Review Java and Spring Boot examples."
+}
+```
+
+### Successful Response
+
+**Status:** `201 Created`
+
+The response contains the created reminder.
+
+New reminders begin with their backend-defined default completion state.
+
+---
+
+## List Reminders
+
+```http
+GET /api/v1/reminders
+```
+
+### Authentication
+
+Required.
+
+### Successful Response
+
+**Status:** `200 OK`
+
+```json
+[
+  {
+    "id": "83f619c6-c55a-4ac0-a868-364468299d85",
+    "title": "Prepare for interview",
+    "company": "Example Company",
+    "type": "INTERVIEW",
+    "dueAt": "2026-08-12T09:30:00Z",
+    "notes": "Review Java and Spring Boot examples.",
+    "completed": false,
+    "createdAt": "2026-08-08T08:00:00Z",
+    "updatedAt": "2026-08-08T08:00:00Z"
+  }
+]
+```
+
+Reminders are returned ordered by `dueAt` ascending.
+
+An authenticated user with no reminders receives:
+
+```json
+[]
+```
+
+---
+
+## Get Reminder
+
+```http
+GET /api/v1/reminders/{reminderId}
+```
+
+### Authentication
+
+Required.
+
+### Successful Response
+
+**Status:** `200 OK`
+
+Returns the owned reminder.
+
+If the reminder does not exist or belongs to another user:
+
+```text
+404 Not Found
+```
+
+---
+
+## Update Reminder
+
+```http
+PUT /api/v1/reminders/{reminderId}
+```
+
+### Authentication
+
+Required.
+
+### Request Body
+
+```json
+{
+  "title": "Prepare for technical interview",
+  "company": "Example Company",
+  "type": "INTERVIEW",
+  "dueAt": "2026-08-12T10:00:00Z",
+  "notes": "Review Java, Spring Boot and PostgreSQL.",
+  "completed": true
+}
+```
+
+### Successful Response
+
+**Status:** `200 OK`
+
+Returns the updated reminder.
+
+---
+
+## Delete Reminder
+
+```http
+DELETE /api/v1/reminders/{reminderId}
+```
+
+### Authentication
+
+Required.
+
+### Successful Response
+
+**Status:** `204 No Content`
+
+---
+
+# Ownership Rules
+
+## Applications
+
+Application access is scoped using:
+
+* Requested application ID
+* Authenticated user ID
+
+If another user's application ID is supplied, the API returns:
+
+```text
+404 Not Found
+```
+
+## Reminders
+
+Reminder access is similarly scoped using:
+
+* Requested reminder ID
+* Authenticated user ID
+
+Another user's reminder is not exposed.
+
+## Account Deletion
+
+Account deletion does not accept a user ID in the URL or request body.
+
+The backend derives the account identity from the authenticated JWT.
 
 ---
 
 # Error Response Format
 
-API errors use a consistent JSON structure:
+API errors use a consistent JSON structure.
+
+Example validation response:
 
 ```json
 {
-  "timestamp": "2026-07-28T11:15:00Z",
+  "timestamp": "2026-08-08T08:15:00Z",
   "status": 400,
   "error": "Bad Request",
   "message": "Request validation failed",
@@ -628,22 +986,24 @@ API errors use a consistent JSON structure:
 }
 ```
 
-## Error fields
+## Error Fields
 
-| Field         | Description                                          |
-| ------------- | ---------------------------------------------------- |
-| `timestamp`   | Time at which the backend created the error response |
-| `status`      | Numeric HTTP status                                  |
-| `error`       | Standard HTTP reason phrase                          |
-| `message`     | General explanation of the error                     |
-| `path`        | Requested API path                                   |
-| `fieldErrors` | Validation messages keyed by request-field name      |
+| Field         | Description                                |
+| ------------- | ------------------------------------------ |
+| `timestamp`   | Time the backend created the error         |
+| `status`      | Numeric HTTP status                        |
+| `error`       | HTTP reason                                |
+| `message`     | User-readable/backend-defined explanation  |
+| `path`        | Requested API path                         |
+| `fieldErrors` | Validation messages keyed by request field |
 
-For errors not related to field validation, `fieldErrors` is normally empty:
+Non-field errors normally contain an empty `fieldErrors` object.
+
+Example:
 
 ```json
 {
-  "timestamp": "2026-07-28T11:15:00Z",
+  "timestamp": "2026-08-08T08:15:00Z",
   "status": 401,
   "error": "Unauthorized",
   "message": "Authentication is required",
@@ -652,30 +1012,61 @@ For errors not related to field validation, `fieldErrors` is normally empty:
 }
 ```
 
-## Common HTTP statuses
+## Common HTTP Statuses
 
-|                      Status | Meaning in ApplyMate                                       |
-| --------------------------: | ---------------------------------------------------------- |
-|                    `200 OK` | Request succeeded                                          |
-|               `201 Created` | A resource was created                                     |
-|            `204 No Content` | Resource was deleted                                       |
-|           `400 Bad Request` | Validation, malformed JSON, UUID or parameter error        |
-|          `401 Unauthorized` | Authentication is absent, invalid, expired or login failed |
-|             `403 Forbidden` | An authenticated principal does not have permission        |
-|             `404 Not Found` | User or owned application was not found                    |
-|              `409 Conflict` | Registration email already exists                          |
-| `500 Internal Server Error` | Unexpected backend error                                   |
+|                      Status | Meaning                                                                  |
+| --------------------------: | ------------------------------------------------------------------------ |
+|                    `200 OK` | Request succeeded                                                        |
+|               `201 Created` | Resource created                                                         |
+|            `204 No Content` | Operation succeeded without response body                                |
+|           `400 Bad Request` | Validation, malformed JSON, UUID or parameter error                      |
+|          `401 Unauthorized` | Authentication missing/invalid, login failure or invalid refresh session |
+|             `403 Forbidden` | Authenticated principal lacks permission                                 |
+|             `404 Not Found` | User or owned resource not found                                         |
+|              `409 Conflict` | Registration email already exists                                        |
+| `500 Internal Server Error` | Unexpected backend failure                                               |
 
-## Authentication-error headers
+---
 
-A protected request that is missing valid authentication returns:
+# Authentication Error Handling
+
+A protected request without valid access authentication returns:
 
 ```http
 WWW-Authenticate: Bearer
-Cache-Control: no-store
 ```
 
-Clients should remove invalid or expired login state after receiving an authenticated `401 Unauthorized` response.
+A `401` from a protected request does **not necessarily mean the user must immediately log in again**.
+
+The ApplyMate mobile client performs:
+
+```text
+Protected request returns 401
+        |
+        v
+Check refresh token
+        |
+        v
+POST /api/v1/auth/refresh
+        |
+        ├── Success
+        │      |
+        │      v
+        │  Store rotated token pair
+        │      |
+        │      v
+        │  Retry original request once
+        │
+        └── Invalid/expired/revoked refresh session
+               |
+               v
+           Clear session
+               |
+               v
+           Return to authentication flow
+```
+
+Temporary network/server failures during refresh are treated differently from confirmed invalid refresh credentials.
 
 ---
 
@@ -683,47 +1074,97 @@ Clients should remove invalid or expired login state after receiving an authenti
 
 ## UUIDs
 
-User and application identifiers use UUID strings:
+User, application and reminder identifiers use UUID strings:
 
 ```text
 06feb388-7a80-409a-a8b3-9cff672b083c
 ```
 
-## Calendar dates
+## Calendar Dates
 
-Application deadlines use ISO calendar dates:
+Application deadlines use:
+
+```text
+YYYY-MM-DD
+```
+
+Example:
 
 ```text
 2026-08-15
 ```
 
-## Timestamps
+## Instants and Timestamps
 
-Created, updated and expiry timestamps use ISO-8601 UTC timestamps:
+Reminder due times and authentication expiry times use ISO-8601 instants.
+
+Example:
 
 ```text
-2026-07-28T11:00:00Z
+2026-08-12T09:30:00Z
 ```
 
----
-
-# API Ownership Rule
-
-Application access is always scoped using both:
-
-* The requested application identifier
-* The authenticated user's identifier
-
-The API intentionally returns `404 Not Found` when a requested application belongs to another user. This avoids exposing whether another user's application identifier exists.
+Created/updated timestamps also use ISO-8601 UTC values.
 
 ---
 
 # Production Behaviour
 
-The production backend is hosted on Render's free service tier.
+Production API:
 
-After a period of inactivity, the first request may take longer while the backend and database resume.
+```text
+https://applymate-api-bami.onrender.com
+```
 
-Clients should treat this as a temporary connection delay rather than an authentication failure.
+The production backend is hosted on Render.
 
-The mobile application communicates only with the public HTTPS API. It never receives or stores PostgreSQL connection details.
+Portfolio-tier hosting can experience a cold-start delay after inactivity.
+
+During that period, clients may temporarily receive connection failures or service-unavailable responses while the backend becomes ready.
+
+Backend readiness can be checked through:
+
+```text
+GET /api/v1/status
+GET /actuator/health
+```
+
+When healthy, both return HTTP `200`.
+
+The mobile application communicates only with the HTTPS API.
+
+It never receives or stores PostgreSQL credentials.
+
+---
+
+# Current API Summary
+
+```text
+SYSTEM
+GET    /api/v1/status
+GET    /actuator/health
+
+AUTHENTICATION
+POST   /api/v1/auth/register
+POST   /api/v1/auth/login
+POST   /api/v1/auth/refresh
+POST   /api/v1/auth/logout
+
+USERS
+GET    /api/v1/users/me
+DELETE /api/v1/users/me
+
+APPLICATIONS
+GET    /api/v1/applications
+POST   /api/v1/applications
+GET    /api/v1/applications/summary
+GET    /api/v1/applications/{applicationId}
+PUT    /api/v1/applications/{applicationId}
+DELETE /api/v1/applications/{applicationId}
+
+REMINDERS
+GET    /api/v1/reminders
+POST   /api/v1/reminders
+GET    /api/v1/reminders/{reminderId}
+PUT    /api/v1/reminders/{reminderId}
+DELETE /api/v1/reminders/{reminderId}

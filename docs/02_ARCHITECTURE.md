@@ -4,106 +4,182 @@
 
 ApplyMate is a full-stack mobile application consisting of:
 
-- A React Native and Expo client
+- A React Native and Expo mobile client
 - A Spring Boot REST API
-- JWT-based authentication
+- JWT access-token authentication
+- Persistent refresh-token sessions
 - A PostgreSQL relational database
 - Flyway database migrations
+- Backend-synchronised reminders
+- Local device notification scheduling
 - A Docker-based production backend
 - GitHub Actions continuous integration
+- Expo Application Services for mobile builds
+- GitHub Pages for public privacy and account-deletion information
 
 The application uses one mobile client, one backend service and one PostgreSQL database.
 
 ## Production Architecture
 
 ```text
-┌───────────────────────────────┐
-│   React Native / Expo Client  │
-│                               │
-│   TypeScript                  │
-│   React Navigation            │
-│   Expo SecureStore            │
-│   AsyncStorage                │
-└───────────────┬───────────────┘
-                │
-                │ HTTPS + JSON
-                │ Authorization: Bearer <JWT>
-                ▼
-┌───────────────────────────────┐
-│         Render                │
-│                               │
-│   Spring Boot Docker Service  │
-│   Java 21                     │
-│   Spring Security             │
-│   Validation                  │
-│   JPA / Hibernate             │
-│   Flyway                      │
-│   Actuator Health Check       │
-└───────────────┬───────────────┘
-                │
-                │ JDBC over TLS
-                ▼
-┌───────────────────────────────┐
-│          Neon                 │
-│                               │
-│   PostgreSQL 17               │
-│   app_users                   │
-│   job_applications            │
-│   flyway_schema_history       │
-└───────────────────────────────┘
-```
+┌────────────────────────────────────┐
+│     React Native / Expo Client     │
+│                                    │
+│  TypeScript                        │
+│  React Navigation                  │
+│  Expo SecureStore                  │
+│  AsyncStorage                      │
+│  Expo Notifications                │
+└────────────────┬───────────────────┘
+                 │
+                 │ HTTPS + JSON
+                 │ JWT access token
+                 │ Refresh-token session
+                 ▼
+┌────────────────────────────────────┐
+│              Render                │
+│                                    │
+│  Spring Boot Docker Service        │
+│  Java 21                           │
+│  Spring Security                   │
+│  Validation                        │
+│  JPA / Hibernate                   │
+│  Flyway                            │
+│  Actuator Health Check             │
+└────────────────┬───────────────────┘
+                 │
+                 │ JDBC over TLS
+                 ▼
+┌────────────────────────────────────┐
+│               Neon                 │
+│                                    │
+│  PostgreSQL 17                     │
+│  app_users                         │
+│  job_applications                  │
+│  reminders                         │
+│  refresh_tokens                    │
+│  flyway_schema_history             │
+└────────────────────────────────────┘
+````
 
-## Production Services
+The mobile application communicates only with the Spring Boot API.
 
-### Backend
+It never connects directly to PostgreSQL.
 
-- Provider: Render
-- Service type: Docker web service
-- Region: Frankfurt
-- Public API:
+Local operating-system notifications are scheduled by the mobile application and do not require a direct database connection.
+
+---
+
+# Production Services
+
+## Backend
+
+* Provider: Render
+* Service type: Docker web service
+* Region: Frankfurt
+* Java runtime: Java 21
+* Spring Boot: 4.1
+* Production profile: `prod`
+
+Public API:
 
 ```text
 https://applymate-api-bami.onrender.com
 ```
 
-- Health endpoint:
+Status endpoint:
+
+```text
+https://applymate-api-bami.onrender.com/api/v1/status
+```
+
+Health endpoint:
 
 ```text
 https://applymate-api-bami.onrender.com/actuator/health
 ```
 
-### Database
+Render supplies the production HTTP port through the platform environment.
 
-- Provider: Neon
-- Database name: `applymate`
-- PostgreSQL version: 17
-- Production branch: `production`
-- SSL required
-- Accessible only through backend database credentials
+The application does not assume local port `8080` in production.
 
-The mobile application never connects directly to Neon.
+## Database
 
-## Architectural Principles
+* Provider: Neon
+* Database: `applymate`
+* PostgreSQL version: 17
+* SSL required
+* Accessible only through backend database credentials
+
+Database structure is controlled by Flyway.
+
+The production schema is currently at migration version 5.
+
+## Mobile Distribution
+
+Expo Application Services is used to create mobile builds.
+
+Expo project:
+
+```text
+@zaib_367/ApplyMate
+```
+
+Permanent identifiers:
+
+```text
+Android: com.zaib367.applymate
+iOS:     com.zaib367.applymate
+```
+
+Preview and production EAS environments use the deployed Render API.
+
+## Public Web Pages
+
+GitHub Pages hosts ApplyMate's public privacy and deletion information:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/
+```
+
+Privacy Policy:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/privacy-policy.html
+```
+
+Account deletion information:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/delete-account.html
+```
+
+---
+
+# Architectural Principles
 
 ApplyMate follows these principles:
 
-- The mobile client does not access PostgreSQL directly.
-- All server-backed application data passes through the REST API.
-- Authentication is stateless at the backend.
-- Protected requests use JWT bearer tokens.
-- Every application record is scoped to its authenticated owner.
-- Database structure is managed through Flyway migrations.
-- Environment-specific values are supplied through environment variables.
-- Secrets are stored outside Git.
-- Local-only device features remain separate from backend-managed data.
-- Frontend screens do not depend directly on database or HTTP implementation details.
-- Production infrastructure can be replaced without redesigning the mobile client.
+* The mobile client never accesses PostgreSQL directly.
+* Server-backed user data passes through the Spring Boot REST API.
+* Access tokens are short-lived.
+* Refresh-token sessions are persisted and revocable.
+* Refresh tokens rotate after successful use.
+* Only hashed refresh-token values are stored in PostgreSQL.
+* Every application and reminder is scoped to its authenticated owner.
+* Database structure is managed through Flyway migrations.
+* Environment-specific configuration is supplied through environment variables.
+* Secrets remain outside Git and frontend bundles.
+* Local notification scheduling remains separate from backend reminder persistence.
+* Frontend screens do not depend directly on database implementation details.
+* API and storage responsibilities are isolated in frontend services.
+* Production infrastructure can be replaced without redesigning the mobile client.
 
 ---
 
 # Frontend Architecture
 
-The frontend source is located under `src/`.
+The frontend source is located under:
 
 ```text
 src/
@@ -119,49 +195,67 @@ src/
 
 ## Screens
 
-The `screens/` directory contains complete application screens.
+The `screens/` directory contains complete mobile application screens.
 
 Screens are responsible for:
 
-- Rendering interface state
-- Handling user interaction
-- Calling frontend services
-- Displaying loading states
-- Displaying validation and API errors
-- Refreshing data after user actions
+* Rendering interface state
+* Handling user interaction
+* Calling frontend services
+* Displaying loading states
+* Displaying validation and API errors
+* Refreshing data after user actions
+* Triggering account and reminder actions
 
 Screens do not contain backend persistence logic.
 
 ## Components
 
-The `components/` directory contains reusable interface elements shared by screens.
+The `components/` directory contains reusable user-interface elements.
+
+Examples include reusable settings rows and form controls.
 
 Components remain focused on presentation and reusable interaction behaviour.
 
 ## Navigation
 
-The `navigation/` directory defines public and protected navigation flows.
+The `navigation/` directory defines public and authenticated navigation flows.
 
 Authentication state determines whether the user sees:
 
-- Registration and login screens
-- The authenticated application interface
+```text
+Unauthenticated
+    -> Welcome
+    -> Register
+    -> Login
 
-Navigation does not authenticate the user itself. It reacts to state supplied by the authentication context.
+Authenticated
+    -> Dashboard
+    -> Applications
+    -> Reminders
+    -> Profile
+```
 
-## Context
+Navigation does not authenticate the user itself.
 
-The `context/` directory contains shared application state.
+It reacts to authentication state supplied by `AuthContext`.
 
-The authentication context coordinates:
+## Authentication Context
 
-- Registration
-- Login
-- Logout
-- Initial session restoration
-- Current-user loading
-- Access-token state
-- Public and protected navigation state
+`AuthContext` coordinates:
+
+* Login
+* Logout
+* Session restoration
+* Current-user loading
+* Expired-session handling
+* Silent access-token refresh
+* Account deletion
+* Public/authenticated navigation state
+
+If a valid refresh session exists, an expired access token does not automatically log the user out.
+
+If refresh authentication fails because the session is no longer valid, the authentication context clears the current user and returns the app to the unauthenticated flow.
 
 ## Frontend Configuration
 
@@ -171,299 +265,514 @@ The API base URL is supplied through:
 EXPO_PUBLIC_API_URL
 ```
 
-Examples:
+Typical values:
 
 ```text
-Local web:
-http://localhost:8080
-
-Local physical device:
-http://<developer-machine-LAN-IP>:8080
+Local backend:
+http://127.0.0.1:8080
 
 Production:
 https://applymate-api-bami.onrender.com
 ```
 
-The configured value is normalised before requests are sent.
+For Android emulator testing, ADB reverse may be used when connecting to a locally running backend.
 
-The public API URL may appear in the frontend bundle. Secrets must never use the `EXPO_PUBLIC_` prefix.
+The public API URL may appear in the frontend bundle.
 
-## Frontend Service Layer
+Secrets must never use the `EXPO_PUBLIC_` prefix.
 
-The `services/` directory separates API and storage operations from screens.
+---
+
+# Frontend Service Layer
+
+The `services/` directory separates network, authentication, notification and storage operations from screens.
 
 Important services include:
 
-- `apiClient.ts`
-- `authService.ts`
-- `applicationService.ts`
-- `systemService.ts`
-- `tokenStorage.ts`
-- `authStorage.ts`
-- `reminderStorage.ts`
-- `settingsStorage.ts`
-- `notificationService.ts`
+```text
+apiClient.ts
+authService.ts
+applicationService.ts
+accountService.ts
+notificationService.ts
+reminderStorage.ts
+settingsStorage.ts
+tokenStorage.ts
+```
 
-### Central API client
+## Central API Client
 
-The API client:
+`apiClient.ts` is responsible for:
 
-- Builds URLs from `EXPO_PUBLIC_API_URL`
-- Serialises request bodies as JSON
-- Adds standard JSON headers
-- Retrieves stored JWT access tokens
-- Adds bearer tokens to protected requests
-- Parses successful responses
-- Converts API failures into a consistent frontend error type
-- Removes invalid authentication state after protected `401` responses
-- Converts network failures into user-readable errors
+* Building URLs from `EXPO_PUBLIC_API_URL`
+* Serialising JSON request bodies
+* Adding standard request headers
+* Loading access tokens
+* Adding bearer authentication to protected requests
+* Parsing successful responses
+* Converting backend failures into `ApiError`
+* Detecting authenticated `401` responses
+* Refreshing expired access tokens
+* Retrying the original request once
+* Coordinating simultaneous refresh attempts
+* Clearing invalid sessions when refresh authentication fails
+* Preserving sessions during temporary network/server failures where appropriate
+* Converting network failures into readable frontend errors
 
-Feature services use this client rather than duplicating request logic.
+## Silent Refresh Coordination
 
-### Application service
+Several protected API requests can fail at the same time after an access token expires.
+
+The frontend prevents each request from independently rotating the same refresh token.
+
+```text
+Multiple requests receive 401
+            |
+            v
+One shared refresh operation
+            |
+            v
+New access + refresh tokens stored
+            |
+            v
+Waiting requests continue
+```
+
+This avoids unnecessary refresh-token reuse and race conditions.
+
+## Token Storage
+
+Native Android/iOS platforms use Expo SecureStore for authentication credentials.
+
+Stored authentication data includes:
+
+* Access token
+* Refresh token
+
+Web fallback storage uses browser `localStorage`.
+
+Rotated authentication credentials replace the previous token pair.
+
+AsyncStorage is used for non-secret device-specific state.
+
+## Application Service
 
 The application service:
 
-- Calls job-application endpoints
-- Maps frontend status labels to backend enum values
-- Maps backend responses into frontend models
-- Encodes search and filtering query parameters
-- Keeps backend DTO shapes separate from screens
+* Calls application endpoints
+* Maps frontend status labels to backend enum values
+* Maps backend DTOs into frontend models
+* Encodes search/filter parameters
+* Keeps API shapes separate from screens
 
-## Token and Session Storage
+## Reminder Architecture
 
-On native platforms, JWT access tokens are stored using Expo SecureStore.
+Reminder records are persisted by the backend.
 
-On the web build, access tokens are stored using browser `localStorage`.
+Local notification scheduling remains on the device.
 
-Cached user-display and session information may use AsyncStorage.
+```text
+User creates reminder
+        |
+        ├──> Spring Boot API
+        │       |
+        │       v
+        │   PostgreSQL reminder
+        │
+        └──> Expo Notifications
+                |
+                v
+        Device notification schedule
+```
 
-The JWT remains the authority for protected backend access. Cached state cannot bypass backend authentication.
+Stored device notification identifiers are associated with the authenticated user.
 
-## Local-Only Features
+This allows local notification cleanup during reminder changes and account deletion.
 
-The following features remain local to the device:
+## Account Deletion Service
 
-- Reminders
-- Local notification scheduling
-- Face ID preference
-- Notification preferences
+`accountService.ts` coordinates the mobile side of permanent account deletion.
 
-These features do not currently pass through the backend API.
+The sequence is:
+
+```text
+DELETE /api/v1/users/me
+        |
+        v
+Backend confirms deletion
+        |
+        v
+Cancel scheduled local reminders
+        |
+        v
+Clear stored reminder notification IDs
+        |
+        v
+Clear local account-related settings
+        |
+        v
+Remove access + refresh tokens
+        |
+        v
+AuthContext clears current user
+        |
+        v
+Welcome screen
+```
+
+Local data is not treated as proof that backend deletion succeeded.
+
+The backend deletion must succeed first.
 
 ---
 
 # Backend Architecture
 
-The backend source is located under:
+Backend source:
 
 ```text
 backend/src/main/java/com/applymate/backend/
 ```
 
-The backend uses feature-based packages:
+The project is organised by feature.
+
+Important backend areas include:
 
 ```text
 com.applymate.backend
 ├── application/
 ├── auth/
-├── common/error/
+├── reminder/
 ├── security/
-├── system/
 ├── user/
+├── common/error/
+├── system/
 └── ApplyMateBackendApplication.java
 ```
 
-Although classes are grouped by feature, the backend follows logical application layers.
+Although classes are grouped by feature, the backend maintains controller, service, repository and persistence responsibilities.
 
 ## Controller Layer
 
-Controllers expose the REST API.
+Controllers are responsible for:
 
-Controller responsibilities include:
+* Mapping HTTP routes
+* Reading path/query parameters
+* Receiving request DTOs
+* Triggering Bean Validation
+* Reading the authenticated principal
+* Delegating business operations to services
+* Returning response DTOs
+* Returning appropriate HTTP status codes
 
-- Mapping HTTP routes
-- Reading path and query parameters
-- Receiving request DTOs
-- Triggering Bean Validation
-- Reading the authenticated principal
-- Delegating operations to services
-- Returning response DTOs and HTTP status codes
-
-Controllers do not directly implement persistence logic.
+Controllers do not directly implement database persistence.
 
 ## DTO and Validation Layer
 
-Request and response DTOs define the external API contract.
+Request and response DTOs define the public API contract.
 
-Request DTOs validate:
+Validation covers fields such as:
 
-- Required fields
-- Maximum lengths
-- Email formatting
-- Supported application statuses
-- Date formats
-- URL formats
+* Required values
+* Maximum lengths
+* Email formatting
+* Application statuses
+* Dates
+* URLs
+* Reminder values
+* Authentication request data
 
-Persistence entities are not returned directly as the public API contract.
+Persistence entities are not exposed directly as the API contract.
 
 ## Service Layer
 
 Services implement application business rules.
 
-Service responsibilities include:
+Responsibilities include:
 
-- Resolving the authenticated user
-- Creating and updating entities
-- Enforcing application ownership
-- Applying search and filtering rules
-- Calculating dashboard summary counts
-- Mapping entities to API responses
-- Raising domain-specific exceptions
+* Resolving authenticated users
+* Creating/updating/deleting entities
+* Enforcing ownership
+* Search/filter logic
+* Dashboard calculations
+* Authentication
+* Refresh-token lifecycle management
+* Account deletion
+* Response mapping
+* Domain-specific exceptions
 
 ## Repository Layer
 
-Repositories use Spring Data JPA to access PostgreSQL.
+Spring Data JPA repositories access PostgreSQL.
 
-Application operations must include the authenticated user's identity when:
+User-owned queries must include the authenticated user's identity.
 
-- Listing applications
-- Searching applications
-- Filtering applications
-- Loading application details
-- Updating applications
-- Deleting applications
-- Calculating summary counts
+This applies to:
 
-A request containing another user's application ID must not expose that application.
+* Listing applications
+* Searching/filtering applications
+* Loading application details
+* Updating applications
+* Deleting applications
+* Calculating summaries
+* Loading reminders
+* Modifying reminders
 
-## Entity Layer
+Another user's record must not be exposed merely because its identifier is known.
 
-The main persisted domain entities are:
+## Persisted Domain Data
 
-- Application users
-- Job applications
+PostgreSQL stores:
 
-Each job application belongs to one application user.
+* Application users
+* Password hashes
+* Job applications
+* Reminders
+* Refresh-token session records
+* Ownership relationships
+* Creation/update timestamps
 
 ---
 
 # Security Architecture
 
-## Public routes
+## Public Routes
 
-The following routes are public:
+Routes that must work without an active access token include:
 
-- `GET /api/v1/status`
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /actuator/health`
+```text
+GET  /api/v1/status
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /actuator/health
+```
 
-## Protected routes
+`refresh` must remain accessible after an access token expires.
 
-User-profile and application-management routes require:
+`logout` revokes a refresh-token session and therefore does not depend on a still-valid access token.
+
+## Protected Routes
+
+Protected application, reminder, profile and account-deletion operations require:
 
 ```http
 Authorization: Bearer <access-token>
 ```
 
+Examples include:
+
+```text
+GET    /api/v1/users/me
+DELETE /api/v1/users/me
+
+GET    /api/v1/applications
+POST   /api/v1/applications
+PUT    /api/v1/applications/{id}
+DELETE /api/v1/applications/{id}
+```
+
 ## Login Flow
 
 ```text
-1. The user submits an email address and password.
-2. The backend loads the user account.
-3. The password is checked against the stored password hash.
-4. The backend creates a signed JWT access token.
-5. The frontend stores the access token.
-6. Protected requests include the token as a bearer token.
+1. User submits email and password.
+2. Backend loads the account.
+3. Password is checked against the stored password hash.
+4. Backend generates a JWT access token.
+5. Backend generates an opaque refresh token.
+6. Backend stores only the refresh-token hash.
+7. Mobile stores both tokens securely.
+8. Protected requests use the access token.
 ```
 
-## Protected Request Flow
+## Access Token Lifetime
+
+Production access-token lifetime:
 
 ```text
-1. The mobile client loads the stored access token.
-2. The API client adds the Authorization header.
-3. Spring Security validates the JWT signature and claims.
-4. The authenticated identity becomes available to the request.
-5. The controller delegates to the relevant service.
-6. The service applies ownership and business rules.
-7. The repository accesses only the authenticated user's data.
-8. The API returns a JSON response.
+1 hour
 ```
+
+The access token is intentionally shorter-lived than the persistent session.
+
+## Refresh Session Lifetime
+
+Production refresh-session lifetime:
+
+```text
+30 days
+```
+
+A successful refresh creates a new token pair.
+
+## Refresh Token Rotation
+
+Refresh tokens are single-use session credentials.
+
+```text
+Refresh A
+   |
+   | successful refresh
+   v
+Refresh A revoked
+Refresh B issued
+```
+
+The old token cannot continue operating as the active refresh credential.
+
+## Refresh Token Families
+
+Refresh tokens belong to a session family.
+
+```text
+Session family
+├── Refresh A
+├── Refresh B
+└── Refresh C
+```
+
+Reuse of a revoked token can indicate token duplication.
+
+The service can revoke the active family when suspicious reuse is detected.
+
+## Refresh Token Persistence
+
+The backend stores:
+
+* Token record ID
+* User ID
+* Family ID
+* SHA-256 token hash
+* Expiry time
+* Revocation time
+* Creation time
+
+The usable refresh token itself is not stored in PostgreSQL.
+
+## Concurrency Protection
+
+Refresh-token rotation uses both client-side and backend safeguards.
+
+Frontend:
+
+```text
+shared refresh promise
+```
+
+Backend:
+
+```text
+pessimistic write lock while rotating the token
+```
+
+This prevents concurrent protected requests from independently rotating the same session credential.
+
+## Logout
+
+Logout performs:
+
+```text
+Mobile sends current refresh token
+        |
+        v
+Backend revokes refresh session
+        |
+        v
+Mobile removes access token
+        |
+        v
+Mobile removes refresh token
+        |
+        v
+Authenticated user state cleared
+```
+
+Local logout cleanup still proceeds if the backend cannot be reached.
+
+## Account Deletion Security
+
+Account deletion endpoint:
+
+```text
+DELETE /api/v1/users/me
+```
+
+The user identifier is obtained from the authenticated JWT.
+
+Clients cannot supply a different user ID to delete another account.
+
+Database relationships remove user-owned backend data when the account is deleted.
 
 ## JWT Configuration
 
-The backend uses:
+JWT configuration includes:
 
-- A configured issuer
-- A signed secret
-- A limited access-token lifetime
-- A user authority represented by the token scope
+* Signing secret
+* Issuer configuration
+* Access-token lifetime
+* Authenticated user identity
+* Application authority/scope
 
-The production JWT secret is stored as a Render environment variable.
+The production JWT secret is stored in Render.
 
-It must never be committed to Git, stored in the Docker image or included in frontend code.
+It must never appear in:
+
+* Git
+* Docker image layers
+* Frontend source
+* Documentation
+* EAS public environment variables
 
 ## CORS
 
-Allowed browser origins are configured through:
+Browser CORS settings are configured through:
 
 ```text
 APP_CORS_ALLOWED_ORIGIN_PATTERNS
 ```
 
-Native React Native requests are not governed by browser CORS in the same way as an Expo web deployment.
-
-Any future web frontend origin must be explicitly added to production CORS configuration.
-
----
-
-# Error Handling
-
-The backend uses centralised exception handling.
-
-Expected API errors include:
-
-- Invalid request data
-- Malformed JSON
-- Invalid credentials
-- Missing or invalid authentication
-- Duplicate registration data
-- Missing application records
-- Unsupported status values
-- Unexpected server failures
-
-The frontend API client converts backend errors into a consistent `ApiError` structure.
-
-Production configuration prevents default framework responses from exposing:
-
-- Stack traces
-- Internal exception names
-- Database details
-- Binding implementation details
+Native React Native requests do not follow browser CORS rules in the same manner as Expo web.
 
 ---
 
 # Persistence Architecture
 
-PostgreSQL is the system of record for:
+PostgreSQL is the system of record for server-managed user data.
 
-- Registered users
-- Password hashes
-- Job applications
-- Application ownership
-- Application statuses
-- Creation and update timestamps
+Current main tables include:
+
+```text
+app_users
+job_applications
+reminders
+refresh_tokens
+flyway_schema_history
+```
 
 The backend uses:
 
-- Spring Data JPA for repository access
-- Hibernate for ORM behaviour
-- HikariCP for connection pooling
-- Flyway for schema migrations
-- UTC for backend timestamps
+* Spring Data JPA
+* Hibernate
+* HikariCP
+* Flyway
+* UTC timestamps
 
-Hibernate validates the production schema but does not create it automatically.
+Hibernate validates the schema.
+
+Flyway remains responsible for creating and changing it.
+
+## Database Relationships
+
+User-owned entities reference `app_users`.
+
+Account deletion removes associated user data through database ownership/cascade relationships where configured.
+
+This includes:
+
+* Job applications
+* Reminders
+* Refresh-token sessions
 
 ## Database Migrations
 
@@ -473,21 +782,28 @@ Migration files are stored under:
 backend/src/main/resources/db/migration/
 ```
 
+Current migration history includes:
+
+```text
+V1 - application users
+V2 - job applications
+V3 - reminders
+V4 - refresh-token table
+V5 - refresh-token hash column correction
+```
+
 Flyway migrations:
 
-- Run in version order
-- Record execution in `flyway_schema_history`
-- Create and update the database schema
-- Must not be modified after being applied to a shared environment
-- Must be extended using new migration files
-
-Flyway runs when the production backend starts.
+* Run in version order
+* Are recorded in `flyway_schema_history`
+* Must not be edited after being applied to shared environments
+* Must be extended with new migration files
 
 ## Database Portability
 
-ApplyMate uses standard PostgreSQL and JDBC configuration.
+ApplyMate uses standard PostgreSQL and JDBC.
 
-A different PostgreSQL provider can be used by replacing:
+A different PostgreSQL provider can be used by changing:
 
 ```text
 DB_URL
@@ -495,11 +811,7 @@ DB_USERNAME
 DB_PASSWORD
 ```
 
-Schema recreation is handled by Flyway.
-
-Existing data can be migrated using standard PostgreSQL backup and restore tools.
-
-The application does not depend on Neon-specific client libraries, authentication or APIs.
+The application does not depend on Neon-specific authentication or client libraries.
 
 ---
 
@@ -507,26 +819,29 @@ The application does not depend on Neon-specific client libraries, authenticatio
 
 ```text
 Developer computer
-├── Expo development server
-├── React Native app or web build
-├── Spring Boot process on port 8080
+├── Expo / Metro on port 8081
+├── Android emulator / Expo Go / dev build
+├── Spring Boot on port 8080
 └── Docker
     └── PostgreSQL 17 on port 5432
 ```
 
-The local PostgreSQL container is defined in:
+Metro port `8081` serves the React Native development bundle.
+
+Spring Boot port `8080` serves the local REST API.
+
+They have separate responsibilities.
+
+Android emulator development may use:
 
 ```text
-backend/compose.yaml
+adb reverse tcp:8080 tcp:8080
+adb reverse tcp:8081 tcp:8081
 ```
 
-The Compose setup provides:
+when local routing requires it.
 
-- PostgreSQL 17
-- Environment-based credentials
-- A persistent Docker volume
-- A database health check
-- Automatic restart unless manually stopped
+Production mobile builds do not use these local ports.
 
 ---
 
@@ -541,13 +856,13 @@ Build stage
 ├── pom.xml
 └── backend source
         |
-        | mvn clean package
-        ▼
+        | Maven package
+        v
 Executable Spring Boot JAR
         |
-        ▼
+        v
 Runtime stage
-├── Java 21 JRE
+├── Java 21 runtime
 ├── curl
 ├── non-root applymate user
 └── app.jar
@@ -555,106 +870,177 @@ Runtime stage
 
 The final image:
 
-- Does not contain Maven
-- Does not include local `.env` files
-- Does not include test sources
-- Runs as the non-root `applymate` user
-- Activates the Spring production profile
-- Exposes the platform-provided server port
-- Defines an `/actuator/health` Docker health check
-
-The `.dockerignore` prevents local secrets and unnecessary files from entering the build context.
+* Does not contain Maven
+* Does not include committed secrets
+* Runs as the non-root `applymate` user
+* Activates the production profile
+* Uses the platform-provided production port
+* Exposes Actuator health information
 
 ---
 
 # Continuous Integration Architecture
 
-GitHub Actions runs three jobs.
+GitHub Actions validates the application through frontend, backend and Docker checks.
 
-## Frontend checks
+## Frontend
 
 ```text
 npm ci
-    |
+   |
 npm run typecheck
-    |
-npm run build:web
+   |
+Expo web build/export
 ```
 
-## Backend checks
+## Backend
 
 ```text
 PostgreSQL CI service
         |
 Java 21
         |
-Maven clean verify
+Maven verify/test
         |
 JUnit / MockMvc / Testcontainers
 ```
 
-## Docker checks
+The current backend test suite contains:
 
 ```text
-Build production Docker image
-        |
-Verify non-root user
-        |
-Verify health-check configuration
+40 tests
+0 failures
+0 errors
 ```
 
-The Docker job runs only after the frontend and backend jobs pass.
+## Docker
 
-No production credentials are used in CI.
+```text
+Build production image
+        |
+Verify runtime configuration
+        |
+Verify non-root execution
+        |
+Verify health behaviour
+```
+
+No production credentials are required by CI.
 
 ---
 
 # Environment Separation
 
-## Local environment
+## Local Environment
 
-Local development uses:
+Local development may use:
 
-- Root `.env.local`
-- Backend `.env`
-- Docker Compose PostgreSQL
-- Localhost or LAN API addresses
-- Local development JWT secret
+```text
+.env.local
+backend/.env
+```
 
 These files are ignored by Git.
 
-## Continuous integration environment
+Local environment values can include:
 
-CI uses:
+* Local API URL
+* Local database credentials
+* Development JWT secret
+* Temporary test token lifetimes
 
-- Temporary CI environment variables
-- An isolated PostgreSQL service
-- Testcontainers
-- A placeholder frontend API URL
-- No production credentials
+## EAS Environments
 
-## Production environment
+EAS has separate build environments for:
 
-Render stores:
+* Preview
+* Production
 
-- `SPRING_PROFILES_ACTIVE`
-- `DB_URL`
-- `DB_USERNAME`
-- `DB_PASSWORD`
-- `JWT_SECRET`
-- `APP_CORS_ALLOWED_ORIGIN_PATTERNS`
-- Platform-provided `PORT`
+The public production API configuration is:
+
+```text
+EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
+```
+
+No JWT secrets or database credentials are placed in the frontend environment.
+
+## Production Environment
+
+Render stores values such as:
+
+```text
+SPRING_PROFILES_ACTIVE
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+JWT_SECRET
+JWT_ACCESS_TOKEN_TTL
+REFRESH_TOKEN_TTL
+APP_CORS_ALLOWED_ORIGIN_PATTERNS
+PORT
+```
 
 Neon stores the production PostgreSQL data.
 
-Production secrets must not be stored in:
+Production secrets must never be committed to Git.
 
-- Git
-- Docker images
-- Frontend source code
-- Documentation
-- Test fixtures
-- Committed environment files
+---
+
+# Account Deletion Architecture
+
+Account deletion spans backend and device cleanup.
+
+```text
+Authenticated user
+       |
+       v
+DELETE /api/v1/users/me
+       |
+       v
+Delete app_users record
+       |
+       ├──> delete job applications
+       ├──> delete reminders
+       └──> delete refresh-token sessions
+       |
+       v
+Mobile local cleanup
+       |
+       ├──> cancel scheduled notifications
+       ├──> remove stored notification IDs
+       ├──> remove local account settings
+       └──> remove authentication tokens
+       |
+       v
+Welcome / Login
+```
+
+A production disposable-account test confirmed that deleted credentials can no longer authenticate.
+
+---
+
+# Privacy and Store-Readiness Architecture
+
+Privacy information is hosted separately from the backend API.
+
+```text
+GitHub Pages
+├── index.html
+├── privacy-policy.html
+└── delete-account.html
+```
+
+The Privacy Policy is linked from the Profile screen.
+
+Users can delete their account directly inside the application.
+
+Users without access to the application are given a public deletion-information page and support contact.
+
+Public support email:
+
+```text
+support.applymate@gmail.com
+```
 
 ---
 
@@ -662,39 +1048,60 @@ Production secrets must not be stored in:
 
 The deployed architecture has passed:
 
-- Public API status verification
-- Actuator health verification
-- Registration and login
-- JWT authentication
-- Current-user profile retrieval
-- Application CRUD
-- Search and filtering
-- Dashboard summary
-- Validation checks
-- Unauthenticated-request rejection
-- Cross-user isolation checks
-- Full mobile-to-production testing
-- Persistence after logout and login
+* Public API status verification
+* Actuator health verification
+* Registration
+* Login
+* Access-token authentication
+* Refresh-token issuance
+* Refresh-token rotation
+* Silent session refresh
+* Current-user profile retrieval
+* Application CRUD
+* Dashboard summaries
+* Search/filtering
+* Reminder persistence
+* Local reminder scheduling
+* User-data isolation
+* Session restoration
+* Logout
+* Account deletion
+* Deleted-account login rejection
+* Privacy Policy navigation
+* Standalone Android preview-build testing
 
-The verified production path is:
+Verified production path:
 
 ```text
-Expo mobile client
-    -> Render Docker backend
-    -> Neon PostgreSQL
+Android / Expo client
+        |
+        v
+Render Spring Boot API
+        |
+        v
+Neon PostgreSQL
 ```
 
 ---
 
 # Operational Characteristics
 
-The current deployment uses free portfolio-tier services.
+The current deployment uses portfolio-tier cloud infrastructure.
 
-Render may stop the backend after inactivity. Neon may suspend inactive database compute.
+Render can experience cold-start delays after inactivity.
 
-The first request after inactivity can therefore take longer while both services resume.
+During cold start, the mobile application may temporarily be unable to reach the backend until the service becomes ready.
 
-This behaviour affects initial response time but does not change the application architecture or stored data.
+This affects response time but does not change data integrity or application architecture.
+
+The production API has been verified after startup using:
+
+```text
+/api/v1/status
+/actuator/health
+```
+
+Both return HTTP 200 when the backend is ready.
 
 ---
 
@@ -702,10 +1109,15 @@ This behaviour affects initial response time but does not change the application
 
 The following boundaries remain in place:
 
-- Application data continues to use the Spring Boot API.
-- PostgreSQL remains the backend system of record.
-- The mobile client never accesses PostgreSQL directly.
-- Reminders and device preferences remain local.
-- Production secrets remain outside Git.
-- Existing screens and navigation are not redesigned during release preparation.
-- New product features remain deferred until release builds are stable.
+* Server-managed application data uses Spring Boot.
+* PostgreSQL remains the backend system of record.
+* Mobile clients never connect directly to PostgreSQL.
+* Reminder records are backend-synchronised.
+* Notification scheduling remains device-side.
+* Device preferences remain local.
+* Production secrets remain outside Git.
+* Access tokens remain short-lived.
+* Refresh sessions remain revocable and persistent.
+* New database changes must use Flyway.
+* Public privacy/deletion pages remain separate from authenticated API functionality.
+* Standalone iOS distribution remains deferred until Apple Developer Program enrolment.
