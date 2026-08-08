@@ -39,27 +39,8 @@ https://applymate-api-bami.onrender.com
 Current release tag:
 
 ```text
-v1.2.0
-```
-
-Next release tag:
-
-```text
 v1.3.0
 ```
-
-Remaining work before `v1.3.0`:
-
-* Complete documentation refresh
-* Update root README
-* Run final frontend checks
-* Run final backend checks
-* Run final Docker verification
-* Confirm GitHub Actions CI
-* Commit documentation closeout
-* Create and push `v1.3.0`
-
----
 
 # Phase 1 — Frontend MVP
 
@@ -537,9 +518,9 @@ This was intentionally deferred and does not block the current Android beta/port
 * [x] Production account-deletion test
 * [x] Android standalone smoke test
 * [x] Privacy Policy verification
-* [ ] Final Docker validation after documentation closeout
-* [ ] Final GitHub Actions CI
-* [ ] Create `v1.3.0`
+* [x] Final Docker validation after documentation closeout
+* [x] Final GitHub Actions CI
+* [x] Create `v1.3.0`
 
 ---
 
@@ -564,20 +545,6 @@ ApplyMate now includes:
 * Public account-deletion information
 * Production backend/database
 * Android release-candidate smoke testing
-
-Remaining work is release administration only:
-
-```text
-Documentation
-    ->
-Final validation
-    ->
-CI
-    ->
-v1.3.0
-```
-
----
 
 # Phase 7 — Public Store Release
 
@@ -698,19 +665,11 @@ Normal email/password login thereafter
 * [ ] Interview-coach integration
 * [ ] Additional automation workflows
 
----
+```
 
-# Current Immediate Task
+#Current Immediate Task
 
-Complete the `v1.3.0` release closeout:
+Begin Phase 8 — Account & Authentication Improvements:
 
-1. Finish shared project documentation.
-2. Update the root README.
-3. Run final frontend checks.
-4. Run final backend tests.
-5. Run final Docker checks.
-6. Confirm GitHub Actions CI.
-7. Commit and push the documentation closeout.
-8. Create and push release tag `v1.3.0`.
-
-After that, the Mobile Distribution & Release Readiness milestone is formally complete.
+1. Email verification
+2. Password reset

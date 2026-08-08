@@ -998,21 +998,8 @@ Completed milestones:
 Current release:
 
 ```text
-v1.2.0
-```
-
-Next release:
-
-```text
 v1.3.0
 ```
-
-Remaining work for `v1.3.0` is release closeout only:
-
-1. Final documentation validation
-2. Final frontend/backend/Docker validation
-3. GitHub Actions confirmation
-4. Release tag creation
 
 Potential future development includes:
 
