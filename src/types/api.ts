@@ -10,9 +10,11 @@ export interface ApiErrorResponse {
   timestamp: string;
   status: number;
   error: string;
+  code: string | null;
   message: string;
   path: string;
   fieldErrors: Record<string, string>;
+  retryAfterSeconds: number | null;
 }
 
 export interface ApiStatusResponse {
@@ -34,6 +36,31 @@ export interface RegisterResponse {
   firstName: string;
   lastName: string;
   createdAt: string;
+
+  verificationRequired: boolean;
+  verificationExpiresAt: string;
+  resendAvailableAt: string;
+  verificationEmailSent: boolean;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}
+
+export interface EmailVerificationResponse {
+  verified: boolean;
+  message: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface ResendVerificationResponse {
+  message: string;
+  verificationExpiresAt: string | null;
+  resendAvailableAt: string | null;
 }
 
 export interface LoginRequest {

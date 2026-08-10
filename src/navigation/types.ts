@@ -3,6 +3,12 @@ export type RootStackParamList = {
   Welcome: undefined;
   Register: undefined;
 
+  VerifyEmail:
+    | {
+        email?: string;
+      }
+    | undefined;
+
   Login:
     | {
         registeredEmail?: string;

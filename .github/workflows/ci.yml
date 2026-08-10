@@ -52,6 +52,7 @@ jobs:
       POSTGRES_USER: applymate
       POSTGRES_PASSWORD: applymate_ci_password
       POSTGRES_PORT: "5432"
+      EMAIL_VERIFICATION_PEPPER: "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY="
       JWT_SECRET: "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
       APP_CORS_ALLOWED_ORIGIN_PATTERNS: "http://localhost:[*]"
 

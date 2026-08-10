@@ -29,6 +29,32 @@ public class AuthController {
                 .body(response);
     }
 
+    @PostMapping("/verify-email")
+public ResponseEntity<EmailVerificationResponse> verifyEmail(
+        @Valid @RequestBody VerifyEmailRequest request
+) {
+    return ResponseEntity.ok(
+            authService.verifyEmail(request)
+    );
+}
+
+@PostMapping("/resend-verification")
+public ResponseEntity<ResendVerificationResponse>
+        resendVerification(
+                @Valid
+                @RequestBody
+                ResendVerificationRequest request
+        ) {
+
+    return ResponseEntity
+            .status(HttpStatus.ACCEPTED)
+            .body(
+                    authService.resendVerification(
+                            request
+                    )
+            );
+}
+
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
             @Valid @RequestBody LoginRequest request

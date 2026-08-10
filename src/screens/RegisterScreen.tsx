@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { useAuth } from "../context/AuthContext";
 import PrimaryButton from "../components/PrimaryButton";
 import TextField from "../components/TextField";
 import type { RootStackParamList } from "../navigation/types";
@@ -28,7 +28,7 @@ export default function RegisterScreen({ navigation }: Readonly<Props>) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  const { rememberPendingVerification } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState("");
 
@@ -114,15 +114,23 @@ const handleCreateAccount = async () => {
   const normalisedEmail = trimmedEmail.toLowerCase();
 
   try {
-    await registerUser({
+    const response = await registerUser({
       firstName: trimmedFirstName,
       lastName: trimmedLastName,
       email: normalisedEmail,
       password,
     });
 
-    navigation.replace("Login", {
-      registeredEmail: normalisedEmail,
+    await rememberPendingVerification({
+      email: response.email,
+      verificationExpiresAt:
+        response.verificationExpiresAt,
+      resendAvailableAt:
+        response.resendAvailableAt,
+    });
+
+    navigation.replace("VerifyEmail", {
+      email: response.email,
     });
   } catch (error) {
     if (error instanceof ApiError) {

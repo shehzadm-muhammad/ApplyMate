@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
@@ -34,12 +36,22 @@ class AuthControllerTest {
         );
 
         RegisterResponse response = new RegisterResponse(
-                userId,
-                "zaib.test@example.com",
-                "Muhammad",
-                "Shehzad",
-                Instant.parse("2026-07-17T21:49:47Z")
-        );
+        userId,
+        "zaib.test@example.com",
+        "Muhammad",
+        "Shehzad",
+        Instant.parse(
+                "2026-07-17T21:49:47Z"
+        ),
+        true,
+        Instant.parse(
+                "2026-07-17T21:59:47Z"
+        ),
+        Instant.parse(
+                "2026-07-17T21:50:47Z"
+        ),
+        true
+);
 
         when(authService.register(any(RegisterRequest.class)))
                 .thenReturn(response);
@@ -59,7 +71,28 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.email")
                         .value("zaib.test@example.com"))
                 .andExpect(jsonPath("$.firstName").value("Muhammad"))
-                .andExpect(jsonPath("$.lastName").value("Shehzad"));
+                .andExpect(jsonPath("$.lastName").value("Shehzad"))
+                .andExpect(
+        jsonPath("$.verificationRequired")
+                .value(true)
+)
+.andExpect(
+        jsonPath("$.verificationExpiresAt")
+                .value(
+                        "2026-07-17T21:59:47Z"
+                )
+)
+.andExpect(
+        jsonPath("$.resendAvailableAt")
+                .value(
+                        "2026-07-17T21:50:47Z"
+                )
+)
+.andExpect(
+        jsonPath("$.verificationEmailSent")
+                .value(true)
+);
+
     }
 
     @Test
@@ -166,6 +199,38 @@ class AuthControllerTest {
     }
 
     @Test
+void shouldRequireEmailVerificationBeforeLogin()
+        throws Exception {
+
+    when(authService.login(any(LoginRequest.class)))
+            .thenThrow(
+                    new EmailVerificationRequiredException()
+            );
+
+    mockMvc.perform(post("/api/v1/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "email": "pending@example.com",
+                              "password": "ApplyMate123!"
+                            }
+                            """))
+            .andExpect(status().isForbidden())
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "EMAIL_VERIFICATION_REQUIRED"
+                            )
+            )
+            .andExpect(
+                    jsonPath("$.message")
+                            .value(
+                                    "Email verification is required"
+                            )
+            );
+}
+
+    @Test
     void shouldRefreshAndReturnRotatedTokens() throws Exception {
         UUID userId = UUID.fromString(
                 "5e80a2a3-e80d-4d3f-916b-d121f73fb309"
@@ -252,4 +317,293 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+void shouldVerifyEmail() throws Exception {
+    when(
+            authService.verifyEmail(
+                    any(VerifyEmailRequest.class)
+            )
+    ).thenReturn(
+            EmailVerificationResponse.success()
+    );
+
+    mockMvc.perform(
+                    post("/api/v1/auth/verify-email")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com",
+                                      "code": "123456"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(status().isOk())
+            .andExpect(
+                    jsonPath("$.verified")
+                            .value(true)
+            );
+}
+
+@Test
+void shouldRejectMalformedVerificationCode()
+        throws Exception {
+
+    mockMvc.perform(
+                    post("/api/v1/auth/verify-email")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com",
+                                      "code": "123"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(status().isBadRequest());
+}
+
+@Test
+void shouldReturnIncorrectVerificationCodeError()
+        throws Exception {
+
+    when(
+            authService.verifyEmail(
+                    any(VerifyEmailRequest.class)
+            )
+    ).thenThrow(
+            new IncorrectVerificationCodeException()
+    );
+
+    mockMvc.perform(
+                    post("/api/v1/auth/verify-email")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com",
+                                      "code": "123456"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "VERIFICATION_CODE_INCORRECT"
+                            )
+            );
+}
+
+@Test
+void shouldReturnExpiredVerificationCodeError()
+        throws Exception {
+
+    when(
+            authService.verifyEmail(
+                    any(VerifyEmailRequest.class)
+            )
+    ).thenThrow(
+            new VerificationCodeExpiredException()
+    );
+
+    mockMvc.perform(
+                    post("/api/v1/auth/verify-email")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com",
+                                      "code": "123456"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(status().isGone())
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "VERIFICATION_CODE_EXPIRED"
+                            )
+            );
+}
+
+@Test
+void shouldAcceptVerificationResend()
+        throws Exception {
+
+    when(
+            authService.resendVerification(
+                    any(ResendVerificationRequest.class)
+            )
+    ).thenReturn(
+            ResendVerificationResponse.accepted()
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/auth/resend-verification"
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(status().isAccepted());
+}
+
+@Test
+void shouldReturnResendCooldown()
+        throws Exception {
+
+    when(
+            authService.resendVerification(
+                    any(ResendVerificationRequest.class)
+            )
+    ).thenThrow(
+            new VerificationResendCooldownException(42)
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/auth/resend-verification"
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isTooManyRequests()
+            )
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "VERIFICATION_RESEND_COOLDOWN"
+                            )
+            )
+            .andExpect(
+                    jsonPath("$.retryAfterSeconds")
+                            .value(42)
+            )
+            .andExpect(
+                    header().string(
+                            HttpHeaders.RETRY_AFTER,
+                            "42"
+                    )
+            );
+}
+
+@Test
+void shouldReturnVerificationRateLimit()
+        throws Exception {
+
+    when(
+            authService.resendVerification(
+                    any(ResendVerificationRequest.class)
+            )
+    ).thenThrow(
+            new VerificationRateLimitException(1800)
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/auth/resend-verification"
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isTooManyRequests()
+            )
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "VERIFICATION_RATE_LIMITED"
+                            )
+            )
+            .andExpect(
+                    jsonPath("$.retryAfterSeconds")
+                            .value(1800)
+            );
+}
+
+@Test
+void shouldReturnServiceUnavailableWhenVerificationEmailFails()
+        throws Exception {
+
+    when(
+            authService.resendVerification(
+                    any(ResendVerificationRequest.class)
+            )
+    ).thenThrow(
+            new EmailDeliveryException(
+                    "Provider failure"
+            )
+    );
+
+    mockMvc.perform(
+                    post(
+                            "/api/v1/auth/resend-verification"
+                    )
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "pending@example.com"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isServiceUnavailable()
+            )
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "VERIFICATION_EMAIL_UNAVAILABLE"
+                            )
+            )
+            .andExpect(
+                    jsonPath("$.message")
+                            .value(
+                                    "Verification email delivery "
+                                            + "is temporarily unavailable"
+                            )
+            );
+}
 }

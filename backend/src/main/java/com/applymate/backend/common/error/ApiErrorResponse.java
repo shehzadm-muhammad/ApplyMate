@@ -7,8 +7,30 @@ public record ApiErrorResponse(
         Instant timestamp,
         int status,
         String error,
+        String code,
         String message,
         String path,
-        Map<String, String> fieldErrors
+        Map<String, String> fieldErrors,
+        Long retryAfterSeconds
 ) {
+
+    public ApiErrorResponse(
+            Instant timestamp,
+            int status,
+            String error,
+            String message,
+            String path,
+            Map<String, String> fieldErrors
+    ) {
+        this(
+                timestamp,
+                status,
+                error,
+                null,
+                message,
+                path,
+                fieldErrors,
+                null
+        );
+    }
 }
