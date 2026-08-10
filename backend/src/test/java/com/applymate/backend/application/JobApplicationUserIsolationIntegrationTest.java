@@ -14,6 +14,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import com.applymate.backend.user.AppUser;
+import com.applymate.backend.user.AppUserRepository;
 
 import java.util.UUID;
 
@@ -45,6 +47,9 @@ class JobApplicationUserIsolationIntegrationTest {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @Autowired
+    private AppUserRepository appUserRepository;
 
     @Test
     void shouldKeepApplicationsIsolatedBetweenUsers()
@@ -178,31 +183,40 @@ class JobApplicationUserIsolationIntegrationTest {
     }
 
     private void registerUser(
-            String email,
-            String firstName,
-            String lastName
-    ) throws Exception {
+        String email,
+        String firstName,
+        String lastName
+) throws Exception {
 
-        String requestBody = """
-                {
-                  "firstName": "%s",
-                  "lastName": "%s",
-                  "email": "%s",
-                  "password": "%s"
-                }
-                """.formatted(
-                firstName,
-                lastName,
-                email,
-                PASSWORD
-        );
+    String requestBody = """
+            {
+              "firstName": "%s",
+              "lastName": "%s",
+              "email": "%s",
+              "password": "%s"
+            }
+            """.formatted(
+            firstName,
+            lastName,
+            email,
+            PASSWORD
+    );
 
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email").value(email));
-    }
+    mockMvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.email").value(email));
+
+    AppUser user =
+            appUserRepository
+                    .findByEmailIgnoreCase(email)
+                    .orElseThrow();
+
+    user.markEmailVerified();
+
+    appUserRepository.saveAndFlush(user);
+}
 
     private String login(String email) throws Exception {
         String requestBody = """

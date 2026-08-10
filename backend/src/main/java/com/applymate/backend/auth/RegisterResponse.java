@@ -10,16 +10,28 @@ public record RegisterResponse(
         String email,
         String firstName,
         String lastName,
-        Instant createdAt
+        Instant createdAt,
+        boolean verificationRequired,
+        Instant verificationExpiresAt,
+        Instant resendAvailableAt,
+        boolean verificationEmailSent
 ) {
 
-    public static RegisterResponse from(AppUser user) {
+    public static RegisterResponse from(
+            AppUser user,
+            IssuedEmailVerificationCode verification,
+            boolean verificationEmailSent
+    ) {
         return new RegisterResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                !user.isEmailVerified(),
+                verification.expiresAt(),
+                verification.resendAvailableAt(),
+                verificationEmailSent
         );
     }
 }

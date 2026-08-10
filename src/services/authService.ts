@@ -1,10 +1,14 @@
 import type {
   CurrentUserResponse,
+  EmailVerificationResponse,
   LoginRequest,
   LoginResponse,
   RefreshTokenRequest,
   RegisterRequest,
   RegisterResponse,
+  ResendVerificationRequest,
+  ResendVerificationResponse,
+  VerifyEmailRequest,
 } from "../types/api";
 import { apiRequest } from "./apiClient";
 import {
@@ -21,6 +25,32 @@ export async function registerUser(
     authenticated: false,
     body: request,
   });
+}
+
+export async function verifyEmail(
+  request: VerifyEmailRequest,
+): Promise<EmailVerificationResponse> {
+  return apiRequest<EmailVerificationResponse>(
+    "/api/v1/auth/verify-email",
+    {
+      method: "POST",
+      authenticated: false,
+      body: request,
+    },
+  );
+}
+
+export async function resendVerificationEmail(
+  request: ResendVerificationRequest,
+): Promise<ResendVerificationResponse> {
+  return apiRequest<ResendVerificationResponse>(
+    "/api/v1/auth/resend-verification",
+    {
+      method: "POST",
+      authenticated: false,
+      body: request,
+    },
+  );
 }
 
 export async function loginUser(

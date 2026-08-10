@@ -8,7 +8,7 @@ import LoginScreen from "../screens/LoginScreen";
 import MainTabNavigator from "./MainTabNavigator";
 import ApplicationDetailsScreen from "../screens/ApplicationDetailsScreen";
 import EditApplicationScreen from "../screens/EditApplicationScreen";
-
+import VerifyEmailScreen from "../screens/VerifyEmailScreen";
 import type { RootStackParamList } from "./types";
 import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
@@ -16,7 +16,10 @@ import { useAuth } from "../context/AuthContext";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { user, isBootstrapping } = useAuth();
+  const { user,
+          pendingVerification,
+          isBootstrapping,
+          } = useAuth();
 
   if (isBootstrapping) {
     return (
@@ -35,6 +38,13 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator
+     initialRouteName={
+        user
+          ? "MainApp"
+          : pendingVerification
+            ? "VerifyEmail"
+            : "Splash"
+      }
       screenOptions={{
         headerShown: false,
         contentStyle: {
@@ -91,6 +101,18 @@ export default function RootNavigator() {
               headerTitle: "",
               headerShadowVisible: false,
               headerBackTitle: "Back",
+            }}
+          />
+
+          <Stack.Screen
+            name="VerifyEmail"
+            component={VerifyEmailScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackVisible: false,
+              gestureEnabled: false,
             }}
           />
 

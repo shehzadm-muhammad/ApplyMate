@@ -19,6 +19,15 @@ import {
 } from "../services/authService";
 
 import { setSessionExpiredHandler } from "../services/sessionEvents";
+
+import { ApiError } from "../services/apiClient";
+import {
+  getPendingEmailVerification,
+  removePendingEmailVerification,
+  savePendingEmailVerification,
+  type PendingEmailVerification,
+} from "../services/pendingVerificationStorage";
+
 import { deleteAccount as deleteAccountService } from "../services/accountService";
 import {
   getAccessToken,
@@ -27,11 +36,19 @@ import {
 
 interface AuthContextValue {
   user: CurrentUserResponse | null;
+  pendingVerification: PendingEmailVerification | null;
   isBootstrapping: boolean;
+
   signIn: (request: LoginRequest) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
+
+  rememberPendingVerification: (
+    pendingVerification: PendingEmailVerification,
+  ) => Promise<void>;
+
+  clearPendingVerification: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(
@@ -48,6 +65,11 @@ export function AuthProvider({
   const [user, setUser] =
     useState<CurrentUserResponse | null>(null);
 
+  const [
+  pendingVerification,
+  setPendingVerification,
+] = useState<PendingEmailVerification | null>(null);
+
   const [isBootstrapping, setIsBootstrapping] =
     useState(true);
 
@@ -62,10 +84,21 @@ export function AuthProvider({
 
     async function restoreSession(): Promise<void> {
       try {
-        const [accessToken, refreshToken] = await Promise.all([
+        const [
+          accessToken,
+          refreshToken,
+          storedPendingVerification,
+        ] = await Promise.all([
           getAccessToken(),
           getRefreshToken(),
+          getPendingEmailVerification(),
         ]);
+
+        if (!cancelled) {
+          setPendingVerification(
+            storedPendingVerification,
+          );
+        }
 
         if (!accessToken && !refreshToken) {
           return;
@@ -75,6 +108,9 @@ export function AuthProvider({
 
         if (!cancelled) {
           setUser(currentUser);
+
+          await clearPendingVerification();
+
         }
       } catch {
         /*
@@ -98,6 +134,42 @@ export function AuthProvider({
       cancelled = true;
     };
   }, []);
+
+  async function rememberPendingVerification(
+  pending: PendingEmailVerification,
+): Promise<void> {
+  setPendingVerification(pending);
+
+  try {
+    await savePendingEmailVerification(pending);
+  } catch (error) {
+    /*
+     * Keep the in-memory verification flow usable even if
+     * secure persistence unexpectedly fails.
+     */
+    console.error(
+      "AUTH: unable to persist pending verification",
+      error,
+    );
+  }
+}
+
+async function clearPendingVerification(): Promise<void> {
+  setPendingVerification(null);
+
+  try {
+    await removePendingEmailVerification();
+  } catch (error) {
+    /*
+     * Failure to remove stale local state must never prevent
+     * a successful login or verification.
+     */
+    console.error(
+      "AUTH: unable to clear pending verification",
+      error,
+    );
+  }
+}
 
   async function signIn(request: LoginRequest): Promise<void> {
     console.log("AUTH: signIn started", request.email);
@@ -126,12 +198,28 @@ export function AuthProvider({
 
       setUser(currentUser);
 
+      await clearPendingVerification();
+
       console.log("AUTH: user state updated");
     } catch (error) {
       console.error("AUTH: signIn failed", error);
 
       await logoutUser();
       setUser(null);
+
+      if (
+        error instanceof ApiError &&
+        error.response?.code ===
+          "EMAIL_VERIFICATION_REQUIRED"
+      ) {
+        await rememberPendingVerification({
+          email: request.email
+            .trim()
+            .toLowerCase(),
+          verificationExpiresAt: null,
+          resendAvailableAt: null,
+        });
+      }
 
       throw error;
     }
@@ -140,6 +228,8 @@ export function AuthProvider({
   async function signOut(): Promise<void> {
     await logoutUser();
     setUser(null);
+    await clearPendingVerification();
+
   }
 
   async function deleteAccount(): Promise<void> {
@@ -151,6 +241,7 @@ export function AuthProvider({
 
     await deleteAccountService(userId);
     setUser(null);
+    await clearPendingVerification();
   }
 
   async function refreshUser(): Promise<void> {
@@ -159,16 +250,23 @@ export function AuthProvider({
   }
 
   const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      isBootstrapping,
-      signIn,
-      signOut,
-      deleteAccount,
-      refreshUser,
-    }),
-    [user, isBootstrapping],
-  );
+  () => ({
+    user,
+    pendingVerification,
+    isBootstrapping,
+    signIn,
+    signOut,
+    deleteAccount,
+    refreshUser,
+    rememberPendingVerification,
+    clearPendingVerification,
+  }),
+  [
+    user,
+    pendingVerification,
+    isBootstrapping,
+  ],
+);
 
   return (
     <AuthContext.Provider value={value}>

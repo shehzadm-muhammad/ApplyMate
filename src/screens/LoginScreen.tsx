@@ -81,9 +81,20 @@ const [email, setEmail] = useState(
     // AuthContext updates the user.
     // RootNavigator automatically displays MainApp.
   } catch (error) {
-    if (error instanceof ApiError) {
-      setGeneralError(error.message);
-    } else {
+  if (error instanceof ApiError) {
+    if (
+      error.response?.code ===
+      "EMAIL_VERIFICATION_REQUIRED"
+    ) {
+      navigation.replace("VerifyEmail", {
+        email: trimmedEmail.toLowerCase(),
+      });
+
+      return;
+    }
+
+    setGeneralError(error.message);
+  } else {
       setGeneralError(
         "Something went wrong while logging in.",
       );
