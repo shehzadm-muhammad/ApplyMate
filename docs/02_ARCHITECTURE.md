@@ -7,7 +7,9 @@ ApplyMate is a full-stack mobile application consisting of:
 - A React Native and Expo mobile client
 - A Spring Boot REST API
 - JWT access-token authentication
-- Persistent refresh-token sessions
+- Persistent rotating refresh-token sessions
+- Email verification during registration
+- Resend transactional email delivery
 - A PostgreSQL relational database
 - Flyway database migrations
 - Backend-synchronised reminders
@@ -19,52 +21,66 @@ ApplyMate is a full-stack mobile application consisting of:
 
 The application uses one mobile client, one backend service and one PostgreSQL database.
 
-## Production Architecture
+Transactional verification email is sent from the backend through Resend.
+
+---
+
+# Production Architecture
 
 ```text
-┌────────────────────────────────────┐
-│     React Native / Expo Client     │
-│                                    │
-│  TypeScript                        │
-│  React Navigation                  │
-│  Expo SecureStore                  │
-│  AsyncStorage                      │
-│  Expo Notifications                │
-└────────────────┬───────────────────┘
-                 │
-                 │ HTTPS + JSON
-                 │ JWT access token
-                 │ Refresh-token session
-                 ▼
-┌────────────────────────────────────┐
-│              Render                │
-│                                    │
-│  Spring Boot Docker Service        │
-│  Java 21                           │
-│  Spring Security                   │
-│  Validation                        │
-│  JPA / Hibernate                   │
-│  Flyway                            │
-│  Actuator Health Check             │
-└────────────────┬───────────────────┘
-                 │
-                 │ JDBC over TLS
-                 ▼
-┌────────────────────────────────────┐
-│               Neon                 │
-│                                    │
-│  PostgreSQL 17                     │
-│  app_users                         │
-│  job_applications                  │
-│  reminders                         │
-│  refresh_tokens                    │
-│  flyway_schema_history             │
-└────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚        React Native / Expo Client        â”‚
+â”‚                                          â”‚
+â”‚  TypeScript                              â”‚
+â”‚  React Navigation                        â”‚
+â”‚  Expo SecureStore                        â”‚
+â”‚  AsyncStorage                            â”‚
+â”‚  Expo Notifications                      â”‚
+â”‚                                          â”‚
+â”‚  Auth state                              â”‚
+â”‚  Pending verification state              â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                   â”‚
+                   â”‚ HTTPS + JSON
+                   â”‚ JWT access token
+                   â”‚ Refresh-token session
+                   â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                  Render                  â”‚
+â”‚                                          â”‚
+â”‚  Spring Boot Docker Service              â”‚
+â”‚  Java 21                                 â”‚
+â”‚  Spring Security                         â”‚
+â”‚  Validation                              â”‚
+â”‚  JPA / Hibernate                         â”‚
+â”‚  Flyway                                  â”‚
+â”‚  Spring RestClient                       â”‚
+â”‚  Actuator Health Check                   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                â”‚                 â”‚
+                â”‚ JDBC over TLS   â”‚ HTTPS
+                â”‚                 â”‚
+                â–¼                 â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚          Neon          â”‚   â”‚         Resend         â”‚
+â”‚                        â”‚   â”‚                        â”‚
+â”‚ PostgreSQL 17          â”‚   â”‚ Transactional email    â”‚
+â”‚ app_users              â”‚   â”‚                        â”‚
+â”‚ job_applications       â”‚   â”‚ Verified domain:       â”‚
+â”‚ reminders              â”‚   â”‚ applymate.website      â”‚
+â”‚ refresh_tokens         â”‚   â”‚                        â”‚
+â”‚ email_verification_    â”‚   â”‚ Sender:                â”‚
+â”‚ codes                  â”‚   â”‚ verify@applymate.websiteâ”‚
+â”‚ flyway_schema_history  â”‚   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜               â”‚
+                                         â”‚ Email
+                                         â–¼
+                                  User's email inbox
 ````
 
 The mobile application communicates only with the Spring Boot API.
 
-It never connects directly to PostgreSQL.
+It never connects directly to PostgreSQL or Resend.
 
 Local operating-system notifications are scheduled by the mobile application and do not require a direct database connection.
 
@@ -99,6 +115,12 @@ Health endpoint:
 https://applymate-api-bami.onrender.com/actuator/health
 ```
 
+Current production release commit before documentation closeout:
+
+```text
+beca795
+```
+
 Render supplies the production HTTP port through the platform environment.
 
 The application does not assume local port `8080` in production.
@@ -113,7 +135,46 @@ The application does not assume local port `8080` in production.
 
 Database structure is controlled by Flyway.
 
-The production schema is currently at migration version 5.
+The production schema is currently at migration version:
+
+```text
+8
+```
+
+V8 removed the temporary rollout default introduced during the email-verification deployment.
+
+Current `email_verified_at` schema behaviour:
+
+```text
+column_default = NULL
+is_nullable    = YES
+```
+
+## Transactional Email
+
+Provider:
+
+```text
+Resend
+```
+
+Verified sending domain:
+
+```text
+applymate.website
+```
+
+Verification sender:
+
+```text
+ApplyMate <verify@applymate.website>
+```
+
+The domain uses configured DKIM, SPF and DMARC DNS records.
+
+The mobile application never receives the Resend API key.
+
+Resend credentials remain backend-only production secrets.
 
 ## Mobile Distribution
 
@@ -161,18 +222,24 @@ https://shehzadm-muhammad.github.io/ApplyMate/delete-account.html
 ApplyMate follows these principles:
 
 * The mobile client never accesses PostgreSQL directly.
+* The mobile client never accesses Resend directly.
 * Server-backed user data passes through the Spring Boot REST API.
 * Access tokens are short-lived.
 * Refresh-token sessions are persisted and revocable.
 * Refresh tokens rotate after successful use.
 * Only hashed refresh-token values are stored in PostgreSQL.
+* Raw email-verification codes are never stored.
+* Verification codes are protected using HMAC-SHA-256 with a server-side pepper.
+* Unverified users cannot obtain authenticated application access.
 * Every application and reminder is scoped to its authenticated owner.
 * Database structure is managed through Flyway migrations.
+* Applied migrations must never be edited.
 * Environment-specific configuration is supplied through environment variables.
 * Secrets remain outside Git and frontend bundles.
 * Local notification scheduling remains separate from backend reminder persistence.
 * Frontend screens do not depend directly on database implementation details.
 * API and storage responsibilities are isolated in frontend services.
+* Email-provider responsibilities are isolated behind a backend sender interface.
 * Production infrastructure can be replaced without redesigning the mobile client.
 
 ---
@@ -183,14 +250,14 @@ The frontend source is located under:
 
 ```text
 src/
-├── components/
-├── config/
-├── context/
-├── navigation/
-├── screens/
-├── services/
-├── theme/
-└── types/
+â”œâ”€â”€ components/
+â”œâ”€â”€ config/
+â”œâ”€â”€ context/
+â”œâ”€â”€ navigation/
+â”œâ”€â”€ screens/
+â”œâ”€â”€ services/
+â”œâ”€â”€ theme/
+â””â”€â”€ types/
 ```
 
 ## Screens
@@ -206,6 +273,8 @@ Screens are responsible for:
 * Displaying validation and API errors
 * Refreshing data after user actions
 * Triggering account and reminder actions
+* Handling verification-code entry
+* Displaying verification resend timing
 
 Screens do not contain backend persistence logic.
 
@@ -213,34 +282,84 @@ Screens do not contain backend persistence logic.
 
 The `components/` directory contains reusable user-interface elements.
 
-Examples include reusable settings rows and form controls.
+Examples include:
+
+* Form fields
+* Buttons
+* Settings rows
+* Shared presentation controls
 
 Components remain focused on presentation and reusable interaction behaviour.
 
-## Navigation
+---
 
-The `navigation/` directory defines public and authenticated navigation flows.
+# Navigation Architecture
 
-Authentication state determines whether the user sees:
+The `navigation/` directory defines public, verification and authenticated navigation flows.
+
+Current high-level flow:
 
 ```text
 Unauthenticated
-    -> Welcome
-    -> Register
-    -> Login
+    |
+    â”œâ”€â”€ Welcome
+    â”œâ”€â”€ Register
+    â”œâ”€â”€ Login
+    â””â”€â”€ Verify Email
 
 Authenticated
-    -> Dashboard
-    -> Applications
-    -> Reminders
-    -> Profile
+    |
+    â””â”€â”€ Main application
+         â”œâ”€â”€ Dashboard
+         â”œâ”€â”€ Applications
+         â”œâ”€â”€ Reminders
+         â””â”€â”€ Profile
 ```
 
-Navigation does not authenticate the user itself.
+Navigation does not authenticate users itself.
 
-It reacts to authentication state supplied by `AuthContext`.
+It reacts to state supplied by `AuthContext`.
 
-## Authentication Context
+## Pending Verification Navigation
+
+A user who has registered but has not yet verified their email is represented separately from an authenticated user.
+
+```text
+Register
+   |
+   v
+Backend creates unverified user
+   |
+   v
+Pending verification stored locally
+   |
+   v
+Verify Email screen
+```
+
+If the application is closed and reopened while verification is pending:
+
+```text
+App starts
+   |
+   v
+AuthContext bootstrap
+   |
+   â”œâ”€â”€ valid authenticated user
+   â”‚       -> Main application
+   â”‚
+   â”œâ”€â”€ pending verification
+   â”‚       -> Verify Email
+   â”‚
+   â””â”€â”€ neither
+           -> normal public flow
+```
+
+A login attempt for an unverified account also redirects to the Verify Email flow.
+
+---
+
+# Authentication Context
 
 `AuthContext` coordinates:
 
@@ -250,6 +369,9 @@ It reacts to authentication state supplied by `AuthContext`.
 * Current-user loading
 * Expired-session handling
 * Silent access-token refresh
+* Pending email-verification state
+* Verification-flow restoration
+* Clearing verification state after completion
 * Account deletion
 * Public/authenticated navigation state
 
@@ -257,7 +379,23 @@ If a valid refresh session exists, an expired access token does not automaticall
 
 If refresh authentication fails because the session is no longer valid, the authentication context clears the current user and returns the app to the unauthenticated flow.
 
-## Frontend Configuration
+If login fails specifically because verification is required, the account is not treated as authenticated.
+
+Instead:
+
+```text
+EMAIL_VERIFICATION_REQUIRED
+        |
+        v
+Store pending verification email
+        |
+        v
+Verify Email screen
+```
+
+---
+
+# Frontend Configuration
 
 The API base URL is supplied through:
 
@@ -274,6 +412,8 @@ http://127.0.0.1:8080
 Production:
 https://applymate-api-bami.onrender.com
 ```
+
+A physical development device may instead use the development computer's LAN address.
 
 For Android emulator testing, ADB reverse may be used when connecting to a locally running backend.
 
@@ -298,6 +438,7 @@ notificationService.ts
 reminderStorage.ts
 settingsStorage.ts
 tokenStorage.ts
+pendingVerificationStorage.ts
 ```
 
 ## Central API Client
@@ -311,6 +452,7 @@ tokenStorage.ts
 * Adding bearer authentication to protected requests
 * Parsing successful responses
 * Converting backend failures into `ApiError`
+* Preserving structured backend error codes
 * Detecting authenticated `401` responses
 * Refreshing expired access tokens
 * Retrying the original request once
@@ -318,6 +460,49 @@ tokenStorage.ts
 * Clearing invalid sessions when refresh authentication fails
 * Preserving sessions during temporary network/server failures where appropriate
 * Converting network failures into readable frontend errors
+
+## Authentication Service
+
+`authService.ts` handles authentication-specific API requests including:
+
+```text
+register
+login
+verifyEmail
+resendVerificationEmail
+refresh
+logout
+```
+
+Registration does not automatically authenticate the new account.
+
+Verification proves control of the email address but still returns the user to the password-based login flow.
+
+## Pending Verification Storage
+
+`pendingVerificationStorage.ts` stores only the minimum state required to restore an unfinished verification flow.
+
+Stored values include:
+
+```text
+email
+verificationExpiresAt
+resendAvailableAt
+```
+
+It does not store:
+
+```text
+password
+verification code
+access token
+refresh token
+Resend credentials
+```
+
+Native platforms use secure device storage for this state.
+
+Corrupt or invalid stored verification state is discarded defensively.
 
 ## Silent Refresh Coordination
 
@@ -353,7 +538,7 @@ Web fallback storage uses browser `localStorage`.
 
 Rotated authentication credentials replace the previous token pair.
 
-AsyncStorage is used for non-secret device-specific state.
+AsyncStorage remains available for non-secret device-specific state.
 
 ## Application Service
 
@@ -374,12 +559,12 @@ Local notification scheduling remains on the device.
 ```text
 User creates reminder
         |
-        ├──> Spring Boot API
-        │       |
-        │       v
-        │   PostgreSQL reminder
-        │
-        └──> Expo Notifications
+        â”œâ”€â”€> Spring Boot API
+        â”‚       |
+        â”‚       v
+        â”‚   PostgreSQL reminder
+        â”‚
+        â””â”€â”€> Expo Notifications
                 |
                 v
         Device notification schedule
@@ -389,7 +574,9 @@ Stored device notification identifiers are associated with the authenticated use
 
 This allows local notification cleanup during reminder changes and account deletion.
 
-## Account Deletion Service
+---
+
+# Account Deletion Service
 
 `accountService.ts` coordinates the mobile side of permanent account deletion.
 
@@ -409,6 +596,9 @@ Clear stored reminder notification IDs
         |
         v
 Clear local account-related settings
+        |
+        v
+Clear pending verification state
         |
         v
 Remove access + refresh tokens
@@ -440,19 +630,21 @@ Important backend areas include:
 
 ```text
 com.applymate.backend
-├── application/
-├── auth/
-├── reminder/
-├── security/
-├── user/
-├── common/error/
-├── system/
-└── ApplyMateBackendApplication.java
+â”œâ”€â”€ application/
+â”œâ”€â”€ auth/
+â”œâ”€â”€ reminder/
+â”œâ”€â”€ security/
+â”œâ”€â”€ user/
+â”œâ”€â”€ common/error/
+â”œâ”€â”€ system/
+â””â”€â”€ ApplyMateBackendApplication.java
 ```
 
 Although classes are grouped by feature, the backend maintains controller, service, repository and persistence responsibilities.
 
-## Controller Layer
+---
+
+# Controller Layer
 
 Controllers are responsible for:
 
@@ -467,7 +659,9 @@ Controllers are responsible for:
 
 Controllers do not directly implement database persistence.
 
-## DTO and Validation Layer
+---
+
+# DTO and Validation Layer
 
 Request and response DTOs define the public API contract.
 
@@ -476,6 +670,7 @@ Validation covers fields such as:
 * Required values
 * Maximum lengths
 * Email formatting
+* Six-digit verification-code formatting
 * Application statuses
 * Dates
 * URLs
@@ -484,7 +679,9 @@ Validation covers fields such as:
 
 Persistence entities are not exposed directly as the API contract.
 
-## Service Layer
+---
+
+# Service Layer
 
 Services implement application business rules.
 
@@ -496,12 +693,18 @@ Responsibilities include:
 * Search/filter logic
 * Dashboard calculations
 * Authentication
+* Email-verification challenge lifecycle
+* Verification-code validation
+* Verification resend limits
+* Transactional email orchestration
 * Refresh-token lifecycle management
 * Account deletion
 * Response mapping
 * Domain-specific exceptions
 
-## Repository Layer
+---
+
+# Repository Layer
 
 Spring Data JPA repositories access PostgreSQL.
 
@@ -520,17 +723,260 @@ This applies to:
 
 Another user's record must not be exposed merely because its identifier is known.
 
-## Persisted Domain Data
+Email-verification challenge access is associated with the owning user account.
+
+Challenge updates use locking where required to prevent concurrent issue/verification races.
+
+---
+
+# Persisted Domain Data
 
 PostgreSQL stores:
 
 * Application users
 * Password hashes
+* Email verification timestamp
+* Email-verification code hashes
+* Verification expiry and rate-limit state
 * Job applications
 * Reminders
 * Refresh-token session records
 * Ownership relationships
 * Creation/update timestamps
+
+The following sensitive values are not stored in usable plaintext form:
+
+```text
+password
+raw refresh token
+raw email-verification code
+email-verification pepper
+Resend API key
+JWT signing secret
+```
+
+---
+
+# Email Verification Architecture
+
+## Registration Flow
+
+```text
+1. User submits registration details.
+2. Backend normalises the email.
+3. Backend checks for an existing account.
+4. Password is securely hashed.
+5. New app_users row is created with:
+       email_verified_at = NULL
+6. Backend creates an email-verification challenge.
+7. Raw six-digit code exists only transiently.
+8. HMAC-SHA-256 hash of the code is stored.
+9. User/challenge transaction commits.
+10. Backend asks the configured email provider to send the code.
+11. Mobile stores pending verification state.
+12. Verify Email screen is displayed.
+```
+
+The registration database transaction completes before external email delivery.
+
+This prevents a temporary email-provider outage from silently rolling back an otherwise valid account.
+
+If initial email delivery fails, the unverified account can recover through the resend flow.
+
+## Verification-Code Security
+
+Verification codes use:
+
+```text
+SecureRandom
+6 numeric digits
+```
+
+Code hashing uses:
+
+```text
+HMAC-SHA-256
+```
+
+The HMAC input includes the user identity and code.
+
+Conceptually:
+
+```text
+HMAC(
+    server-side pepper,
+    userId + ":" + verificationCode
+)
+```
+
+The production pepper:
+
+* Is separate from the JWT signing secret
+* Is stored only in backend environment configuration
+* Must be at least 32 decoded bytes
+* Is never sent to the frontend
+* Is never stored in PostgreSQL
+
+Hash comparison uses secure byte comparison rather than ordinary string equality.
+
+## Verification Timing and Limits
+
+Default rules:
+
+```text
+Code TTL:                 10 minutes
+Maximum failed attempts:  5
+Resend cooldown:          60 seconds
+Issue window:             1 hour
+Maximum issues/window:    5
+```
+
+Resending replaces the current challenge.
+
+The backend ensures a replacement code does not reuse the previous stored hash.
+
+The previous code therefore becomes invalid after resend.
+
+## Verification Flow
+
+```text
+Verify Email screen
+        |
+        v
+POST /api/v1/auth/verify-email
+        |
+        v
+Lock verification state
+        |
+        â”œâ”€â”€ expired
+        â”‚      -> VERIFICATION_CODE_EXPIRED
+        â”‚
+        â”œâ”€â”€ too many attempts
+        â”‚      -> VERIFICATION_ATTEMPTS_EXCEEDED
+        â”‚
+        â”œâ”€â”€ incorrect
+        â”‚      -> increment attempts
+        â”‚      -> VERIFICATION_CODE_INCORRECT
+        â”‚
+        â””â”€â”€ correct
+               |
+               v
+       app_users.email_verified_at = timestamp
+               |
+               v
+       verification completed
+               |
+               v
+       Mobile clears pending state
+               |
+               v
+       Login screen
+```
+
+Verification does not bypass the user's password.
+
+The user still performs normal login after verification.
+
+## Resend Flow
+
+```text
+POST /api/v1/auth/resend-verification
+        |
+        v
+Find unverified account/challenge
+        |
+        â”œâ”€â”€ cooldown active
+        â”‚      -> VERIFICATION_RESEND_COOLDOWN
+        â”‚
+        â”œâ”€â”€ issue limit reached
+        â”‚      -> VERIFICATION_RATE_LIMITED
+        â”‚
+        â””â”€â”€ allowed
+               |
+               v
+       Generate replacement code
+               |
+               v
+       Replace stored hash/timestamps
+               |
+               v
+       Send email through Resend
+```
+
+Responses for unknown/already-verified email addresses remain generic to reduce account enumeration.
+
+---
+
+# Verification Email Provider Architecture
+
+Email sending is abstracted behind:
+
+```text
+VerificationEmailSender
+```
+
+Current implementations include:
+
+```text
+ResendVerificationEmailSender
+UnavailableVerificationEmailSender
+```
+
+Provider selection is environment-driven.
+
+Production:
+
+```text
+EMAIL_PROVIDER=resend
+```
+
+A disabled/unavailable provider can be used in environments where real email sending is not configured.
+
+## Resend Request Path
+
+```text
+EmailVerificationService / AuthService
+        |
+        v
+VerificationEmailSender
+        |
+        v
+ResendVerificationEmailSender
+        |
+        v
+HTTPS POST
+https://api.resend.com/emails
+```
+
+Requests contain:
+
+* Verified `from` address
+* Recipient email
+* Verification email subject
+* Text body
+* HTML body
+* Idempotency key
+
+The idempotency key is generated from user and issuance information and does not contain the verification code.
+
+## Resend Secret Safety
+
+The production Resend integration includes defensive configuration handling.
+
+The API key:
+
+* Is loaded only by the backend
+* Has outer whitespace removed
+* Is rejected if embedded whitespace/control characters remain
+* Is never intentionally logged
+* Is not propagated inside safe delivery exceptions
+* Is not exposed to the mobile application
+
+A production deployment test identified that malformed header configuration could otherwise cause the underlying Java HTTP client to include the Authorization header value in an exception message.
+
+The affected credential was revoked and replaced.
+
+The sender was subsequently hardened and regression-tested.
 
 ---
 
@@ -542,16 +988,24 @@ Routes that must work without an active access token include:
 
 ```text
 GET  /api/v1/status
+
 POST /api/v1/auth/register
+POST /api/v1/auth/verify-email
+POST /api/v1/auth/resend-verification
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
+
 GET  /actuator/health
 ```
 
 `refresh` must remain accessible after an access token expires.
 
 `logout` revokes a refresh-token session and therefore does not depend on a still-valid access token.
+
+Verification endpoints are public because the user is deliberately not authenticated yet.
+
+Their behaviour is protected by verification-specific limits and generic responses where appropriate.
 
 ## Protected Routes
 
@@ -573,20 +1027,33 @@ PUT    /api/v1/applications/{id}
 DELETE /api/v1/applications/{id}
 ```
 
-## Login Flow
+---
+
+# Login Flow
 
 ```text
 1. User submits email and password.
-2. Backend loads the account.
-3. Password is checked against the stored password hash.
-4. Backend generates a JWT access token.
-5. Backend generates an opaque refresh token.
-6. Backend stores only the refresh-token hash.
-7. Mobile stores both tokens securely.
-8. Protected requests use the access token.
+2. Backend authenticates the password.
+3. Backend loads the account.
+4. Backend checks email verification.
+5. If unverified:
+       -> no tokens issued
+       -> EMAIL_VERIFICATION_REQUIRED
+6. If verified:
+       -> JWT access token generated
+       -> opaque refresh token generated
+7. Backend stores only the refresh-token hash.
+8. Mobile stores both tokens securely.
+9. Protected requests use the access token.
 ```
 
-## Access Token Lifetime
+The password check occurs before returning the verification-required state.
+
+This prevents incorrect passwords from being used to probe whether an account is awaiting verification.
+
+---
+
+# Access Token Lifetime
 
 Production access-token lifetime:
 
@@ -596,7 +1063,9 @@ Production access-token lifetime:
 
 The access token is intentionally shorter-lived than the persistent session.
 
-## Refresh Session Lifetime
+---
+
+# Refresh Session Lifetime
 
 Production refresh-session lifetime:
 
@@ -606,7 +1075,9 @@ Production refresh-session lifetime:
 
 A successful refresh creates a new token pair.
 
-## Refresh Token Rotation
+---
+
+# Refresh Token Rotation
 
 Refresh tokens are single-use session credentials.
 
@@ -621,22 +1092,26 @@ Refresh B issued
 
 The old token cannot continue operating as the active refresh credential.
 
-## Refresh Token Families
+---
+
+# Refresh Token Families
 
 Refresh tokens belong to a session family.
 
 ```text
 Session family
-├── Refresh A
-├── Refresh B
-└── Refresh C
+â”œâ”€â”€ Refresh A
+â”œâ”€â”€ Refresh B
+â””â”€â”€ Refresh C
 ```
 
 Reuse of a revoked token can indicate token duplication.
 
 The service can revoke the active family when suspicious reuse is detected.
 
-## Refresh Token Persistence
+---
+
+# Refresh Token Persistence
 
 The backend stores:
 
@@ -650,7 +1125,32 @@ The backend stores:
 
 The usable refresh token itself is not stored in PostgreSQL.
 
-## Concurrency Protection
+---
+
+# Unverified Refresh Protection
+
+Email verification is enforced beyond the login endpoint.
+
+If a refresh token belongs to a user whose account is unverified:
+
+```text
+refresh request
+     |
+     v
+user verification check fails
+     |
+     v
+refresh session revoked
+     |
+     v
+EMAIL_VERIFICATION_REQUIRED
+```
+
+This prevents an old or synthetic refresh session from bypassing the verification requirement.
+
+---
+
+# Concurrency Protection
 
 Refresh-token rotation uses both client-side and backend safeguards.
 
@@ -666,9 +1166,11 @@ Backend:
 pessimistic write lock while rotating the token
 ```
 
-This prevents concurrent protected requests from independently rotating the same session credential.
+Email-verification state also uses locking where required to coordinate challenge issuance and verification.
 
-## Logout
+---
+
+# Logout
 
 Logout performs:
 
@@ -690,7 +1192,9 @@ Authenticated user state cleared
 
 Local logout cleanup still proceeds if the backend cannot be reached.
 
-## Account Deletion Security
+---
+
+# Account Deletion Security
 
 Account deletion endpoint:
 
@@ -704,7 +1208,11 @@ Clients cannot supply a different user ID to delete another account.
 
 Database relationships remove user-owned backend data when the account is deleted.
 
-## JWT Configuration
+Email-verification challenge records reference the user with cascade deletion.
+
+---
+
+# JWT Configuration
 
 JWT configuration includes:
 
@@ -724,7 +1232,9 @@ It must never appear in:
 * Documentation
 * EAS public environment variables
 
-## CORS
+---
+
+# CORS
 
 Browser CORS settings are configured through:
 
@@ -747,6 +1257,7 @@ app_users
 job_applications
 reminders
 refresh_tokens
+email_verification_codes
 flyway_schema_history
 ```
 
@@ -762,7 +1273,9 @@ Hibernate validates the schema.
 
 Flyway remains responsible for creating and changing it.
 
-## Database Relationships
+---
+
+# Database Relationships
 
 User-owned entities reference `app_users`.
 
@@ -773,8 +1286,11 @@ This includes:
 * Job applications
 * Reminders
 * Refresh-token sessions
+* Email-verification challenge data
 
-## Database Migrations
+---
+
+# Database Migrations
 
 Migration files are stored under:
 
@@ -782,15 +1298,64 @@ Migration files are stored under:
 backend/src/main/resources/db/migration/
 ```
 
-Current migration history includes:
+Current production migration history:
 
 ```text
-V1 - application users
-V2 - job applications
-V3 - reminders
-V4 - refresh-token table
-V5 - refresh-token hash column correction
+V1 - create app users table
+V2 - create job applications table
+V3 - create reminders table
+V4 - create refresh tokens table
+V5 - alter refresh token hash type
+V6 - add email verification
+V7 - preserve legacy registration during email verification rollout
+V8 - remove email verification rollout default
 ```
+
+## V6
+
+V6 introduced:
+
+* `app_users.email_verified_at`
+* Backfill of pre-existing users as verified
+* `email_verification_codes`
+* Verification challenge timing/attempt state
+
+Backfilling existing users prevented the new verification requirement from locking out users who already had valid accounts before the feature existed.
+
+## V7
+
+V7 introduced a temporary:
+
+```text
+DEFAULT CURRENT_TIMESTAMP
+```
+
+for `app_users.email_verified_at`.
+
+This protected registrations handled by an older application instance during the zero-downtime Render deployment window after V6 had already changed the schema.
+
+The new backend explicitly persisted `NULL` for new registrations, so email verification remained required on the new application version.
+
+## V8
+
+After the old deployment was fully replaced and production verification succeeded, V8 removed the temporary default:
+
+```sql
+ALTER TABLE app_users
+ALTER COLUMN email_verified_at
+DROP DEFAULT;
+```
+
+Post-rollout state:
+
+```text
+Existing verified account   -> remains verified
+Existing unverified account -> remains unverified
+New registration            -> starts unverified
+Direct insert omitting field -> remains unverified
+```
+
+## Migration Rules
 
 Flyway migrations:
 
@@ -798,8 +1363,12 @@ Flyway migrations:
 * Are recorded in `flyway_schema_history`
 * Must not be edited after being applied to shared environments
 * Must be extended with new migration files
+* Are validated before migration
+* Are tested through integration tests before production deployment
 
-## Database Portability
+---
+
+# Database Portability
 
 ApplyMate uses standard PostgreSQL and JDBC.
 
@@ -819,11 +1388,11 @@ The application does not depend on Neon-specific authentication or client librar
 
 ```text
 Developer computer
-├── Expo / Metro on port 8081
-├── Android emulator / Expo Go / dev build
-├── Spring Boot on port 8080
-└── Docker
-    └── PostgreSQL 17 on port 5432
+â”œâ”€â”€ Expo / Metro on port 8081
+â”œâ”€â”€ Android emulator / Expo Go / physical device
+â”œâ”€â”€ Spring Boot on port 8080
+â””â”€â”€ Docker
+    â””â”€â”€ PostgreSQL 17 on port 5432
 ```
 
 Metro port `8081` serves the React Native development bundle.
@@ -841,6 +1410,8 @@ adb reverse tcp:8081 tcp:8081
 
 when local routing requires it.
 
+Physical devices can use the development computer's LAN address.
+
 Production mobile builds do not use these local ports.
 
 ---
@@ -851,10 +1422,10 @@ The backend Dockerfile uses a multi-stage build.
 
 ```text
 Build stage
-├── Maven
-├── Java 21 JDK
-├── pom.xml
-└── backend source
+â”œâ”€â”€ Maven
+â”œâ”€â”€ Java 21 JDK
+â”œâ”€â”€ pom.xml
+â””â”€â”€ backend source
         |
         | Maven package
         v
@@ -862,10 +1433,10 @@ Executable Spring Boot JAR
         |
         v
 Runtime stage
-├── Java 21 runtime
-├── curl
-├── non-root applymate user
-└── app.jar
+â”œâ”€â”€ Java 21 runtime
+â”œâ”€â”€ curl
+â”œâ”€â”€ non-root applymate user
+â””â”€â”€ app.jar
 ```
 
 The final image:
@@ -896,22 +1467,40 @@ Expo web build/export
 ## Backend
 
 ```text
-PostgreSQL CI service
+PostgreSQL CI service / Testcontainers
         |
 Java 21
         |
-Maven verify/test
+Maven test/package
         |
-JUnit / MockMvc / Testcontainers
+JUnit / MockMvc / Mockito / integration tests
 ```
 
-The current backend test suite contains:
+Current backend suite:
 
 ```text
-40 tests
+89 tests
 0 failures
 0 errors
+0 skipped
 ```
+
+The email-verification suite includes coverage for:
+
+* HMAC verification-code security
+* Verification expiry
+* Failed-attempt limits
+* Resend cooldown
+* Hourly issuance limits
+* Replacement-code invalidation
+* Verification transaction behaviour
+* Registration email-provider failure recovery
+* Unverified login
+* Unverified refresh protection
+* Resend provider behaviour
+* Provider secret-safety regression behaviour
+* Flyway migration compatibility
+* Post-rollout V8 schema behaviour
 
 ## Docker
 
@@ -947,7 +1536,11 @@ Local environment values can include:
 * Local API URL
 * Local database credentials
 * Development JWT secret
+* Email-verification pepper
+* Local Resend test credentials
 * Temporary test token lifetimes
+
+Local secrets must never be committed.
 
 ## EAS Environments
 
@@ -962,7 +1555,7 @@ The public production API configuration is:
 EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
 ```
 
-No JWT secrets or database credentials are placed in the frontend environment.
+No JWT, Resend, verification-pepper or database secrets are placed in frontend environment variables.
 
 ## Production Environment
 
@@ -978,11 +1571,23 @@ JWT_ACCESS_TOKEN_TTL
 REFRESH_TOKEN_TTL
 APP_CORS_ALLOWED_ORIGIN_PATTERNS
 PORT
+
+EMAIL_PROVIDER
+EMAIL_FROM
+RESEND_API_KEY
+EMAIL_VERIFICATION_PEPPER
 ```
 
-Neon stores the production PostgreSQL data.
+Current production email configuration includes:
 
-Production secrets must never be committed to Git.
+```text
+EMAIL_PROVIDER=resend
+EMAIL_FROM=ApplyMate <verify@applymate.website>
+```
+
+The actual Resend API key and verification pepper are secrets and must never appear in source control or documentation.
+
+Neon stores the production PostgreSQL data.
 
 ---
 
@@ -999,17 +1604,19 @@ DELETE /api/v1/users/me
        v
 Delete app_users record
        |
-       ├──> delete job applications
-       ├──> delete reminders
-       └──> delete refresh-token sessions
+       â”œâ”€â”€> delete job applications
+       â”œâ”€â”€> delete reminders
+       â”œâ”€â”€> delete refresh-token sessions
+       â””â”€â”€> delete verification challenge
        |
        v
 Mobile local cleanup
        |
-       ├──> cancel scheduled notifications
-       ├──> remove stored notification IDs
-       ├──> remove local account settings
-       └──> remove authentication tokens
+       â”œâ”€â”€> cancel scheduled notifications
+       â”œâ”€â”€> remove stored notification IDs
+       â”œâ”€â”€> remove local account settings
+       â”œâ”€â”€> clear pending verification state
+       â””â”€â”€> remove authentication tokens
        |
        v
 Welcome / Login
@@ -1025,9 +1632,9 @@ Privacy information is hosted separately from the backend API.
 
 ```text
 GitHub Pages
-├── index.html
-├── privacy-policy.html
-└── delete-account.html
+â”œâ”€â”€ index.html
+â”œâ”€â”€ privacy-policy.html
+â””â”€â”€ delete-account.html
 ```
 
 The Privacy Policy is linked from the Profile screen.
@@ -1051,10 +1658,18 @@ The deployed architecture has passed:
 * Public API status verification
 * Actuator health verification
 * Registration
-* Login
+* Email verification
+* Real verification-email delivery
+* Verification resend
+* Old-code invalidation after resend
+* Verification persistence across app restart
+* Unverified-login rejection
+* Login after verification
+* Existing-user compatibility
 * Access-token authentication
 * Refresh-token issuance
 * Refresh-token rotation
+* Unverified-refresh protection
 * Silent session refresh
 * Current-user profile retrieval
 * Application CRUD
@@ -1069,18 +1684,81 @@ The deployed architecture has passed:
 * Deleted-account login rejection
 * Privacy Policy navigation
 * Standalone Android preview-build testing
+* Resend secret-handling hotfix verification
+* Flyway V6/V7 production rollout
+* Flyway V8 post-rollout cleanup
+* Final V8 production health verification
 
 Verified production path:
 
 ```text
-Android / Expo client
+React Native / Expo client
         |
         v
 Render Spring Boot API
         |
+        â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€> Resend
+        â”‚                  |
+        â”‚                  v
+        â”‚             User inbox
+        â”‚
         v
 Neon PostgreSQL
 ```
+
+Final production schema:
+
+```text
+Flyway V8
+```
+
+Final production health:
+
+```text
+/api/v1/status   -> UP
+/actuator/health -> UP
+```
+
+---
+
+# Email Verification Production Rollout Architecture
+
+The email-verification feature was deployed using a controlled staged rollout.
+
+```text
+V5 production
+    |
+    v
+Deploy application containing V6 + V7
+    |
+    â”œâ”€â”€ V6 adds verification schema
+    â”‚
+    â””â”€â”€ V7 protects old-instance registrations
+            during zero-downtime overlap
+    |
+    v
+Verify existing accounts remain usable
+    |
+    v
+Verify new registrations require verification
+    |
+    v
+Verify Resend delivery
+    |
+    v
+Deploy secret-handling hotfix
+    |
+    v
+Old application instances fully gone
+    |
+    v
+Deploy V8
+    |
+    v
+Remove temporary rollout default
+```
+
+This avoided forcing pre-existing accounts through a verification process they could not have completed when those accounts were originally created.
 
 ---
 
@@ -1094,14 +1772,14 @@ During cold start, the mobile application may temporarily be unable to reach the
 
 This affects response time but does not change data integrity or application architecture.
 
-The production API has been verified after startup using:
+The production API is checked using:
 
 ```text
 /api/v1/status
 /actuator/health
 ```
 
-Both return HTTP 200 when the backend is ready.
+Both return HTTP 200 and `UP` when the backend is ready.
 
 ---
 
@@ -1112,12 +1790,18 @@ The following boundaries remain in place:
 * Server-managed application data uses Spring Boot.
 * PostgreSQL remains the backend system of record.
 * Mobile clients never connect directly to PostgreSQL.
+* Mobile clients never receive Resend credentials.
+* Verification email delivery remains backend-controlled.
+* Raw verification codes are not persisted.
+* Email-verification secrets remain backend-only.
 * Reminder records are backend-synchronised.
 * Notification scheduling remains device-side.
 * Device preferences remain local.
 * Production secrets remain outside Git.
 * Access tokens remain short-lived.
 * Refresh sessions remain revocable and persistent.
+* Unverified accounts cannot gain authenticated access.
 * New database changes must use Flyway.
+* Applied Flyway migrations must not be modified.
 * Public privacy/deletion pages remain separate from authenticated API functionality.
 * Standalone iOS distribution remains deferred until Apple Developer Program enrolment.
