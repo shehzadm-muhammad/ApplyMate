@@ -2,64 +2,84 @@
 
 ## Current Status
 
-- **Current phase:** Mobile Distribution & Release Closeout
+- **Current phase:** Email Verification & Production Rollout Closeout
 - **Stable branch:** `main`
-- **Working branch:** `main`
-- **Latest completed milestone:** Final Android release-candidate verification
-- **Current release tag:** `v1.2.0`
-- **Next planned release tag:** `v1.3.0`
+- **Documentation branch:** `docs/email-verification-closeout`
+- **Current production/main commit:** `beca795`
+- **Current release tag:** `v1.3.0`
+- **Next planned release tag:** `v1.4.0`
+- **Production Flyway version:** `V8`
+- **Backend automated tests:** `89 passing`
+- **Production API:** `UP`
+- **Production health:** `UP`
 
-The frontend MVP, backend MVP, full-stack integration, MVP polish, production deployment, mobile distribution configuration, backend reminder synchronisation, persistent-session authentication, account deletion, privacy/store-readiness work and Android release testing are complete.
+The frontend MVP, backend MVP, production deployment, mobile distribution, persistent-session authentication, backend reminder synchronisation, account deletion, privacy/store-readiness work and email-verification feature are complete.
 
-The production backend is running on Render and connects to PostgreSQL hosted by Neon.
+Email verification is live in production using:
 
-The remaining work for `v1.3.0` is documentation closeout, final CI/Docker validation and release tagging.
+```text
+React Native / Expo
+        |
+        v
+Render Spring Boot API
+        |
+        â”œâ”€â”€> Neon PostgreSQL
+        |
+        â””â”€â”€> Resend
+                 |
+                 v
+        verify@applymate.website
+```
+
+The remaining work for `v1.4.0` is documentation closeout and release tagging.
 
 ---
 
-## 12 July 2026 — Project Initialisation
+# July 2026
+
+## 12 July 2026 â€” Project Initialisation
 
 ### Completed
 
-* Created the ApplyMate React Native project using Expo and TypeScript.
-* Added the initial application entry point.
-* Added the ApplyMate colour theme and branding.
-* Created the splash screen.
-* Started the authentication navigation flow.
-* Created the initial Git repository and GitHub repository.
+- Created the ApplyMate React Native project using Expo and TypeScript.
+- Added the initial application entry point.
+- Added ApplyMate branding and colour theme.
+- Created the splash screen.
+- Started the authentication navigation flow.
+- Created the Git repository and GitHub repository.
 
 ### Outcome
 
-ApplyMate had a working React Native foundation with a defined visual identity and initial navigation structure.
+ApplyMate had a working React Native foundation with a defined visual identity and navigation structure.
 
 ---
 
-## 13 July 2026 — Authentication Interface
+## 13 July 2026 â€” Authentication Interface
 
 ### Completed
 
-* Created reusable authentication interface components.
-* Added reusable text-input components.
-* Built registration and login screens.
-* Added client-side form validation.
-* Added touched-field validation so errors appear after users interact with fields.
-* Connected authentication screens to navigation.
+- Created reusable authentication UI components.
+- Added reusable text-input components.
+- Built registration and login screens.
+- Added client-side form validation.
+- Added touched-field validation.
+- Connected authentication screens to navigation.
 
 ### Outcome
 
-The frontend authentication flow was visually and structurally complete, although authentication was still local at this stage.
+The frontend authentication experience was visually and structurally complete before backend authentication existed.
 
 ---
 
-## 14 July 2026 — Application Tracking Screens
+## 14 July 2026 â€” Application Tracking Screens
 
 ### Completed
 
-* Built the applications list screen.
-* Built the application-details screen.
-* Added the initial application data model.
-* Added navigation between application records and detail views.
-* Continued developing the application-management interface.
+- Built the applications list screen.
+- Built the application-details screen.
+- Added the initial application data model.
+- Added navigation between application records and detail views.
+- Continued developing application-management flows.
 
 ### Outcome
 
@@ -67,44 +87,44 @@ Users could navigate through the primary job-application tracking interface.
 
 ---
 
-## 16 July 2026 — Frontend MVP Completed
+## 16 July 2026 â€” Frontend MVP Completed
 
 ### Completed
 
-* Completed the first frontend MVP.
-* Added dashboard functionality.
-* Added application creation and editing flows.
-* Added profile and settings screens.
-* Added reminders and local notification support.
-* Added protected and public navigation flows.
-* Added local storage for frontend MVP data.
-* Tagged the completed frontend milestone.
+- Completed the first frontend MVP.
+- Added dashboard functionality.
+- Added application creation and editing flows.
+- Added profile and settings screens.
+- Added reminders and local notifications.
+- Added protected and public navigation flows.
+- Added local frontend persistence.
+- Tagged the completed frontend milestone.
 
 ### Outcome
 
-The complete mobile interface could be demonstrated independently before backend integration.
+The complete mobile application interface could be demonstrated independently before backend integration.
 
 ---
 
-## 17 July 2026 — Backend Foundation
+## 17 July 2026 â€” Backend Foundation
 
 ### Completed
 
-* Created the Spring Boot backend under `backend/`.
-* Configured Java and Maven.
-* Added the system-status endpoint.
-* Added PostgreSQL 17 through Docker Compose.
-* Added persistent local database storage.
-* Added a PostgreSQL health check.
-* Configured Spring Data JPA.
-* Configured Flyway database migrations.
-* Created the `app_users` database table.
-* Implemented user registration.
-* Added password hashing.
-* Implemented login authentication.
-* Added JWT access-token generation and validation.
-* Added the authenticated current-user endpoint.
-* Created the initial job-application database schema.
+- Created the Spring Boot backend under `backend/`.
+- Configured Java and Maven.
+- Added the API status endpoint.
+- Added PostgreSQL 17 through Docker Compose.
+- Added persistent local PostgreSQL storage.
+- Added a PostgreSQL health check.
+- Configured Spring Data JPA.
+- Configured Flyway.
+- Created the `app_users` table.
+- Implemented user registration.
+- Added password hashing.
+- Implemented login authentication.
+- Added JWT access-token generation and validation.
+- Added the authenticated current-user endpoint.
+- Created the initial job-application database schema.
 
 ### Outcome
 
@@ -112,22 +132,22 @@ ApplyMate gained a working backend, persistent PostgreSQL database and stateless
 
 ---
 
-## 18–22 July 2026 — Authentication and Application API Development
+## 18â€“22 July 2026 â€” Authentication and Application API Development
 
 ### Completed
 
-* Protected backend routes using Spring Security.
-* Added authenticated job-application endpoints.
-* Connected applications to their owning users.
-* Added request and response DTOs.
-* Added entity-to-response mapping.
-* Added service and repository layers.
-* Added application creation and listing.
-* Added application detail retrieval.
-* Added application updating.
-* Added application deletion.
-* Added authenticated-user resolution.
-* Added ownership checks for application access.
+- Protected backend routes using Spring Security.
+- Added authenticated job-application endpoints.
+- Connected applications to their owning users.
+- Added request and response DTOs.
+- Added entity-to-response mapping.
+- Added service and repository layers.
+- Added application creation and listing.
+- Added application detail retrieval.
+- Added application updating.
+- Added application deletion.
+- Added authenticated-user resolution.
+- Added ownership checks.
 
 ### Outcome
 
@@ -135,238 +155,221 @@ The backend could securely manage application records for individual authenticat
 
 ---
 
-## 23 July 2026 — Backend MVP Completed
+## 23 July 2026 â€” Backend MVP Completed
 
 ### Completed
 
-* Completed the full job-application CRUD API.
-* Added application ownership protection.
-* Ensured users could not read, update or delete another user's data.
-* Added application filtering by status.
-* Added case-insensitive application search.
-* Added dashboard summary counts.
-* Added consistent API error responses.
-* Added centralised backend exception handling.
-* Added authentication and application smoke testing.
-* Completed the backend MVP.
-* Merged the backend feature branch into `main`.
+- Completed the job-application CRUD API.
+- Added application ownership protection.
+- Prevented users from accessing another user's records.
+- Added application filtering by status.
+- Added case-insensitive application search.
+- Added dashboard summary counts.
+- Added consistent API error responses.
+- Added centralised exception handling.
+- Added authentication and application smoke testing.
+- Completed the backend MVP.
+- Merged the backend work into `main`.
 
 ### Outcome
 
-The Spring Boot backend provided all server functionality required by the mobile MVP.
+The Spring Boot backend provided all server functionality required by the initial mobile MVP.
 
 ---
 
-## 24 July 2026 — Frontend API Integration
+## 24 July 2026 â€” Frontend API Integration
 
 ### Completed
 
-* Migrated job-application data from AsyncStorage to the Spring Boot API.
-* Added a central frontend API client.
-* Added environment-based API URL configuration.
-* Added JWT bearer tokens to protected requests.
-* Added secure native token storage using Expo SecureStore.
-* Added browser token storage for the web build.
-* Connected registration to the backend.
-* Connected login to the backend.
-* Connected current-user profile data to the backend.
-* Connected create, read, update and delete application flows to the backend.
-* Preserved reminders and device preferences as local-only features.
+- Migrated job-application data from frontend-only storage to the Spring Boot API.
+- Added a central frontend API client.
+- Added environment-based API URL configuration.
+- Added JWT bearer authentication.
+- Added Expo SecureStore token storage.
+- Added browser fallback storage.
+- Connected registration to the backend.
+- Connected login to the backend.
+- Connected current-user profile loading.
+- Connected application CRUD to the backend.
+- Preserved reminders and device preferences locally at this stage.
 
 ### Outcome
 
 Application data now flowed end to end:
 
 ```text
-React Native → Spring Boot → PostgreSQL
+React Native
+    -> Spring Boot
+    -> PostgreSQL
 ```
 
-The backend became the system of record for users and job applications.
+The backend became the system of record for accounts and job applications.
 
 ---
 
-## 25 July 2026 — Dashboard Summary Integration
+## 25 July 2026 â€” Dashboard Summary Integration
 
 ### Completed
 
-* Connected the dashboard to:
+Connected the dashboard to:
 
 ```text
 GET /api/v1/applications/summary
 ```
 
-* Replaced locally calculated dashboard totals with backend summary data.
-* Verified that summary counts were scoped to the authenticated user.
-* Preserved the existing dashboard design.
+- Replaced locally calculated dashboard totals.
+- Verified summary counts were user-scoped.
+- Preserved the dashboard design.
 
 ### Outcome
 
-Dashboard statistics were generated from authoritative backend application data.
+Dashboard statistics were generated from authoritative backend data.
 
 ---
 
-## 28 July 2026 — MVP Polish Completed
+## 28 July 2026 â€” MVP Polish Completed
 
-### Frontend improvements
+### Frontend
 
-* Added dashboard loading states.
-* Added dashboard error states.
-* Added pull-to-refresh.
-* Added application search.
-* Added application status filtering.
-* Added application sorting controls.
-* Improved API error presentation.
-* Preserved the existing interface and navigation design.
+- Added dashboard loading states.
+- Added dashboard error states.
+- Added pull-to-refresh.
+- Added search.
+- Added status filtering.
+- Added sorting controls.
+- Improved API error presentation.
 
-### Backend improvements
+### Backend
 
-* Strengthened job-application validation.
-* Added validation tests.
-* Added application-controller tests.
-* Added explicit user-isolation tests.
-* Formatted and cleaned backend test code.
-* Verified consistent validation and error behaviour.
+- Strengthened application validation.
+- Added validation tests.
+- Added controller tests.
+- Added explicit user-isolation tests.
+- Improved test formatting and organisation.
 
-### Repository work
+### Repository
 
-* Added initial project source documentation.
-* Added the project backlog and roadmap.
-* Merged the completed frontend API integration and MVP-polish branch into `main`.
-* Created the `v1.1.0-mvp` release tag.
+- Added project documentation.
+- Added roadmap and backlog.
+- Merged frontend API integration and MVP polish.
+- Created release tag:
+
+```text
+v1.1.0-mvp
+```
 
 ### Outcome
 
-The complete ApplyMate MVP included:
-
-* React Native frontend
-* Spring Boot backend
-* PostgreSQL persistence
-* JWT authentication
-* User-specific application data
-* Full application CRUD
-* Search, filtering and sorting
-* Dashboard summary data
-* Loading, error and refresh states
-* Request validation
-* Consistent API errors
-* Automated backend tests
-* End-to-end smoke testing
-
-The repository was ready to enter the deployment-readiness phase.
+The integrated ApplyMate MVP was complete and ready for deployment-readiness work.
 
 ---
 
-## 28 July 2026 — Deployment & Production Readiness Started
+## 28 July 2026 â€” Deployment & Production Readiness
 
 ### Documentation
 
-- Reviewed the public `main` branch and repository history.
-- Corrected outdated source documentation.
-- Expanded the architecture documentation.
-- Completed the API reference.
-- Updated the development log and roadmap.
-- Added a root project README.
-- Corrected the inherited Expo licence.
-- Confirmed the MIT licence identifies Muhammad Shahzaib Shehzad as the copyright holder.
+- Reviewed repository documentation.
+- Expanded architecture documentation.
+- Added the API reference.
+- Updated project context and roadmap.
+- Added the root README.
+- Corrected repository licensing information.
 
-### Continuous integration
+### Continuous Integration
 
-- Added GitHub Actions CI.
-- Added frontend dependency installation using `npm ci`.
-- Added TypeScript validation.
-- Added Expo web export validation.
-- Added Java 21 setup.
-- Added PostgreSQL for backend CI.
-- Added Maven tests and packaging.
-- Added production Docker image building.
-- Added verification of the non-root Docker user.
-- Added verification of the Docker health check.
-- Confirmed all three CI jobs passed.
+Added GitHub Actions validation for:
 
-### Production configuration
+```text
+Frontend checks
+Backend tests/package
+Backend Docker image
+```
 
-- Added `application-prod.properties`.
-- Added environment-based production database configuration.
+Frontend CI includes:
+
+```text
+npm ci
+TypeScript validation
+Expo web export
+```
+
+Backend CI includes:
+
+```text
+Java 21
+PostgreSQL
+Maven tests
+Maven packaging
+```
+
+Docker CI verifies the production container.
+
+### Production Configuration
+
+- Added the production Spring profile.
+- Added environment-based PostgreSQL configuration.
 - Added environment-based JWT configuration.
 - Added platform-provided server-port support.
 - Added production CORS configuration.
-- Restricted Actuator exposure to the health endpoint.
+- Restricted Actuator exposure.
 - Disabled destructive Flyway cleaning in production.
-- Disabled detailed framework-error exposure.
-- Added database connection-pool limits.
-- Preserved the existing local-development configuration.
+- Added connection-pool configuration.
 
-### Backend containerisation
+### Containerisation
 
-- Added a multi-stage Java 21 Dockerfile.
-- Built the application with Maven in the build stage.
-- Copied only the executable Spring Boot JAR into the runtime image.
-- Added a non-root `applymate` user.
-- Added a Docker health check using `/actuator/health`.
+- Added a multi-stage Java Dockerfile.
+- Added a non-root `applymate` runtime user.
+- Added `/actuator/health` Docker health checking.
 - Added `.dockerignore`.
-- Prevented `.env` files, local secrets, test sources and development files from entering the image.
-- Built the Docker image locally.
-- Confirmed the container ran as the `applymate` user.
-- Confirmed the container became healthy.
-- Confirmed the container connected to PostgreSQL.
-- Confirmed Flyway validated the database migrations.
-
-### Smoke-test improvements
-
-- Updated the PowerShell smoke-test script to accept a configurable API base URL.
-- Preserved `http://localhost:8080` as the default.
-- Enabled the same script to test local, Docker and production backends.
+- Prevented local secrets and unnecessary files entering the image.
+- Verified Docker startup locally.
 
 ### Outcome
 
-ApplyMate gained repeatable CI, a production Spring profile and a verified production Docker image.
+ApplyMate gained repeatable CI and a production-ready backend image.
 
 ---
 
-## 29 July 2026 — Production Database Deployed
+## 29 July 2026 â€” Neon Production Database
 
 ### Completed
 
-- Created the Neon production project.
-- Created the `applymate` PostgreSQL database.
+- Created the Neon production PostgreSQL project.
+- Created the `applymate` database.
 - Used PostgreSQL 17.
-- Selected the Frankfurt region.
-- Created the `production` database branch.
-- Required SSL for the database connection.
-- Stored database credentials outside Git.
-- Confirmed the application remained independent of Neon-specific APIs or authentication.
+- Selected a European region.
+- Required SSL.
+- Kept database credentials outside source control.
+- Preserved standard PostgreSQL/JDBC portability.
 
 ### Outcome
 
-ApplyMate gained a hosted PostgreSQL production database while preserving portability to other PostgreSQL providers.
+ApplyMate gained a hosted production database.
 
 ---
 
-## 29 July 2026 — Production Backend Deployed
+## 29 July 2026 â€” Render Production Backend
 
 ### Completed
 
-- Created a Render Docker web service.
+- Created the Render Docker web service.
 - Connected Render to the ApplyMate GitHub repository.
-- Deployed from the stable `main` branch.
-- Configured `backend` as the service root directory.
-- Used `backend/Dockerfile`.
-- Selected the Frankfurt region.
-- Configured the free Render instance.
-- Added production environment variables:
-  - `SPRING_PROFILES_ACTIVE`
-  - `DB_URL`
-  - `DB_USERNAME`
-  - `DB_PASSWORD`
-  - `JWT_SECRET`
-  - `APP_CORS_ALLOWED_ORIGIN_PATTERNS`
-- Configured `/actuator/health` as the Render health-check path.
-- Corrected the initial Dockerfile-path typo.
-- Corrected the initial Neon-host placeholder in `DB_URL`.
-- Confirmed Flyway connected to Neon and applied or validated the schema.
-- Confirmed the public HTTPS service became live.
+- Configured deployment from `main`.
+- Configured `backend/Dockerfile`.
+- Added production environment variables.
+- Configured:
 
-### Production URL
+```text
+/actuator/health
+```
+
+as the Render health endpoint.
+
+- Connected Render to Neon.
+- Confirmed Flyway startup.
+- Confirmed the HTTPS service became live.
+
+Production API:
 
 ```text
 https://applymate-api-bami.onrender.com
@@ -374,24 +377,13 @@ https://applymate-api-bami.onrender.com
 
 ### Outcome
 
-The Spring Boot Docker backend became publicly available over HTTPS and connected successfully to the Neon PostgreSQL database.
+ApplyMate's Spring Boot backend became publicly accessible over HTTPS.
 
 ---
 
-## 29 July 2026 — Production Backend Smoke Test Passed
+## 29 July 2026 â€” Production Backend Smoke Testing
 
-### Public endpoint checks
-
-The following endpoints returned `UP`:
-
-```text
-GET /api/v1/status
-GET /actuator/health
-```
-
-### Automated smoke-test coverage
-
-The production smoke test passed:
+Verified:
 
 - Registration
 - Duplicate-registration rejection
@@ -399,7 +391,7 @@ The production smoke test passed:
 - Invalid-password rejection
 - JWT authentication
 - Current-user profile
-- Request validation
+- Validation
 - Application creation
 - Application listing
 - Application details
@@ -409,535 +401,1346 @@ The production smoke test passed:
 - Dashboard summary
 - Application deletion
 - Unauthenticated-request rejection
-- Cross-user application isolation
-- Smoke-test data cleanup
+- Cross-user isolation
+- Test-data cleanup
+
+Public endpoints returned:
+
+```text
+/api/v1/status   -> UP
+/actuator/health -> UP
+```
 
 ### Outcome
 
-The deployed Render backend and Neon database passed the complete automated backend workflow.
+The Render + Neon backend passed the production workflow.
 
 ---
 
-## 29 July 2026 — Mobile Production Integration Passed
-
-### Completed
-
-- Configured the Expo frontend to use:
-
-```text
-EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
-```
-
-- Confirmed `.env.local` remained ignored by Git.
-- Started Expo with a cleared development cache.
-- Registered a production user from the mobile application.
-- Logged in through the production backend.
-- Stored the returned JWT access token.
-- Loaded the authenticated user profile.
-- Created a job application.
-- Confirmed the dashboard count changed.
-- Edited the application.
-- Tested application search.
-- Tested status filtering.
-- Logged out.
-- Logged back in.
-- Confirmed the application persisted in Neon.
-- Deleted the application.
-
-### Outcome
-
-The complete production path was verified:
-
-```text
-Expo mobile application
-    -> Render Spring Boot Docker API
-    -> Neon PostgreSQL
-```
-
-The deployed MVP worked end to end from the mobile interface.
-
----
-
-## 29 July 2026 — Deployment & Production Readiness Completed
-
-### Completed milestone
-
-The deployment phase is complete.
-
-ApplyMate now includes:
-
-- React Native and Expo mobile frontend
-- Spring Boot REST API
-- PostgreSQL persistence
-- JWT authentication
-- User-specific data isolation
-- Full job-application CRUD
-- Search, filtering and sorting
-- Dashboard summary data
-- Backend request validation
-- Consistent error responses
-- Automated backend tests
-- GitHub Actions CI
-- Production Docker image
-- Render HTTPS backend
-- Neon PostgreSQL database
-- Automated production smoke testing
-- Successful mobile-to-production testing
-
-### Known free-tier behaviour
-
-The current deployment uses free portfolio-tier services.
-
-Render may stop the backend after inactivity, and Neon may suspend inactive database compute.
-
-The first request after inactivity may therefore take longer while the services resume.
-
-This is acceptable for the current portfolio and testing stage.
-
----
-
-## 29 July–7 August 2026 — Mobile Distribution & Release Readiness
-
-### Expo Application Services
-
-- Configured Expo Application Services for ApplyMate.
-- Linked the project to the Expo account `@zaib_367`.
-- Configured EAS Build.
-- Added and reviewed `eas.json`.
-- Configured preview and production build profiles.
-- Configured EAS environment separation.
-- Enabled remote native app versioning.
-- Configured production auto-increment behaviour.
-
-### Permanent application identifiers
+## 29 July 2026 â€” Mobile Production Integration
 
 Configured:
 
 ```text
-Android package:
-com.zaib367.applymate
-
-iOS bundle identifier:
-com.zaib367.applymate
-
-These identifiers are now treated as permanent release identifiers.
-
-Native configuration
-Marketing version remained 1.0.0.
-Configured Android version-code management through EAS.
-Configured iOS build-number management through EAS.
-Added the expo-notifications native config plugin.
-Confirmed Expo Doctor passed all checks.
-
-Latest Expo Doctor result:
-
-18/18 checks passed
-Production API environment
-
-Configured the EAS preview and production environments to use:
-
 EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
+```
 
-The public API URL is build configuration rather than a secret.
+Verified from the mobile application:
 
-Database credentials and JWT signing secrets remain backend-only.
+- Production registration
+- Login
+- JWT storage
+- User-profile loading
+- Application creation
+- Dashboard updates
+- Application editing
+- Search
+- Filtering
+- Logout
+- Login after restart
+- Neon persistence
+- Application deletion
 
-Android internal distribution
-Created Android preview/internal-distribution builds through EAS.
-Installed standalone builds on the ApplyMate Android test emulator.
-Confirmed the standalone application communicated with the Render production backend.
-Verified application functionality outside Expo Go.
-iOS distribution
-Configured the permanent iOS bundle identifier.
-Continued development testing through Expo Go.
-Reviewed standalone iOS and TestFlight requirements.
-Deferred paid Apple Developer Program enrolment.
+### Outcome
 
-No paid Apple Developer action was taken during this phase.
+The complete production path worked:
 
-Outcome
+```text
+Expo mobile application
+    -> Render
+    -> Neon PostgreSQL
+```
 
-ApplyMate gained a repeatable Android release-build pipeline while preserving the option to enable TestFlight/App Store distribution later.
+---
 
-Backend Reminder Synchronisation
-Completed
-Migrated reminder records from local-only persistence to the Spring Boot backend.
-Added PostgreSQL persistence for reminders.
-Added Flyway migration V3.
-Added authenticated reminder CRUD operations.
-Scoped reminder records to the authenticated user.
-Preserved local device notification scheduling.
-Associated stored notification identifiers with individual users.
-Verified reminder isolation using two separate accounts.
-Architecture
-Reminder record
-    -> Spring Boot API
+# August 2026
+
+## 29 Julyâ€“8 August 2026 â€” Mobile Distribution & Release Readiness
+
+### Expo Application Services
+
+- Connected ApplyMate to Expo Application Services.
+- Configured `eas.json`.
+- Added development, preview and production profiles.
+- Configured environment separation.
+- Enabled remote native versioning.
+- Configured production build behaviour.
+
+### Permanent Identifiers
+
+```text
+Android:
+com.zaib367.applymate
+
+iOS:
+com.zaib367.applymate
+```
+
+### Production API
+
+Preview and production environments use:
+
+```text
+EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
+```
+
+### Android
+
+- Created Android internal-distribution builds.
+- Installed standalone builds.
+- Tested against the Render production API.
+- Confirmed production functionality outside Expo Go.
+
+### iOS
+
+- Configured the permanent bundle identifier.
+- Continued development testing through Expo Go.
+- Deferred TestFlight/App Store distribution pending paid Apple Developer Program enrolment.
+
+### Expo Doctor
+
+Final result:
+
+```text
+18/18 checks passed
+```
+
+### Outcome
+
+ApplyMate gained a repeatable Android distribution pipeline.
+
+---
+
+## Backend Reminder Synchronisation
+
+### Completed
+
+- Migrated reminder records from local persistence to Spring Boot.
+- Added PostgreSQL reminder persistence.
+- Added Flyway migration V3.
+- Added authenticated reminder CRUD.
+- Scoped reminders to users.
+- Preserved local notification scheduling.
+- Associated local notification identifiers with users.
+- Verified reminder isolation using two separate accounts.
+
+Architecture:
+
+```text
+Reminder data
+    -> Spring Boot
     -> PostgreSQL
 
 Notification delivery
     -> Expo Notifications
-    -> Device operating system
-Outcome
+    -> Device OS
+```
 
-Reminder data now follows the signed-in user and remains isolated between accounts, while notification scheduling remains device-specific.
+### Outcome
 
-3–7 August 2026 — Persistent Session Authentication
-Problem
+Reminder data now follows the authenticated account while notification scheduling remains device-side.
 
-ApplyMate originally used only a short-lived JWT access token.
+---
 
-Once that token expired, the user had to authenticate again.
+## 3â€“7 August 2026 â€” Persistent Session Authentication
 
-The original development access-token lifetime made this particularly visible during testing.
+### Problem
 
-Backend implementation
+The original implementation depended only on short-lived JWT access tokens.
 
-Added persistent refresh-token sessions.
+Users would eventually need to authenticate again.
 
-Completed:
-
-Added refresh-token persistence.
-Added Flyway V4__create_refresh_tokens_table.sql.
-Added Flyway V5__alter_refresh_token_hash_type.sql.
-Added opaque cryptographically random refresh tokens.
-Stored only SHA-256 refresh-token hashes in PostgreSQL.
-Added refresh-token expiry.
-Added refresh-token revocation.
-Added refresh-token families.
-Added refresh-token rotation.
-Added revoked-token reuse handling.
-Added pessimistic database locking during token rotation.
-Added backend session revocation during logout.
-
-Production session configuration:
-
-Access token lifetime: 1 hour
-Refresh session lifetime: 30 days
-Authentication API changes
+### Backend
 
 Added:
 
+- Refresh-token persistence
+- Flyway V4
+- Flyway V5
+- Opaque random refresh tokens
+- SHA-256 refresh-token hashes
+- Session expiry
+- Session revocation
+- Refresh-token families
+- Token rotation
+- Reuse handling
+- Pessimistic locking
+- Backend logout revocation
+
+Production configuration:
+
+```text
+Access token:    1 hour
+Refresh session: 30 days
+```
+
+Added:
+
+```text
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
+```
 
-Login and refresh responses now return:
+### Mobile
 
-JWT access token
-Access-token expiry
-Refresh token
-Refresh-session expiry
-Authenticated user information
-Mobile implementation
-Extended SecureStore authentication storage to contain both token types.
-Added refresh-token storage and removal.
-Added automatic refresh after an authenticated 401.
-Added retry of the original protected request after successful refresh.
-Added shared refresh coordination so simultaneous requests do not independently rotate the same token.
-Added central expired-session handling.
-Improved session restoration.
-Preserved locally stored sessions during temporary backend/network failures.
-Updated logout to revoke the backend refresh session before clearing local authentication state.
-Removed stale dashboard authentication-error behaviour.
-Controlled expiry verification
+- Extended SecureStore token storage.
+- Added refresh-token handling.
+- Added automatic refresh after authenticated `401`.
+- Added protected-request retry.
+- Added shared refresh coordination.
+- Added session restoration.
+- Improved network/server-failure handling.
+- Updated logout to revoke backend sessions.
 
-For end-to-end testing, the local access-token lifetime was temporarily reduced to:
+### Controlled Expiry Test
 
+Temporarily reduced the local access-token lifetime to:
+
+```text
 1 minute
-
-The Android client was then tested after genuine access-token expiry.
+```
 
 Verified:
 
-User remained signed in.
-Expired access token produced a refresh operation.
-New access token was returned.
-Refresh token was rotated.
-Original protected request succeeded.
-Dashboard and application functionality continued normally.
-No authentication error was displayed.
-Production verification
+- User remained signed in.
+- Access token expired naturally.
+- Refresh occurred automatically.
+- New access token was issued.
+- Refresh token rotated.
+- Protected request retried successfully.
+- No unnecessary login prompt appeared.
 
-The same flow was verified against Render and Neon.
+### Production Verification
 
-Production test confirmed:
+Verified against Render and Neon:
 
-Login                        PASS
-Access token issued          PASS
-Refresh token issued         PASS
-Refresh endpoint             PASS
-New access token issued      PASS
-Refresh token rotated        PASS
-Logout                       PASS
-Session revocation           PASS
-Automated tests
+```text
+Login                    PASS
+Access token             PASS
+Refresh token            PASS
+Refresh endpoint         PASS
+Token rotation           PASS
+Logout                   PASS
+Session revocation       PASS
+```
 
-The backend test suite increased to:
+### Outcome
 
-Tests run: 40
+ApplyMate gained persistent authenticated mobile sessions.
+
+---
+
+## 7â€“8 August 2026 â€” Account Deletion
+
+### Backend
+
+Added:
+
+```text
+DELETE /api/v1/users/me
+```
+
+The account ID is derived from the JWT rather than client input.
+
+Deletion removes user-owned backend data.
+
+### Mobile
+
+Added:
+
+```text
+Profile -> Delete Account
+```
+
+with two confirmation prompts.
+
+Successful deletion:
+
+- Cancels local notifications.
+- Clears reminder notification identifiers.
+- Clears local account settings.
+- Removes authentication tokens.
+- Clears authenticated user state.
+- Returns to Welcome.
+
+### Production Verification
+
+Verified:
+
+```text
+Account deleted                 PASS
+Applications/reminders deleted  PASS
+Refresh sessions removed        PASS
+Local tokens removed            PASS
+Returned to Welcome             PASS
+Old credentials rejected        PASS
+```
+
+### Outcome
+
+ApplyMate gained permanent self-service account deletion.
+
+---
+
+## 8 August 2026 â€” Privacy & Account-Deletion Pages
+
+Created public support contact:
+
+```text
+support.applymate@gmail.com
+```
+
+Added GitHub Pages:
+
+```text
+docs/index.html
+docs/privacy-policy.html
+docs/delete-account.html
+```
+
+Public site:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/
+```
+
+Privacy Policy:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/privacy-policy.html
+```
+
+Account-deletion information:
+
+```text
+https://shehzadm-muhammad.github.io/ApplyMate/delete-account.html
+```
+
+The Profile screen links to the public Privacy Policy.
+
+### Outcome
+
+ApplyMate gained public privacy and deletion information for future store-readiness.
+
+---
+
+## 8 August 2026 â€” Android Release Candidate Verification
+
+The Android internal-distribution build was tested against production.
+
+Verified:
+
+- Application launch
+- Login
+- Dashboard
+- Existing application data
+- Application create/edit/delete
+- Reminder creation
+- Reminder persistence
+- Persistent authentication
+- Privacy Policy access
+- Delete Account UI
+- Logout
+- Logged-out state after reopening
+
+### Outcome
+
+Mobile Distribution & Release Readiness was completed.
+
+The release was closed as:
+
+```text
+v1.3.0
+```
+
+---
+
+# Email Verification Feature
+
+## 8â€“10 August 2026 â€” Email Verification Backend Development
+
+A new feature branch was created for production email verification.
+
+### Database
+
+Added Flyway:
+
+```text
+V6__add_email_verification.sql
+```
+
+V6 introduced:
+
+```text
+app_users.email_verified_at
+email_verification_codes
+```
+
+Existing users were backfilled as verified.
+
+This prevented accounts created before the feature existed from being locked out.
+
+New registrations remain unverified.
+
+### Verification Challenge Storage
+
+The challenge table stores:
+
+- User ID
+- Verification-code hash
+- Expiry
+- Failed-attempt count
+- Last issue time
+- Rate-limit window
+- Issue count
+- Creation/update timestamps
+
+Only one current verification challenge exists per user.
+
+### Verification-Code Security
+
+Implemented:
+
+```text
+6 numeric digits
+SecureRandom
+HMAC-SHA-256
+server-side pepper
+```
+
+Raw codes are never stored.
+
+The HMAC input includes:
+
+```text
+userId + ":" + code
+```
+
+The production pepper is separate from JWT configuration.
+
+### Verification Rules
+
+```text
+Code TTL:                 10 minutes
+Maximum failed attempts:  5
+Resend cooldown:          60 seconds
+Issue window:             1 hour
+Maximum issues/window:    5
+```
+
+Resend generates a replacement challenge.
+
+The previous code becomes invalid.
+
+### API
+
+Added:
+
+```text
+POST /api/v1/auth/verify-email
+POST /api/v1/auth/resend-verification
+```
+
+Registration was changed to return verification metadata rather than authentication tokens.
+
+### Login Protection
+
+Login behaviour became:
+
+```text
+Correct password
+    |
+    v
+Check email verification
+    |
+    â”œâ”€â”€ unverified
+    â”‚      -> 403 EMAIL_VERIFICATION_REQUIRED
+    â”‚      -> no tokens
+    â”‚
+    â””â”€â”€ verified
+           -> normal login
+```
+
+Incorrect passwords remain generic `401` responses.
+
+### Refresh Protection
+
+Refresh-token access was also hardened.
+
+An unverified account cannot use an existing/synthetic refresh session to bypass email verification.
+
+The refresh session is revoked and authenticated access is refused.
+
+### Structured Verification Errors
+
+Added machine-readable errors including:
+
+```text
+EMAIL_VERIFICATION_REQUIRED
+VERIFICATION_CODE_INCORRECT
+VERIFICATION_CODE_EXPIRED
+VERIFICATION_ATTEMPTS_EXCEEDED
+VERIFICATION_RESEND_COOLDOWN
+VERIFICATION_RATE_LIMITED
+VERIFICATION_EMAIL_UNAVAILABLE
+```
+
+`ApiErrorResponse` was expanded with:
+
+```text
+code
+retryAfterSeconds
+```
+
+Applicable `429` responses also return the HTTP `Retry-After` header.
+
+---
+
+## Resend Transactional Email Integration
+
+Added backend abstraction:
+
+```text
+VerificationEmailSender
+```
+
+Implemented:
+
+```text
+ResendVerificationEmailSender
+UnavailableVerificationEmailSender
+```
+
+Production configuration uses:
+
+```text
+EMAIL_PROVIDER=resend
+```
+
+Email delivery uses Spring `RestClient`.
+
+Email content includes:
+
+- Six-digit verification code
+- Verification expiry information
+- Plain-text body
+- HTML body
+
+No verification code, API key or provider response body is intentionally logged.
+
+---
+
+## Production Email Domain
+
+Purchased:
+
+```text
+applymate.website
+```
+
+The domain was configured in Resend.
+
+DNS configuration included:
+
+- DKIM
+- SPF
+- DMARC
+- Resend mail-routing records
+
+Resend reported the domain as:
+
+```text
+Verified
+```
+
+Production sender:
+
+```text
+ApplyMate <verify@applymate.website>
+```
+
+Real delivery from the custom domain was tested successfully before production rollout.
+
+---
+
+## Frontend Email Verification
+
+Added:
+
+```text
+src/screens/VerifyEmailScreen.tsx
+src/services/pendingVerificationStorage.ts
+```
+
+### Registration Flow
+
+```text
+Register
+   |
+   v
+Backend creates unverified account
+   |
+   v
+Mobile stores pending verification state
+   |
+   v
+Verify Email screen
+```
+
+### Pending State
+
+Stored locally:
+
+```text
+email
+verificationExpiresAt
+resendAvailableAt
+```
+
+Not stored:
+
+```text
+password
+verification code
+JWT
+refresh token
+```
+
+### Verify Email Screen
+
+Implemented:
+
+- Six-digit numeric input
+- Verify action
+- Resend action
+- Countdown
+- API retry timing
+- Generic failure handling
+- Return-to-login flow
+
+### Restart Recovery
+
+If the user closes the application before verification completes:
+
+```text
+App restart
+    |
+    v
+Load pending verification
+    |
+    v
+Return directly to Verify Email
+```
+
+### Unverified Login Recovery
+
+If the user attempts normal login before verification:
+
+```text
+EMAIL_VERIFICATION_REQUIRED
+       |
+       v
+Verify Email screen
+```
+
+### Manual Device Testing
+
+Verified locally:
+
+- Registration
+- Real verification email
+- Code verification
+- Login after verification
+- App-restart recovery
+- Incorrect code handling
+- Resend countdown
+- Resent email delivery
+- Old-code invalidation
+- New-code acceptance
+- Unverified-login redirect
+
+---
+
+## Email Verification Automated Testing
+
+Backend coverage was expanded substantially.
+
+Tests covered:
+
+- HMAC code security
+- Verification expiry
+- Incorrect attempts
+- Maximum-attempt enforcement
+- Resend cooldown
+- Issuance rate limiting
+- Replacement-code invalidation
+- Verification transaction behaviour
+- Registration delivery failure
+- Resend provider integration
+- Unverified login
+- Unverified refresh protection
+- Migration compatibility
+- Controller/API behaviour
+
+Before the later production hotfix, the suite reached:
+
+```text
+86 tests
+0 failures
+0 errors
+```
+
+Frontend TypeScript validation also passed.
+
+GitHub CI passed:
+
+```text
+Frontend checks
+Backend tests/package
+Backend Docker image
+```
+
+---
+
+# Production Email Verification Rollout
+
+## 10 August 2026 â€” PR #6 and Controlled Production Deployment
+
+Feature commit:
+
+```text
+0b1996b feat: add email verification
+```
+
+Merged through PR:
+
+```text
+#6
+```
+
+Resulting `main` commit:
+
+```text
+47b86c7
+```
+
+Render auto-deployment was deliberately disabled so production migration timing remained controlled.
+
+Production environment variables were prepared for:
+
+```text
+EMAIL_PROVIDER
+EMAIL_FROM
+RESEND_API_KEY
+EMAIL_VERIFICATION_PEPPER
+```
+
+Secret values were kept out of Git and documentation.
+
+A Neon backup/snapshot was taken before database migration.
+
+---
+
+## Flyway V6 and V7 Production Migration
+
+The production deployment started from:
+
+```text
+Current schema: V5
+```
+
+Flyway successfully applied:
+
+```text
+V6 - add email verification
+V7 - preserve legacy registration during email verification rollout
+```
+
+Result:
+
+```text
+Schema version: V7
+```
+
+### Why V7 Existed
+
+During a zero-downtime deployment, an older backend instance could temporarily continue receiving registrations after V6 had changed the schema.
+
+V7 temporarily configured:
+
+```text
+email_verified_at DEFAULT CURRENT_TIMESTAMP
+```
+
+so registrations performed by an old application version remained usable.
+
+The new backend explicitly persisted:
+
+```text
+NULL
+```
+
+so registrations handled by the new code still required verification.
+
+---
+
+## Existing-User Compatibility Verification
+
+After V6/V7:
+
+```text
+total users:    7
+verified users: 7
+```
+
+Existing accounts successfully logged in.
+
+This proved the V6 backfill prevented legacy-account lockout.
+
+Production status remained:
+
+```text
+/api/v1/status   -> UP
+/actuator/health -> UP
+```
+
+---
+
+# Production Email Delivery Incident
+
+## 11 August 2026 â€” Initial Production Registration Failure
+
+The first brand-new production registration created:
+
+```text
+app_users row                  PASS
+email_verified_at = NULL      PASS
+verification challenge        PASS
+verification email delivery   FAIL
+```
+
+The mobile client displayed an unexpected error.
+
+Retrying registration correctly returned that the account already existed because the account transaction had already committed.
+
+Neon showed:
+
+```text
+email_verified_at = NULL
+verification challenge exists
+failed_attempts = 0
+issue_count = 1
+```
+
+No email appeared in Resend.
+
+---
+
+## Root Cause
+
+A controlled resend request returned:
+
+```text
+500 Internal Server Error
+```
+
+Render logs identified:
+
+```text
+IllegalArgumentException:
+Illegal character(s) in message header value
+```
+
+The production `RESEND_API_KEY` contained an invalid hidden character.
+
+Java rejected the malformed Authorization header before the request reached Resend.
+
+### Security Observation
+
+The underlying Java exception included the malformed Authorization value.
+
+This caused the old production API key to appear in the Render exception log.
+
+### Immediate Response
+
+- The affected Resend API key was treated as compromised.
+- The key was revoked.
+- A new production key was generated.
+- The new value was saved securely in Render.
+- No replacement key was placed in source control or chat/documentation.
+
+After deployment with the corrected credential:
+
+```text
+POST /api/v1/auth/resend-verification
+-> 202 Accepted
+```
+
+Resend successfully delivered the email.
+
+The existing unverified production account was recovered through the normal verification flow.
+
+Verified:
+
+```text
+Unverified login rejected       PASS
+Verify Email screen             PASS
+Resend                          PASS
+New email delivered             PASS
+Verification                   PASS
+Login                          PASS
+JWT storage                    PASS
+Dashboard                      PASS
+```
+
+---
+
+# Resend Secret-Safety Hotfix
+
+## 11 August 2026 â€” Security Hardening
+
+Created branch:
+
+```text
+fix/resend-secret-safety
+```
+
+Hotfix commit:
+
+```text
+2647a71
+fix: harden resend secret handling
+```
+
+### Changes
+
+- Normalised leading/trailing API-key whitespace.
+- Rejected embedded whitespace/control characters.
+- Prevented invalid API-key errors from echoing the secret.
+- Converted request-construction failures into the safe email-delivery error path.
+- Avoided retaining sensitive HTTP-header exceptions in the resulting exception chain.
+- Preserved the existing safe:
+
+```text
+503 VERIFICATION_EMAIL_UNAVAILABLE
+```
+
+behaviour.
+
+### Regression Tests
+
+Added tests for:
+
+- Outer API-key whitespace normalisation
+- Embedded invalid-character rejection
+- Safe error messages
+- Simulated header-construction exceptions
+- Ensuring the sensitive value is not retained in the safe exception
+
+Sender test result:
+
+```text
+Tests run: 8
+Failures: 0
+Errors: 0
+```
+
+Full backend suite became:
+
+```text
+Tests run: 89
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
-Outcome
+```
 
-ApplyMate now provides persistent mobile sessions without requiring repeated login while retaining short-lived access credentials and revocable server-side sessions.
+GitHub CI passed all three jobs.
 
-7–8 August 2026 — Account Deletion
-Backend
+---
 
-Added:
+## PR #7 â€” Hotfix Merge
 
-DELETE /api/v1/users/me
+Merged:
 
-The account to be deleted is derived from the authenticated JWT rather than from a client-supplied user ID.
+```text
+PR #7
+```
 
-Existing database ownership relationships allow deletion of associated user data.
+Resulting `main` commit:
 
-Deleting an account removes:
+```text
+310cfd3
+```
 
-User account
-Job applications
-Reminders
-Refresh-token sessions
-Mobile application
+The exact commit was manually deployed to Render.
 
-Added a destructive Delete Account option to the Profile screen.
+Production remained healthy:
 
-The flow uses two confirmation prompts before permanent deletion.
+```text
+/api/v1/status   -> UP
+/actuator/health -> UP
+```
 
-After successful backend deletion, the application:
+A fresh real production registration then verified:
 
-Cancels scheduled reminder notifications belonging to the user.
-Clears stored reminder-notification identifiers.
-Clears local account-related settings.
-Removes access and refresh tokens.
-Clears authenticated user state.
-Returns to the Welcome screen.
-Local verification
+```text
+Registration email
+    -> verify@applymate.website
+    -> real inbox
+    -> verification
+    -> login
+    -> dashboard
+```
 
-A disposable local account was used to test:
+The hotfix therefore passed production smoke testing.
 
-Registration
-Login
-Application creation
-Reminder creation
-Two-stage account-deletion confirmation
-Backend account removal
-User-owned data removal
-Local authentication cleanup
-Return to Welcome
-Re-login rejection
+---
 
-All tests passed.
+# Flyway Rollout Cleanup
 
-Production verification
+## 11 August 2026 â€” V8
 
-The same disposable-account workflow was then tested against the deployed Render and Neon environment.
+Once the old backend rollout window was fully closed, V7's temporary default was no longer required.
 
-Verified:
+Created migration:
 
-Backend account deleted                 PASS
-Applications/reminders deleted          PASS
-Refresh session removed                 PASS
-Local authentication tokens removed     PASS
-Returned to Welcome                     PASS
-Deleted credentials rejected            PASS
-Outcome
+```text
+V8__remove_email_verification_rollout_default.sql
+```
 
-ApplyMate now supports permanent self-service account deletion from inside the mobile application.
+V8 performs:
 
-8 August 2026 — Privacy & Account-Deletion Web Pages
-Public contact
+```sql
+ALTER TABLE app_users
+ALTER COLUMN email_verified_at
+DROP DEFAULT;
+```
 
-Created the ApplyMate public support/privacy contact:
+### Updated Migration Testing
 
-support.applymate@gmail.com
-GitHub Pages
+The migration integration test now verifies:
 
-Added:
+- `email_verified_at` has no database default.
+- A direct insert omitting `email_verified_at` remains unverified.
+- Normal ApplyMate registration remains unverified.
+- A verification challenge is created.
 
-docs/index.html
-docs/privacy-policy.html
-docs/delete-account.html
+Migration test:
 
-Configured GitHub Pages to deploy:
+```text
+Tests run: 1
+Failures: 0
+Errors: 0
+```
 
-Branch: main
-Folder: /docs
+Full backend suite:
 
-Public site:
+```text
+Tests run: 89
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
 
-https://shehzadm-muhammad.github.io/ApplyMate/
+---
 
-Privacy Policy:
+## PR #8 â€” V8 Merge
 
-https://shehzadm-muhammad.github.io/ApplyMate/privacy-policy.html
+V8 commit:
 
-Account deletion information:
+```text
+8de66b5
+chore: remove email verification rollout default
+```
 
-https://shehzadm-muhammad.github.io/ApplyMate/delete-account.html
-Mobile integration
+Merged through:
 
-Added a Privacy Policy option to the Profile screen.
+```text
+PR #8
+```
 
-The mobile application opens the public privacy-policy page externally.
+Resulting `main` commit:
 
-Outcome
+```text
+beca795
+```
 
-ApplyMate now has public privacy and account-deletion information suitable for future mobile-store configuration.
+All GitHub CI jobs passed.
 
-8 August 2026 — Final Android Release Candidate Verification
-Production infrastructure verification
+---
 
-Confirmed:
+## V8 Production Deployment
 
+Production began at:
+
+```text
+Schema V7
+```
+
+Flyway reported:
+
+```text
+Successfully validated 8 migrations
+Current version: 7
+
+Migrating:
+8 - remove email verification rollout default
+
+Successfully applied 1 migration
+Current version: V8
+```
+
+Spring Boot started successfully and Render marked the service live.
+
+### Final Neon Verification
+
+Production schema:
+
+```text
+email_verified_at
+column_default = NULL
+is_nullable    = YES
+```
+
+Flyway history:
+
+```text
+version:     8
+description: remove email verification rollout default
+success:     true
+```
+
+### Final Production Health
+
+```text
 GET /api/v1/status
-HTTP 200
-status: UP
-
-Confirmed:
+-> UP
 
 GET /actuator/health
-HTTP 200
-status: UP
-
-During testing, Render demonstrated cold-start behaviour after inactivity.
-
-Backend logs confirmed:
-
-Spring Boot production profile loaded.
-Neon PostgreSQL connected successfully.
-Flyway validated all five migrations.
-Schema version was 5.
-Tomcat started using the platform-provided production port.
-Application startup completed successfully.
-Final Android build
-
-Created the final Android preview/internal-distribution build through EAS containing:
-
-Production API configuration
-Backend-synchronised reminders
-Persistent authentication
-Refresh-token rotation
-Account deletion
-Privacy Policy integration
-Final APK smoke test
-
-Verified:
-
-Application launches successfully.
-Login succeeds.
-Dashboard loads production data.
-Existing application data loads correctly.
-Application create/edit/delete works.
-Reminder creation works.
-Reminder persistence works.
-Closing and reopening preserves the authenticated session.
-Privacy Policy option is present.
-Public Privacy Policy opens successfully.
-Delete Account option is present.
-Logout succeeds.
-Reopening after logout remains logged out.
-No stale authentication error remains.
-Outcome
-
-The functional work for Mobile Distribution & Release Readiness is complete.
-
-ApplyMate now has a tested standalone Android release candidate connected to the production Render and Neon environment.
-
+-> UP
+```
 
 ---
 
-# 3. Replace everything from `## Production Deployment Summary` to the end
+# Email Verification Final Outcome
 
-Replace that old ending with:
+The final production flow is:
 
-```markdown
+```text
+User registers
+      |
+      v
+app_users
+email_verified_at = NULL
+      |
+      v
+Verification challenge created
+      |
+      v
+HMAC-protected code stored
+      |
+      v
+Resend
+      |
+      v
+verify@applymate.website
+      |
+      v
+User inbox
+      |
+      v
+POST /verify-email
+      |
+      v
+email_verified_at = timestamp
+      |
+      v
+Normal login
+      |
+      v
+JWT + refresh session
+      |
+      v
+ApplyMate dashboard
+```
+
+Existing pre-feature users remained usable.
+
+New users must verify their email.
+
+Unverified users cannot bypass verification through either login or refresh-token access.
+
 ---
 
-## Current Release Summary
+# Current Release Summary
 
 | Area | Status |
 |---|---|
 | Frontend MVP | Complete |
 | Backend MVP | Complete |
 | PostgreSQL integration | Complete |
-| JWT access-token authentication | Complete |
+| JWT access tokens | Complete |
 | Refresh-token sessions | Complete |
-| Silent token refresh | Complete |
+| Silent refresh | Complete |
 | Refresh-token rotation | Complete |
 | Session restoration | Complete |
 | Application CRUD | Complete |
 | User isolation | Complete |
 | Dashboard summary | Complete |
-| Search and filtering | Complete |
-| Sorting | Complete |
-| Backend validation | Complete |
+| Search/filtering/sorting | Complete |
 | Backend reminder synchronisation | Complete |
-| Local reminder notifications | Complete |
+| Local notifications | Complete |
 | Account deletion | Complete |
 | Privacy Policy | Complete |
-| Public account-deletion page | Complete |
+| Public deletion page | Complete |
 | EAS configuration | Complete |
-| Android package identifier | Complete |
-| iOS bundle identifier | Complete |
 | Android internal distribution | Complete |
-| Android release-candidate testing | Complete |
-| iOS standalone/TestFlight distribution | Deferred pending Apple Developer enrolment |
-| Automated backend tests | 40 passing |
-| Expo Doctor | 18/18 passing |
-| Render backend deployment | Complete |
-| Neon PostgreSQL deployment | Complete |
-| Production authentication verification | Complete |
-| Production account-deletion verification | Complete |
-| GitHub Pages | Complete |
-| Final documentation refresh | In progress |
-| Final release tag `v1.3.0` | Pending |
+| Android production-connected testing | Complete |
+| Email verification | Complete |
+| Resend transactional email | Complete |
+| `applymate.website` email domain | Verified |
+| Verification restart recovery | Complete |
+| Verification resend/cooldown | Complete |
+| Unverified login protection | Complete |
+| Unverified refresh protection | Complete |
+| Resend secret-safety hardening | Complete |
+| Flyway production schema | V8 |
+| Backend automated tests | 89 passing |
+| Expo Doctor | 18/18 |
+| GitHub CI | Green |
+| Render deployment | Healthy |
+| Neon database | Healthy |
+| Final release documentation | In progress |
+| `v1.4.0` release tag | Pending |
 
 ---
 
-## Known Operational Behaviour
+# Production Infrastructure
 
-The current deployment uses portfolio-tier infrastructure.
-
-Render may require a cold start after inactivity.
-
-During release testing, the backend required additional startup time before becoming publicly reachable.
-
-Once ready, both:
+## Mobile
 
 ```text
-/api/v1/status
-/actuator/health
+React Native
+Expo SDK 54
+TypeScript
+Expo SecureStore
+Expo Notifications
+EAS Build
+```
 
-returned HTTP 200 and UP.
+## Backend
 
-This does not affect stored data but can temporarily delay the first API request.
+```text
+Spring Boot 4.1
+Java 21
+Spring Security
+Spring Data JPA
+Flyway
+Spring RestClient
+Docker
+```
 
-Release Closeout
+## Database
 
-The functional Mobile Distribution & Release Readiness work is complete.
+```text
+Neon PostgreSQL 17
+Flyway V8
+```
 
-Remaining work before v1.3.0:
+## Transactional Email
 
-Finish updating shared project documentation.
-Update the root README.
-Run final frontend validation.
-Run final backend validation.
-Run final Docker validation.
-Confirm GitHub Actions CI.
-Commit and push documentation.
-Create release tag v1.3.0.
-Next Development Phase
+```text
+Resend
+applymate.website
+verify@applymate.website
+```
 
-After v1.3.0, candidate features include:
+## Backend Hosting
 
-Email verification using OTP during registration
-Password-reset flow
-Job-link import
-Email integration
-Additional application automation
-Google Play public-release preparation
-Apple TestFlight/App Store distribution after Apple Developer Program enrolment
+```text
+Render
+https://applymate-api-bami.onrender.com
+```
 
-New product development should begin after the current mobile release milestone is formally closed.
+---
+
+# Known Operational Behaviour
+
+The current deployment uses portfolio-tier cloud infrastructure.
+
+Render may experience cold-start delays after inactivity.
+
+During cold start, the first API request may take longer while Spring Boot and database connectivity become ready.
+
+Once ready:
+
+```text
+/api/v1/status   -> HTTP 200 / UP
+/actuator/health -> HTTP 200 / UP
+```
+
+This affects startup latency but not stored data or application architecture.
+
+---
+
+# Security Rules Established During Development
+
+- Never commit `.env`.
+- Never commit `.env.local`.
+- Never commit PostgreSQL credentials.
+- Never commit JWT secrets.
+- Never commit Resend API keys.
+- Never commit the email-verification pepper.
+- Never persist raw refresh tokens.
+- Never persist raw verification codes.
+- Do not log verification codes.
+- Do not log Authorization headers.
+- Treat credentials exposed in logs as compromised.
+- Rotate compromised credentials immediately.
+- Keep the mobile application isolated from backend secrets.
+- Use Flyway for all shared database changes.
+- Never modify a Flyway migration after production application.
+- Run automated tests and CI before production deployment.
+- Smoke-test production after deployment.
+
+---
+
+# Release Closeout
+
+The functional work for the **Email Verification** release is complete.
+
+Production currently runs:
+
+```text
+main commit: beca795
+Flyway:      V8
+Backend:     UP
+Database:    healthy
+Email:       operational
+Tests:       89 passing
+CI:          green
+```
+
+Remaining work before `v1.4.0`:
+
+1. Update project documentation.
+2. Update the root README.
+3. Review documentation diffs.
+4. Commit and merge documentation closeout.
+5. Create and push release tag `v1.4.0`.
+
+---
+
+# Next Development Phase
+
+Potential future development includes:
+
+- Password-reset flow
+- Job-link import
+- Expanded email integration
+- Application automation
+- Google Play public release preparation
+- Apple TestFlight/App Store distribution after Apple Developer Program enrolment
+
+New feature development should begin after `v1.4.0` is formally closed.
