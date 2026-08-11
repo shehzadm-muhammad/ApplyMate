@@ -39,34 +39,51 @@ class EmailVerificationMigrationCompatibilityIntegrationTest {
     private AuthService authService;
 
     @Test
-    void shouldSupportOldAndNewRegistrationDuringRollout() {
-        String legacyEmail =
-                "legacy-rollout-"
+        void shouldRemoveRolloutDefaultAfterEmailVerificationDeployment() {
+        Boolean verificationDefaultRemoved =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT column_default IS NULL
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                        AND table_name = 'app_users'
+                        AND column_name = 'email_verified_at'
+                        """,
+                        Boolean.class
+                );
+
+        assertTrue(
+                Boolean.TRUE.equals(
+                        verificationDefaultRemoved
+                )
+        );
+
+        String directInsertEmail =
+                "post-rollout-"
                         + UUID.randomUUID()
                         + "@example.com";
 
         /*
-         * Simulate the pre-email-verification backend.
-         * It does not know the email_verified_at column,
-         * so the column is deliberately omitted.
-         */
+        * After V8, an insert that omits email_verified_at
+        * must no longer be implicitly marked as verified.
+        */
         jdbcTemplate.update(
                 """
                 INSERT INTO app_users (
-                    email,
-                    password_hash,
-                    first_name,
-                    last_name
+                        email,
+                        password_hash,
+                        first_name,
+                        last_name
                 )
                 VALUES (?, ?, ?, ?)
                 """,
-                legacyEmail,
-                "legacy-password-hash",
-                "Legacy",
-                "User"
+                directInsertEmail,
+                "test-password-hash",
+                "Post",
+                "Rollout"
         );
 
-        Boolean legacyUserVerified =
+        Boolean directInsertVerified =
                 jdbcTemplate.queryForObject(
                         """
                         SELECT email_verified_at IS NOT NULL
@@ -74,15 +91,18 @@ class EmailVerificationMigrationCompatibilityIntegrationTest {
                         WHERE email = ?
                         """,
                         Boolean.class,
-                        legacyEmail
+                        directInsertEmail
                 );
 
-        assertTrue(
-                Boolean.TRUE.equals(legacyUserVerified)
+        assertEquals(
+                false,
+                Boolean.TRUE.equals(
+                        directInsertVerified
+                )
         );
 
         String newEmail =
-                "new-rollout-"
+                "new-registration-"
                         + UUID.randomUUID()
                         + "@example.com";
 
@@ -113,9 +133,9 @@ class EmailVerificationMigrationCompatibilityIntegrationTest {
                         SELECT COUNT(*)
                         FROM email_verification_codes
                         WHERE user_id = (
-                            SELECT id
-                            FROM app_users
-                            WHERE email = ?
+                                SELECT id
+                                FROM app_users
+                                WHERE email = ?
                         )
                         """,
                         Integer.class,
@@ -124,14 +144,18 @@ class EmailVerificationMigrationCompatibilityIntegrationTest {
 
         assertEquals(
                 false,
-                Boolean.TRUE.equals(newUserVerified)
+                Boolean.TRUE.equals(
+                        newUserVerified
+                )
         );
 
-        assertTrue(response.verificationRequired());
+        assertTrue(
+                response.verificationRequired()
+        );
 
         assertEquals(
                 1,
                 challengeCount
         );
-    }
+        }
 }
