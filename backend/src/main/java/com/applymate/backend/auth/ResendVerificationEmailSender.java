@@ -50,12 +50,7 @@ public class ResendVerificationEmailSender
             @Value("${app.email.resend.read-timeout:PT10S}")
             Duration readTimeout
     ) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException(
-                    "RESEND_API_KEY must be configured "
-                            + "when EMAIL_PROVIDER=resend"
-            );
-        }
+        String normalisedApiKey = normaliseApiKey(apiKey);
 
         if (from == null || from.isBlank()) {
             throw new IllegalStateException(
@@ -80,12 +75,12 @@ public class ResendVerificationEmailSender
                         .baseUrl(RESEND_BASE_URL)
                         .defaultHeader(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + apiKey
+                                "Bearer " + normalisedApiKey
                         )
                         .requestFactory(requestFactory)
                         .build();
 
-        this.from = from;
+        this.from = from.strip();
     }
 
     ResendVerificationEmailSender(
@@ -97,49 +92,59 @@ public class ResendVerificationEmailSender
     }
 
     @Override
-    public void sendVerificationCode(
-            VerificationEmailMessage message
+public void sendVerificationCode(
+        VerificationEmailMessage message
+) {
+    Map<String, Object> requestBody =
+            createRequestBody(message);
+
+    try {
+        restClient.post()
+                .uri("/emails")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(
+                        "Idempotency-Key",
+                        createIdempotencyKey(message)
+                )
+                .body(requestBody)
+                .retrieve()
+                .toBodilessEntity();
+
+    } catch (
+            RestClientResponseException exception
     ) {
-        Map<String, Object> requestBody =
-                createRequestBody(message);
+        LOGGER.warn(
+                "Verification email provider returned "
+                        + "HTTP status {}",
+                exception.getStatusCode().value()
+        );
 
-        try {
-            restClient.post()
-                    .uri("/emails")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(
-                            "Idempotency-Key",
-                            createIdempotencyKey(message)
-                    )
-                    .body(requestBody)
-                    .retrieve()
-                    .toBodilessEntity();
+        throw new EmailDeliveryException(
+                "Verification email delivery failed",
+                exception
+        );
 
-        } catch (
-                RestClientResponseException exception
-        ) {
-            LOGGER.warn(
-                    "Verification email provider returned "
-                            + "HTTP status {}",
-                    exception.getStatusCode().value()
-            );
+    } catch (RestClientException exception) {
+        LOGGER.warn(
+                "Verification email provider request failed"
+        );
 
-            throw new EmailDeliveryException(
-                    "Verification email delivery failed",
-                    exception
-            );
+        throw new EmailDeliveryException(
+                "Verification email delivery failed",
+                exception
+        );
 
-        } catch (RestClientException exception) {
-            LOGGER.warn(
-                    "Verification email provider request failed"
-            );
+    } catch (IllegalArgumentException exception) {
+        LOGGER.warn(
+                "Verification email provider request "
+                        + "could not be created"
+        );
 
-            throw new EmailDeliveryException(
-                    "Verification email delivery failed",
-                    exception
-            );
-        }
+        throw new EmailDeliveryException(
+                "Verification email delivery failed"
+        );
     }
+}
 
     private Map<String, Object> createRequestBody(
             VerificationEmailMessage message
@@ -200,6 +205,33 @@ public class ResendVerificationEmailSender
                 html
         );
     }
+
+    static String normaliseApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+                throw new IllegalStateException(
+                        "RESEND_API_KEY must be configured "
+                                + "when EMAIL_PROVIDER=resend"
+                );
+        }
+
+        String normalisedApiKey = apiKey.strip();
+
+        boolean containsInvalidCharacters =
+                normalisedApiKey
+                        .chars()
+                        .anyMatch(character ->
+                                Character.isWhitespace(character)
+                                        || Character.isISOControl(character)
+                        );
+
+        if (containsInvalidCharacters) {
+                throw new IllegalStateException(
+                        "RESEND_API_KEY contains invalid characters"
+                );
+        }
+
+        return normalisedApiKey;
+        }
 
     private String createIdempotencyKey(
             VerificationEmailMessage message
