@@ -13,6 +13,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -146,6 +149,99 @@ class ResendVerificationEmailSenderTest {
 
         server.verify();
     }
+
+    @Test
+void shouldNormaliseOuterWhitespaceFromApiKey() {
+    String normalisedApiKey =
+            ResendVerificationEmailSender
+                    .normaliseApiKey(
+                            " \r\nre_test_key\t "
+                    );
+
+    assertEquals(
+            "re_test_key",
+            normalisedApiKey
+    );
+}
+
+@Test
+void shouldRejectEmbeddedWhitespaceWithoutEchoingSecret() {
+    String simulatedSecret =
+            "re_test_key\nhidden-part";
+
+    IllegalStateException exception =
+            assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                            ResendVerificationEmailSender
+                                    .normaliseApiKey(
+                                            simulatedSecret
+                                    )
+            );
+
+    assertEquals(
+            "RESEND_API_KEY contains invalid characters",
+            exception.getMessage()
+    );
+
+    assertFalse(
+            exception.getMessage()
+                    .contains(simulatedSecret)
+    );
+}
+
+@Test
+void shouldHideIllegalHeaderDetailsWhenRequestCreationFails() {
+    String simulatedSecret =
+            "re_secret_should_not_escape";
+
+    RestClient failingRestClient =
+            RestClient.builder()
+                    .baseUrl(
+                            "https://api.resend.com"
+                    )
+                    .requestInterceptor(
+                            (request, body, execution) -> {
+                                throw new IllegalArgumentException(
+                                        "Illegal character(s) "
+                                                + "in message header value: "
+                                                + "Bearer "
+                                                + simulatedSecret
+                                );
+                            }
+                    )
+                    .build();
+
+    ResendVerificationEmailSender failingSender =
+            new ResendVerificationEmailSender(
+                    failingRestClient,
+                    "ApplyMate <verify@example.com>"
+            );
+
+    EmailDeliveryException exception =
+            assertThrows(
+                    EmailDeliveryException.class,
+                    () ->
+                            failingSender
+                                    .sendVerificationCode(
+                                            message
+                                    )
+            );
+
+    assertEquals(
+            "Verification email delivery failed",
+            exception.getMessage()
+    );
+
+    assertNull(
+            exception.getCause()
+    );
+
+    assertFalse(
+            exception.toString()
+                    .contains(simulatedSecret)
+    );
+}
 
     @Test
     void shouldFailSafelyForClientError() {
