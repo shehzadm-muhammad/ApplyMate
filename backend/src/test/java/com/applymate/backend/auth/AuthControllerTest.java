@@ -12,6 +12,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.applymate.backend.auth.passwordreset.ForgotPasswordRequest;
+import com.applymate.backend.auth.passwordreset.PasswordResetException;
+import com.applymate.backend.auth.passwordreset.PasswordResetService;
+import com.applymate.backend.auth.passwordreset.ResetPasswordRequest;
+
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +34,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @Test
     void shouldRegisterUser() throws Exception {
@@ -606,4 +615,99 @@ void shouldReturnServiceUnavailableWhenVerificationEmailFails()
                             )
             );
 }
+
+@Test
+void shouldAcceptForgotPasswordRequest()
+        throws Exception {
+
+    mockMvc.perform(
+                    post("/api/v1/auth/forgot-password")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "user@example.com"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isAccepted()
+            );
+
+    verify(passwordResetService)
+            .forgotPassword(
+                    any(ForgotPasswordRequest.class)
+            );
+}
+
+@Test
+void shouldResetPassword()
+        throws Exception {
+
+    mockMvc.perform(
+                    post("/api/v1/auth/reset-password")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "user@example.com",
+                                      "code": "123456",
+                                      "newPassword": "NewPassword123!"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isNoContent()
+            );
+
+    verify(passwordResetService)
+            .resetPassword(
+                    any(ResetPasswordRequest.class)
+            );
+}
+
+@Test
+void shouldReturnGenericPasswordResetCodeError()
+        throws Exception {
+
+    doThrow(
+            new PasswordResetException()
+    )
+            .when(passwordResetService)
+            .resetPassword(
+                    any(ResetPasswordRequest.class)
+            );
+
+    mockMvc.perform(
+                    post("/api/v1/auth/reset-password")
+                            .contentType(
+                                    MediaType.APPLICATION_JSON
+                            )
+                            .content(
+                                    """
+                                    {
+                                      "email": "user@example.com",
+                                      "code": "123456",
+                                      "newPassword": "NewPassword123!"
+                                    }
+                                    """
+                            )
+            )
+            .andExpect(
+                    status().isBadRequest()
+            )
+            .andExpect(
+                    jsonPath("$.code")
+                            .value(
+                                    "PASSWORD_RESET_CODE_INVALID_OR_EXPIRED"
+                            )
+            );
+}
+
 }

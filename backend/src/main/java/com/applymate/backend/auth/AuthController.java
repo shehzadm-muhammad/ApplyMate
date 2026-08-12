@@ -1,5 +1,8 @@
 package com.applymate.backend.auth;
 
+import com.applymate.backend.auth.passwordreset.ForgotPasswordRequest;
+import com.applymate.backend.auth.passwordreset.PasswordResetService;
+import com.applymate.backend.auth.passwordreset.ResetPasswordRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,16 +16,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(
+            AuthService authService,
+            PasswordResetService passwordResetService
+    ) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
             @Valid @RequestBody RegisterRequest request
     ) {
-        RegisterResponse response = authService.register(request);
+        RegisterResponse response =
+                authService.register(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -30,43 +39,66 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-public ResponseEntity<EmailVerificationResponse> verifyEmail(
-        @Valid @RequestBody VerifyEmailRequest request
-) {
-    return ResponseEntity.ok(
-            authService.verifyEmail(request)
-    );
-}
+    public ResponseEntity<EmailVerificationResponse> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request
+    ) {
+        return ResponseEntity.ok(
+                authService.verifyEmail(request)
+        );
+    }
 
-@PostMapping("/resend-verification")
-public ResponseEntity<ResendVerificationResponse>
-        resendVerification(
-                @Valid
-                @RequestBody
-                ResendVerificationRequest request
-        ) {
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ResendVerificationResponse>
+            resendVerification(
+                    @Valid
+                    @RequestBody
+                    ResendVerificationRequest request
+            ) {
+        return ResponseEntity
+                .status(HttpStatus.ACCEPTED)
+                .body(
+                        authService.resendVerification(
+                                request
+                        )
+                );
+    }
 
-    return ResponseEntity
-            .status(HttpStatus.ACCEPTED)
-            .body(
-                    authService.resendVerification(
-                            request
-                    )
-            );
-}
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        passwordResetService.forgotPassword(request);
+
+        return ResponseEntity
+                .status(HttpStatus.ACCEPTED)
+                .build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        passwordResetService.resetPassword(request);
+
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
             @Valid @RequestBody LoginRequest request
     ) {
-        return ResponseEntity.ok(authService.login(request));
+        return ResponseEntity.ok(
+                authService.login(request)
+        );
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponse> refresh(
             @Valid @RequestBody RefreshTokenRequest request
     ) {
-        return ResponseEntity.ok(authService.refresh(request));
+        return ResponseEntity.ok(
+                authService.refresh(request)
+        );
     }
 
     @PostMapping("/logout")

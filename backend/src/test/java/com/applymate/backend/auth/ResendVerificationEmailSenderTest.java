@@ -59,10 +59,15 @@ class ResendVerificationEmailSenderTest {
                         .bindTo(builder)
                         .build();
 
-        sender =
-                new ResendVerificationEmailSender(
+        ResendEmailClient resendEmailClient =
+                new ResendEmailClient(
                         builder.build(),
                         "ApplyMate <verify@example.com>"
+                );
+
+        sender =
+                new ResendVerificationEmailSender(
+                        resendEmailClient
                 );
 
         message =
@@ -153,7 +158,7 @@ class ResendVerificationEmailSenderTest {
     @Test
 void shouldNormaliseOuterWhitespaceFromApiKey() {
     String normalisedApiKey =
-            ResendVerificationEmailSender
+            ResendEmailClient
                     .normaliseApiKey(
                             " \r\nre_test_key\t "
                     );
@@ -173,7 +178,7 @@ void shouldRejectEmbeddedWhitespaceWithoutEchoingSecret() {
             assertThrows(
                     IllegalStateException.class,
                     () ->
-                            ResendVerificationEmailSender
+                            ResendEmailClient
                                     .normaliseApiKey(
                                             simulatedSecret
                                     )
@@ -212,11 +217,16 @@ void shouldHideIllegalHeaderDetailsWhenRequestCreationFails() {
                     )
                     .build();
 
-    ResendVerificationEmailSender failingSender =
-            new ResendVerificationEmailSender(
-                    failingRestClient,
-                    "ApplyMate <verify@example.com>"
-            );
+    ResendEmailClient failingClient =
+        new ResendEmailClient(
+                failingRestClient,
+                "ApplyMate <verify@example.com>"
+        );
+
+ResendVerificationEmailSender failingSender =
+        new ResendVerificationEmailSender(
+                failingClient
+        );
 
     EmailDeliveryException exception =
             assertThrows(
