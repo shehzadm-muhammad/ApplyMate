@@ -63,6 +63,16 @@ export interface ResendVerificationResponse {
   resendAvailableAt: string | null;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

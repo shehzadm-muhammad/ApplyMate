@@ -85,6 +85,12 @@ public class AppUser {
         return passwordHash;
     }
 
+    public void changePassword(
+            String encodedPassword
+    ) {
+        passwordHash = encodedPassword;
+    }
+
     public String getFirstName() {
         return firstName;
     }

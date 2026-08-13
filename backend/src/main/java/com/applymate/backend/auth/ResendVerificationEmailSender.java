@@ -1,21 +1,9 @@
 package com.applymate.backend.auth;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 
 @Component
 @ConditionalOnProperty(
@@ -25,128 +13,17 @@ import java.util.Map;
 public class ResendVerificationEmailSender
         implements VerificationEmailSender {
 
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(
-                    ResendVerificationEmailSender.class
-            );
+    private final ResendEmailClient resendEmailClient;
 
-    private static final String RESEND_BASE_URL =
-            "https://api.resend.com";
-
-    private final RestClient restClient;
-    private final String from;
-
-    @Autowired
     public ResendVerificationEmailSender(
-            @Value("${app.email.resend.api-key:}")
-            String apiKey,
-
-            @Value("${app.email.from:}")
-            String from,
-
-            @Value("${app.email.resend.connect-timeout:PT5S}")
-            Duration connectTimeout,
-
-            @Value("${app.email.resend.read-timeout:PT10S}")
-            Duration readTimeout
+            ResendEmailClient resendEmailClient
     ) {
-        String normalisedApiKey = normaliseApiKey(apiKey);
-
-        if (from == null || from.isBlank()) {
-            throw new IllegalStateException(
-                    "EMAIL_FROM must be configured "
-                            + "when EMAIL_PROVIDER=resend"
-            );
-        }
-
-        SimpleClientHttpRequestFactory requestFactory =
-                new SimpleClientHttpRequestFactory();
-
-        requestFactory.setConnectTimeout(
-                connectTimeout
-        );
-
-        requestFactory.setReadTimeout(
-                readTimeout
-        );
-
-        this.restClient =
-                RestClient.builder()
-                        .baseUrl(RESEND_BASE_URL)
-                        .defaultHeader(
-                                HttpHeaders.AUTHORIZATION,
-                                "Bearer " + normalisedApiKey
-                        )
-                        .requestFactory(requestFactory)
-                        .build();
-
-        this.from = from.strip();
-    }
-
-    ResendVerificationEmailSender(
-            RestClient restClient,
-            String from
-    ) {
-        this.restClient = restClient;
-        this.from = from;
+        this.resendEmailClient =
+                resendEmailClient;
     }
 
     @Override
-public void sendVerificationCode(
-        VerificationEmailMessage message
-) {
-    Map<String, Object> requestBody =
-            createRequestBody(message);
-
-    try {
-        restClient.post()
-                .uri("/emails")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header(
-                        "Idempotency-Key",
-                        createIdempotencyKey(message)
-                )
-                .body(requestBody)
-                .retrieve()
-                .toBodilessEntity();
-
-    } catch (
-            RestClientResponseException exception
-    ) {
-        LOGGER.warn(
-                "Verification email provider returned "
-                        + "HTTP status {}",
-                exception.getStatusCode().value()
-        );
-
-        throw new EmailDeliveryException(
-                "Verification email delivery failed",
-                exception
-        );
-
-    } catch (RestClientException exception) {
-        LOGGER.warn(
-                "Verification email provider request failed"
-        );
-
-        throw new EmailDeliveryException(
-                "Verification email delivery failed",
-                exception
-        );
-
-    } catch (IllegalArgumentException exception) {
-        LOGGER.warn(
-                "Verification email provider request "
-                        + "could not be created"
-        );
-
-        throw new EmailDeliveryException(
-                "Verification email delivery failed"
-        );
-    }
-}
-
-    private Map<String, Object> createRequestBody(
+    public void sendVerificationCode(
             VerificationEmailMessage message
     ) {
         long expiryMinutes =
@@ -188,50 +65,20 @@ public void sendVerificationCode(
                 expiryMinutes
         );
 
-        return Map.of(
-                "from",
-                from,
-
-                "to",
-                List.of(message.recipientEmail()),
-
-                "subject",
-                "Verify your ApplyMate email",
-
-                "text",
-                text,
-
-                "html",
-                html
-        );
+        try {
+            resendEmailClient.send(
+                    message.recipientEmail(),
+                    "Verify your ApplyMate email",
+                    text,
+                    html,
+                    createIdempotencyKey(message)
+            );
+        } catch (EmailDeliveryException ignored) {
+                throw new EmailDeliveryException(
+                        "Verification email delivery failed"
+                );
+        }
     }
-
-    static String normaliseApiKey(String apiKey) {
-        if (apiKey == null || apiKey.isBlank()) {
-                throw new IllegalStateException(
-                        "RESEND_API_KEY must be configured "
-                                + "when EMAIL_PROVIDER=resend"
-                );
-        }
-
-        String normalisedApiKey = apiKey.strip();
-
-        boolean containsInvalidCharacters =
-                normalisedApiKey
-                        .chars()
-                        .anyMatch(character ->
-                                Character.isWhitespace(character)
-                                        || Character.isISOControl(character)
-                        );
-
-        if (containsInvalidCharacters) {
-                throw new IllegalStateException(
-                        "RESEND_API_KEY contains invalid characters"
-                );
-        }
-
-        return normalisedApiKey;
-        }
 
     private String createIdempotencyKey(
             VerificationEmailMessage message
@@ -241,6 +88,7 @@ public void sendVerificationCode(
                         .toString()
                         .replace("-", "")
                 + "_"
-                + message.issuedAt().toEpochMilli();
+                + message.issuedAt()
+                        .toEpochMilli();
     }
 }

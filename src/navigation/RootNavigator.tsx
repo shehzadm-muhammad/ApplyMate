@@ -12,6 +12,8 @@ import VerifyEmailScreen from "../screens/VerifyEmailScreen";
 import type { RootStackParamList } from "./types";
 import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
+import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -119,6 +121,28 @@ export default function RootNavigator() {
           <Stack.Screen
             name="Login"
             component={LoginScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Back",
+            }}
+          />
+
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Log In",
+            }}
+          />
+
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
             options={{
               headerShown: true,
               headerTitle: "",

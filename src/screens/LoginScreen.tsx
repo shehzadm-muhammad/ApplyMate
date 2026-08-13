@@ -40,6 +40,15 @@ const [email, setEmail] = useState(
     password: false,
   });
 
+  const [
+  statusMessage,
+  setStatusMessage,
+] = useState(
+  route.params?.passwordReset
+    ? "Password changed successfully. You can now log in with your new password."
+    : "",
+);
+
   const passwordRef = useRef<TextInput>(null);
 
   const trimmedEmail = email.trim();
@@ -64,6 +73,7 @@ const [email, setEmail] = useState(
   });
 
   setGeneralError("");
+  setStatusMessage("");
 
   if (!isFormValid || isLoading) {
     return;
@@ -186,11 +196,25 @@ const [email, setEmail] = useState(
 
             <Pressable
               accessibilityRole="button"
-              onPress={() => console.log("Forgot Password pressed")}
+              onPress={() =>
+                navigation.navigate(
+                  "ForgotPassword",
+                  {
+                    email:
+                      trimmedEmail || undefined,
+                  },
+                )
+              }
             >
               <Text style={styles.forgotPassword}>Forgot Password?</Text>
             </Pressable>
           </View>
+
+          {statusMessage ? (
+            <Text style={styles.statusMessage}>
+              {statusMessage}
+            </Text>
+          ) : null}
 
           {generalError ? (
             <Text style={styles.generalError}>
@@ -400,6 +424,13 @@ const styles = StyleSheet.create({
   generalError: {
   marginTop: 18,
   color: "#DC2626",
+  fontSize: 14,
+  lineHeight: 20,
+},
+
+statusMessage: {
+  marginTop: 18,
+  color: colors.success,
   fontSize: 14,
   lineHeight: 20,
 },

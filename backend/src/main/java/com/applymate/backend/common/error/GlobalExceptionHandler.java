@@ -25,6 +25,7 @@ import com.applymate.backend.auth.VerificationCodeExpiredException;
 import com.applymate.backend.auth.VerificationRateLimitException;
 import com.applymate.backend.auth.VerificationResendCooldownException;
 import org.springframework.http.HttpHeaders;
+import com.applymate.backend.auth.passwordreset.PasswordResetException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -163,6 +164,23 @@ public class GlobalExceptionHandler {
                 Map.of()
         );
     }
+
+    @ExceptionHandler(PasswordResetException.class)
+        public ResponseEntity<ApiErrorResponse>
+                handlePasswordReset(
+                        PasswordResetException exception,
+                        HttpServletRequest request
+                ) {
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "PASSWORD_RESET_CODE_INVALID_OR_EXPIRED",
+                exception.getMessage(),
+                request,
+                Map.of(),
+                null
+        );
+        }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpectedError(
