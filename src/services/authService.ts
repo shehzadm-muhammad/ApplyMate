@@ -2,7 +2,9 @@ import type {
   CurrentUserResponse,
   EmailVerificationResponse,
   LoginRequest,
+  ForgotPasswordRequest,
   LoginResponse,
+  ResetPasswordRequest,
   RefreshTokenRequest,
   RegisterRequest,
   RegisterResponse,
@@ -45,6 +47,32 @@ export async function resendVerificationEmail(
 ): Promise<ResendVerificationResponse> {
   return apiRequest<ResendVerificationResponse>(
     "/api/v1/auth/resend-verification",
+    {
+      method: "POST",
+      authenticated: false,
+      body: request,
+    },
+  );
+}
+
+export async function forgotPassword(
+  request: ForgotPasswordRequest,
+): Promise<void> {
+  await apiRequest<void>(
+    "/api/v1/auth/forgot-password",
+    {
+      method: "POST",
+      authenticated: false,
+      body: request,
+    },
+  );
+}
+
+export async function resetPassword(
+  request: ResetPasswordRequest,
+): Promise<void> {
+  await apiRequest<void>(
+    "/api/v1/auth/reset-password",
     {
       method: "POST",
       authenticated: false,

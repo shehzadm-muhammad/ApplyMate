@@ -12,8 +12,19 @@ export type RootStackParamList = {
   Login:
     | {
         registeredEmail?: string;
+        passwordReset?: boolean;
       }
     | undefined;
+
+  ForgotPassword:
+    | {
+        email?: string;
+      }
+    | undefined;
+
+  ResetPassword: {
+    email: string;
+  };
 
   MainApp: undefined;
 
