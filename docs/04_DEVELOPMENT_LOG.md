@@ -1,21 +1,21 @@
-# ApplyMate Development Log
-
 ## Current Status
 
-- **Current phase:** Email Verification & Production Rollout Closeout
-- **Stable branch:** `main`
-- **Documentation branch:** `docs/email-verification-closeout`
-- **Current production/main commit:** `beca795`
-- **Current release tag:** `v1.3.0`
-- **Next planned release tag:** `v1.4.0`
-- **Production Flyway version:** `V8`
-- **Backend automated tests:** `89 passing`
-- **Production API:** `UP`
-- **Production health:** `UP`
+* **Current phase:** Password Reset & Production Release Closeout
+* **Stable branch:** `main`
+* **Documentation branch:** `docs/password-reset-closeout`
+* **Current production/main commit:** `d1e4d37`
+* **Current release tag:** `v1.4.0`
+* **Next planned release tag:** `v1.5.0`
+* **Production Flyway version:** `V9`
+* **Backend automated tests:** `106 passing`
+* **Focused password-reset tests:** `14 passing`
+* **Frontend TypeScript validation:** `PASS`
+* **Production API:** `UP`
+* **Production health:** `UP`
 
-The frontend MVP, backend MVP, production deployment, mobile distribution, persistent-session authentication, backend reminder synchronisation, account deletion, privacy/store-readiness work and email-verification feature are complete.
+The frontend MVP, backend MVP, production deployment, mobile distribution, persistent-session authentication, backend reminder synchronisation, account deletion, privacy/store-readiness work, email verification and password reset are complete.
 
-Email verification is live in production using:
+Authentication email is live in production using:
 
 ```text
 React Native / Expo
@@ -23,15 +23,21 @@ React Native / Expo
         v
 Render Spring Boot API
         |
-        â”œâ”€â”€> Neon PostgreSQL
+        +----> Neon PostgreSQL
         |
-        â””â”€â”€> Resend
+        +----> Resend
                  |
                  v
         verify@applymate.website
 ```
 
-The remaining work for `v1.4.0` is documentation closeout and release tagging.
+Production authentication email now supports:
+
+* Email-verification codes
+* Password-reset codes
+* Password-changed notifications
+
+The remaining work for `v1.5.0` is documentation closeout, release tagging and branch cleanup.
 
 ---
 
@@ -1573,46 +1579,688 @@ Unverified users cannot bypass verification through either login or refresh-toke
 
 ---
 
+# Password Reset Feature
+
+## 11–13 August 2026 — Password Reset Architecture & Backend
+
+Password Reset was selected as the next authentication feature after the `v1.4.0` Email Verification release.
+
+Development branch:
+
+```text
+feat/password-reset
+```
+
+### Architecture Decisions
+
+The implementation deliberately reused existing authentication infrastructure instead of creating a parallel authentication system.
+
+Key decisions:
+
+* Keep the existing JWT and rotating refresh-token architecture.
+* Align the production access-token default to 15 minutes.
+* Keep refresh sessions at 30 days.
+* Revoke every active refresh-token session after a successful password reset.
+* Do not introduce a JWT blacklist or token-version system.
+* Reuse the existing password encoder.
+* Use a separate `PASSWORD_RESET_PEPPER`.
+* Reuse the hardened Resend transport rather than implementing a second independent email client.
+* Keep reset-code failures generic to avoid exposing internal challenge state.
+* Allow unverified users to reset their password without marking the account verified.
+* Keep password confirmation frontend-only.
+* Avoid unnecessary class/file proliferation.
+
+Production session configuration became:
+
+```text
+Access token:    15 minutes
+Refresh session: 30 days
+```
+
+### Flyway V9
+
+Added:
+
+```text
+V9__create_password_reset_challenges.sql
+```
+
+V9 introduced:
+
+```text
+password_reset_challenges
+```
+
+The table stores:
+
+* User ID
+* Reset-code HMAC
+* Expiry
+* Failed-attempt count
+* Last-issued time
+* Issue-window start
+* Issue count
+* Creation/update timestamps
+
+Only one active reset challenge exists per user.
+
+The user relationship uses cascade deletion.
+
+Raw reset codes are never persisted.
+
+### Reset-Code Security
+
+Implemented:
+
+```text
+6 numeric digits
+SecureRandom
+HMAC-SHA-256
+separate password-reset pepper
+```
+
+The HMAC input is domain-separated and user-bound:
+
+```text
+password-reset:<userId>:<rawCode>
+```
+
+The production password-reset pepper:
+
+* Is separate from `EMAIL_VERIFICATION_PEPPER`
+* Is separate from the JWT signing secret
+* Is Base64 encoded
+* Must decode to at least 32 bytes
+* Exists only in backend environment configuration
+
+Hash comparison uses constant-time byte comparison.
+
+### Reset Rules
+
+```text
+Code TTL:                  10 minutes
+Maximum failed attempts:   5
+Resend cooldown:           60 seconds
+Issue window:              1 hour
+Maximum issues/window:     5
+Minimum forgot response:   1 second
+```
+
+Resending replaces the current challenge and invalidates the previous code.
+
+Successful reset deletes the challenge, making codes single-use.
+
+### Account-Enumeration Protection
+
+Added:
+
+```text
+POST /api/v1/auth/forgot-password
+```
+
+For syntactically valid email addresses, the public result remains:
+
+```text
+202 Accepted
+```
+
+regardless of:
+
+* Whether an account exists
+* Cooldown state
+* Hourly issuance limit
+* Email-provider failure
+
+A minimum response-duration strategy reduces obvious timing differences between request paths.
+
+### Password Reset API
+
+Added:
+
+```text
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
+```
+
+Reset request:
+
+```text
+email
+code
+newPassword
+```
+
+Password confirmation remains mobile-only.
+
+Invalid reset challenges use one public error:
+
+```text
+PASSWORD_RESET_CODE_INVALID_OR_EXPIRED
+```
+
+This covers missing, incorrect, expired, exhausted, consumed and otherwise unusable challenges without exposing the exact internal reason.
+
+### Email-Delivery Transaction Behaviour
+
+Reset-code delivery occurs inside the challenge-issuance transaction.
+
+If delivery fails:
+
+```text
+Email provider failure
+        |
+        v
+Transaction rollback
+        |
+        v
+Challenge/cooldown/rate-limit mutation not committed
+        |
+        v
+Public response remains 202
+```
+
+This prevents an email outage from consuming a reset attempt the user never received.
+
+### Successful Reset Behaviour
+
+A successful reset:
+
+```text
+Validate reset code
+        |
+        v
+Encode new password
+        |
+        v
+Update password
+        |
+        v
+Revoke all refresh sessions
+        |
+        v
+Delete reset challenge
+        |
+        v
+Commit
+        |
+        v
+Send password-changed notification
+```
+
+Password-changed notification failure does not roll back the successful password change.
+
+Already-issued JWT access tokens are not blacklisted and expire normally within the production 15-minute lifetime.
+
+### Unverified Accounts
+
+Password reset is allowed for unverified accounts.
+
+Resetting the password does not call:
+
+```text
+markEmailVerified
+```
+
+Therefore:
+
+```text
+Unverified account
+      |
+      v
+Password reset
+      |
+      v
+Still unverified
+      |
+      v
+EMAIL_VERIFICATION_REQUIRED on login
+```
+
+---
+
+## Shared Resend Transport
+
+The existing production-tested Resend implementation was consolidated.
+
+Added:
+
+```text
+ResendEmailClient
+```
+
+Responsibilities centralised there include:
+
+* Resend HTTP configuration
+* API-key validation
+* Authorization header construction
+* Connection/read timeouts
+* Provider request execution
+* Safe provider error conversion
+* Secret-safe exception handling
+
+Email-verification formatting remains in:
+
+```text
+ResendVerificationEmailSender
+```
+
+Password-reset formatting is handled by:
+
+```text
+PasswordResetEmailSender
+```
+
+The password-reset sender supports:
+
+```text
+Reset-code email
+Password-changed notification
+```
+
+Both delegate provider transport to the same hardened client.
+
+---
+
+## Password Reset Mobile Flow
+
+Added:
+
+```text
+src/screens/ForgotPasswordScreen.tsx
+src/screens/ResetPasswordScreen.tsx
+```
+
+Updated:
+
+```text
+RootNavigator.tsx
+navigation/types.ts
+LoginScreen.tsx
+authService.ts
+types/api.ts
+```
+
+### Mobile Flow
+
+```text
+Login
+  |
+  v
+Forgot Password
+  |
+  v
+Send Code
+  |
+  v
+Reset Password
+  |
+  v
+Password changed
+  |
+  v
+Login
+```
+
+The email address can be prefilled from the Login screen.
+
+The reset screen provides:
+
+* Six-digit numeric-code input
+* New-password input
+* Confirm-password input
+* Password validation
+* Resend action
+* Local resend countdown
+* Generic invalid/expired-code messaging
+
+Sensitive reset data is not persisted.
+
+The frontend does not store:
+
+```text
+reset code
+new password
+confirm password
+```
+
+### Local Device Testing
+
+The initial Expo test still pointed to the existing production backend, so `/forgot-password` returned:
+
+```text
+Authentication is required
+```
+
+The development mobile app was then pointed to the local Spring Boot backend through the development laptop's LAN address.
+
+Local API verification returned:
+
+```text
+POST /api/v1/auth/forgot-password
+-> 202 Accepted
+```
+
+The mobile forgot/reset flow then worked successfully against the new backend.
+
+Real reset and password-changed emails were also received during testing.
+
+---
+
+## Automated Password Reset Validation
+
+Two focused test classes were added:
+
+```text
+PasswordResetServiceTest
+PasswordResetTransactionIntegrationTest
+```
+
+Focused result:
+
+```text
+Tests run: 14
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+Coverage includes:
+
+* Existing-account reset issuance
+* Unknown-email generic behaviour
+* Six-digit reset-code generation
+* HMAC code protection
+* Incorrect reset code
+* Expired reset code
+* Maximum-attempt enforcement
+* Resend cooldown
+* Hourly issue limit
+* Cross-user code isolation
+* Successful password change
+* Refresh-session revocation
+* Replacement-code invalidation
+* Single-use reset challenges
+* Reset-email failure rollback
+* Unverified-account state preservation
+* Password-changed notification failure behaviour
+* Old-password rejection
+* New-password authentication
+
+Complete backend suite:
+
+```text
+Tests run: 106
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+Frontend validation:
+
+```text
+npm run typecheck
+tsc --noEmit
+PASS
+```
+
+---
+
+## Password Reset Commits
+
+Backend implementation:
+
+```text
+6c8cf63 feat: add secure password reset backend
+```
+
+Mobile implementation:
+
+```text
+74d3458 feat: add password reset mobile flow
+```
+
+Security/integration tests:
+
+```text
+a1a1aa1 test: cover password reset security flows
+```
+
+Feature branch was pushed and merged through:
+
+```text
+PR #10
+```
+
+Resulting production/main commit:
+
+```text
+d1e4d37
+```
+
+---
+
+# Password Reset Production Deployment
+
+## 13 August 2026 — Render & Flyway V9
+
+Before production startup:
+
+* A dedicated `PASSWORD_RESET_PEPPER` was generated.
+* The secret was stored only in Render.
+* No `JWT_ACCESS_TOKEN_TTL` override existed in Render.
+* The new production configuration therefore used the `PT15M` access-token default.
+
+### Initial Deployment Configuration Failure
+
+The first production startup failed while constructing:
+
+```text
+PasswordResetService
+```
+
+with:
+
+```text
+PASSWORD_RESET_PEPPER must be valid Base64
+```
+
+Root cause:
+
+```text
+The Render PASSWORD_RESET_PEPPER value was malformed Base64.
+```
+
+The backend correctly failed closed rather than accepting invalid cryptographic configuration.
+
+A new valid 32-byte Base64 secret was generated and stored in Render.
+
+No source-code change was required.
+
+### Successful Deployment
+
+The following startup then succeeded:
+
+```text
+Java 21
+Spring profile: prod
+PostgreSQL 17 / Neon
+Tomcat port: 10000
+```
+
+Flyway reported:
+
+```text
+Successfully validated 9 migrations
+Current version of schema "public": 9
+Schema "public" is up to date
+```
+
+The schema had already reached V9 during the earlier startup attempt before application bean construction failed.
+
+Spring then completed startup and Render reported:
+
+```text
+Your service is live
+```
+
+### Production Health Verification
+
+Verified:
+
+```text
+GET /api/v1/status
+-> HTTP 200 / UP
+
+GET /actuator/health
+-> HTTP 200 / UP
+```
+
+The new unauthenticated route was verified using a nonexistent syntactically valid account:
+
+```text
+POST /api/v1/auth/forgot-password
+-> HTTP 202 Accepted
+```
+
+This confirmed that the production password-reset route was public and enumeration-safe.
+
+---
+
+## Production Password Reset End-to-End Verification
+
+A real production ApplyMate account was tested through the mobile application against Render, Neon and Resend.
+
+Verified:
+
+```text
+Reset email received             PASS
+Six-digit reset code             PASS
+Password reset                   PASS
+Old password rejected            PASS
+New password accepted            PASS
+Password-changed email received  PASS
+```
+
+Production path:
+
+```text
+Expo mobile application
+        |
+        v
+Render Spring Boot API
+        |
+        +----> Neon PostgreSQL V9
+        |
+        +----> Resend
+                 |
+                 v
+        Real recipient inbox
+```
+
+The password-reset feature therefore passed real production end-to-end verification.
+
+---
+
+# Password Reset Final Outcome
+
+The final production flow is:
+
+```text
+User selects Forgot Password
+        |
+        v
+POST /forgot-password
+        |
+        v
+Password-reset challenge
+        |
+        v
+HMAC-protected code stored
+        |
+        v
+Resend reset email
+        |
+        v
+User enters code + new password
+        |
+        v
+POST /reset-password
+        |
+        v
+Password changed
+        |
+        v
+All refresh sessions revoked
+        |
+        v
+Reset challenge deleted
+        |
+        v
+Password-changed email
+        |
+        v
+Normal login with new password
+```
+
+Production now provides both secure email verification and secure password recovery.
+
+---
+
 # Current Release Summary
 
-| Area | Status |
-|---|---|
-| Frontend MVP | Complete |
-| Backend MVP | Complete |
-| PostgreSQL integration | Complete |
-| JWT access tokens | Complete |
-| Refresh-token sessions | Complete |
-| Silent refresh | Complete |
-| Refresh-token rotation | Complete |
-| Session restoration | Complete |
-| Application CRUD | Complete |
-| User isolation | Complete |
-| Dashboard summary | Complete |
-| Search/filtering/sorting | Complete |
-| Backend reminder synchronisation | Complete |
-| Local notifications | Complete |
-| Account deletion | Complete |
-| Privacy Policy | Complete |
-| Public deletion page | Complete |
-| EAS configuration | Complete |
-| Android internal distribution | Complete |
-| Android production-connected testing | Complete |
-| Email verification | Complete |
-| Resend transactional email | Complete |
-| `applymate.website` email domain | Verified |
-| Verification restart recovery | Complete |
-| Verification resend/cooldown | Complete |
-| Unverified login protection | Complete |
-| Unverified refresh protection | Complete |
-| Resend secret-safety hardening | Complete |
-| Flyway production schema | V8 |
-| Backend automated tests | 89 passing |
-| Expo Doctor | 18/18 |
-| GitHub CI | Green |
-| Render deployment | Healthy |
-| Neon database | Healthy |
-| Final release documentation | In progress |
-| `v1.4.0` release tag | Pending |
+| Area                                  | Status      |
+| ------------------------------------- | ----------- |
+| Frontend MVP                          | Complete    |
+| Backend MVP                           | Complete    |
+| PostgreSQL integration                | Complete    |
+| JWT access tokens                     | Complete    |
+| Production access-token lifetime      | 15 minutes  |
+| Refresh-token sessions                | Complete    |
+| Silent refresh                        | Complete    |
+| Refresh-token rotation                | Complete    |
+| Session restoration                   | Complete    |
+| Application CRUD                      | Complete    |
+| User isolation                        | Complete    |
+| Dashboard summary                     | Complete    |
+| Search/filtering/sorting              | Complete    |
+| Backend reminder synchronisation      | Complete    |
+| Local notifications                   | Complete    |
+| Account deletion                      | Complete    |
+| Privacy Policy                        | Complete    |
+| Public deletion page                  | Complete    |
+| EAS configuration                     | Complete    |
+| Android internal distribution         | Complete    |
+| Android production-connected testing  | Complete    |
+| Email verification                    | Complete    |
+| Password reset                        | Complete    |
+| Reset-session revocation              | Complete    |
+| Password-changed notification         | Complete    |
+| Resend transactional email            | Complete    |
+| Shared Resend transport               | Complete    |
+| `applymate.website` email domain      | Verified    |
+| Verification restart recovery         | Complete    |
+| Verification resend/cooldown          | Complete    |
+| Unverified login protection           | Complete    |
+| Unverified refresh protection         | Complete    |
+| Resend secret-safety hardening        | Complete    |
+| Password-reset enumeration protection | Complete    |
+| Password-reset rollback protection    | Complete    |
+| Flyway production schema              | V9          |
+| Backend automated tests               | 106 passing |
+| Focused password-reset tests          | 14 passing  |
+| Frontend TypeScript validation        | Passing     |
+| Expo Doctor                           | 18/18       |
+| GitHub CI                             | Green       |
+| Render deployment                     | Healthy     |
+| Neon database                         | Healthy     |
+| Real reset email                      | Verified    |
+| Old-password rejection                | Verified    |
+| New-password login                    | Verified    |
+| Password-changed email                | Verified    |
+| Final release documentation           | In progress |
+| `v1.5.0` release tag                  | Pending     |
 
 ---
 
@@ -1645,7 +2293,7 @@ Docker
 
 ```text
 Neon PostgreSQL 17
-Flyway V8
+Flyway V9
 ```
 
 ## Transactional Email
@@ -1654,6 +2302,10 @@ Flyway V8
 Resend
 applymate.website
 verify@applymate.website
+
+Email verification
+Password reset
+Password-changed notifications
 ```
 
 ## Backend Hosting
@@ -1703,44 +2355,61 @@ This affects startup latency but not stored data or application architecture.
 - Never modify a Flyway migration after production application.
 - Run automated tests and CI before production deployment.
 - Smoke-test production after deployment.
+- Never commit the password-reset pepper.
+- Never persist raw password-reset codes.
+- Use separate peppers for email verification and password reset.
+- Revoke active refresh-token sessions after password reset.
+- Password reset must not implicitly verify an email address.
+- Forgot-password behaviour must not expose account existence.
 
 ---
 
 # Release Closeout
 
-The functional work for the **Email Verification** release is complete.
+The functional work for the **Password Reset** release is complete.
 
 Production currently runs:
 
 ```text
-main commit: beca795
-Flyway:      V8
+main commit: d1e4d37
+Flyway:      V9
 Backend:     UP
 Database:    healthy
 Email:       operational
-Tests:       89 passing
+Tests:       106 passing
+Reset tests: 14 passing
+Frontend:    typecheck passing
 CI:          green
-```
 
-Remaining work before `v1.4.0`:
+Production verification confirmed:
 
-1. Update project documentation.
-2. Update the root README.
-3. Review documentation diffs.
-4. Commit and merge documentation closeout.
-5. Create and push release tag `v1.4.0`.
+/status                    -> HTTP 200
+/actuator/health            -> HTTP 200
+/forgot-password unknown    -> HTTP 202
+Reset email                 -> received
+Old password                -> rejected
+New password                -> accepted
+Password-changed email      -> received
 
----
+Remaining work before v1.5.0:
 
-# Next Development Phase
+Complete documentation updates.
+Update the root README.
+Review documentation diffs.
+Commit and merge documentation closeout.
+Create and push release tag v1.5.0.
+Remove completed temporary feature/documentation branches.
+Next Development Phase
 
 Potential future development includes:
 
-- Password-reset flow
-- Job-link import
-- Expanded email integration
-- Application automation
-- Google Play public release preparation
-- Apple TestFlight/App Store distribution after Apple Developer Program enrolment
+Job-link import
+Expanded email integration beyond authentication
+Additional application automation
+Profile/account-management improvements
+Google Play public release preparation
+Apple TestFlight/App Store distribution after Apple Developer Program enrolment
 
-New feature development should begin after `v1.4.0` is formally closed.
+Password Reset is no longer part of the backlog.
+
+New feature development should begin after v1.5.0 is formally closed.

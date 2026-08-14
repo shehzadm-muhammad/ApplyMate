@@ -4,79 +4,84 @@
 
 ApplyMate is a full-stack mobile application consisting of:
 
-- A React Native and Expo mobile client
-- A Spring Boot REST API
-- JWT access-token authentication
-- Persistent rotating refresh-token sessions
-- Email verification during registration
-- Resend transactional email delivery
-- A PostgreSQL relational database
-- Flyway database migrations
-- Backend-synchronised reminders
-- Local device notification scheduling
-- A Docker-based production backend
-- GitHub Actions continuous integration
-- Expo Application Services for mobile builds
-- GitHub Pages for public privacy and account-deletion information
+* A React Native and Expo mobile client
+* A Spring Boot REST API
+* JWT access-token authentication
+* Persistent rotating refresh-token sessions
+* Email verification during registration
+* Secure password reset
+* Resend transactional email delivery
+* A PostgreSQL relational database
+* Flyway database migrations
+* Backend-synchronised reminders
+* Local device notification scheduling
+* A Docker-based production backend
+* GitHub Actions continuous integration
+* Expo Application Services for mobile builds
+* GitHub Pages for public privacy and account-deletion information
 
 The application uses one mobile client, one backend service and one PostgreSQL database.
 
-Transactional verification email is sent from the backend through Resend.
+Transactional authentication email is sent from the backend through Resend.
 
 ---
 
 # Production Architecture
 
 ```text
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚        React Native / Expo Client        â”‚
-â”‚                                          â”‚
-â”‚  TypeScript                              â”‚
-â”‚  React Navigation                        â”‚
-â”‚  Expo SecureStore                        â”‚
-â”‚  AsyncStorage                            â”‚
-â”‚  Expo Notifications                      â”‚
-â”‚                                          â”‚
-â”‚  Auth state                              â”‚
-â”‚  Pending verification state              â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                   â”‚
-                   â”‚ HTTPS + JSON
-                   â”‚ JWT access token
-                   â”‚ Refresh-token session
-                   â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                  Render                  â”‚
-â”‚                                          â”‚
-â”‚  Spring Boot Docker Service              â”‚
-â”‚  Java 21                                 â”‚
-â”‚  Spring Security                         â”‚
-â”‚  Validation                              â”‚
-â”‚  JPA / Hibernate                         â”‚
-â”‚  Flyway                                  â”‚
-â”‚  Spring RestClient                       â”‚
-â”‚  Actuator Health Check                   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                â”‚                 â”‚
-                â”‚ JDBC over TLS   â”‚ HTTPS
-                â”‚                 â”‚
-                â–¼                 â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚          Neon          â”‚   â”‚         Resend         â”‚
-â”‚                        â”‚   â”‚                        â”‚
-â”‚ PostgreSQL 17          â”‚   â”‚ Transactional email    â”‚
-â”‚ app_users              â”‚   â”‚                        â”‚
-â”‚ job_applications       â”‚   â”‚ Verified domain:       â”‚
-â”‚ reminders              â”‚   â”‚ applymate.website      â”‚
-â”‚ refresh_tokens         â”‚   â”‚                        â”‚
-â”‚ email_verification_    â”‚   â”‚ Sender:                â”‚
-â”‚ codes                  â”‚   â”‚ verify@applymate.websiteâ”‚
-â”‚ flyway_schema_history  â”‚   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜               â”‚
-                                         â”‚ Email
-                                         â–¼
-                                  User's email inbox
-````
++------------------------------------------+
+|        React Native / Expo Client        |
+|                                          |
+|  TypeScript                              |
+|  React Navigation                        |
+|  Expo SecureStore                        |
+|  AsyncStorage                            |
+|  Expo Notifications                      |
+|                                          |
+|  Auth state                              |
+|  Pending verification state              |
+|  Forgot/reset password screens           |
++--------------------+---------------------+
+                     |
+                     | HTTPS + JSON
+                     | JWT access token
+                     | Refresh-token session
+                     v
++------------------------------------------+
+|                  Render                  |
+|                                          |
+|  Spring Boot Docker Service              |
+|  Java 21                                 |
+|  Spring Security                         |
+|  Validation                              |
+|  JPA / Hibernate                         |
+|  Flyway                                  |
+|  Spring RestClient                       |
+|  Actuator Health Check                   |
++----------------+-------------------------+
+                 |
+          +------+------+
+          |             |
+   JDBC over TLS      HTTPS
+          |             |
+          v             v
++------------------+   +---------------------------+
+|       Neon       |   |          Resend           |
+|                  |   |                           |
+| PostgreSQL 17    |   | Transactional email       |
+| app_users        |   |                           |
+| job_applications |   | Verified domain:          |
+| reminders        |   | applymate.website         |
+| refresh_tokens   |   |                           |
+| email_           |   | Sender:                   |
+| verification_    |   | verify@applymate.website |
+| codes            |   +-------------+-------------+
+| password_reset_  |                 |
+| challenges       |                 | Email
+| flyway_schema_   |                 v
+| history          |          User's email inbox
++------------------+
+```
 
 The mobile application communicates only with the Spring Boot API.
 
@@ -118,12 +123,14 @@ https://applymate-api-bami.onrender.com/actuator/health
 Current production release commit before documentation closeout:
 
 ```text
-beca795
+d1e4d37
 ```
 
 Render supplies the production HTTP port through the platform environment.
 
 The application does not assume local port `8080` in production.
+
+Production startup after the password-reset rollout confirmed Tomcat binding successfully to Render port `10000`.
 
 ## Database
 
@@ -138,10 +145,12 @@ Database structure is controlled by Flyway.
 The production schema is currently at migration version:
 
 ```text
-8
+9
 ```
 
-V8 removed the temporary rollout default introduced during the email-verification deployment.
+V8 removed the temporary email-verification rollout default.
+
+V9 introduced password-reset challenge persistence.
 
 Current `email_verified_at` schema behaviour:
 
@@ -164,10 +173,18 @@ Verified sending domain:
 applymate.website
 ```
 
-Verification sender:
+Sender:
 
 ```text
 ApplyMate <verify@applymate.website>
+```
+
+Transactional messages currently include:
+
+```text
+Email-verification code
+Password-reset code
+Password-changed notification
 ```
 
 The domain uses configured DKIM, SPF and DMARC DNS records.
@@ -227,9 +244,12 @@ ApplyMate follows these principles:
 * Access tokens are short-lived.
 * Refresh-token sessions are persisted and revocable.
 * Refresh tokens rotate after successful use.
+* Successful password reset revokes all active refresh-token sessions for the affected user.
 * Only hashed refresh-token values are stored in PostgreSQL.
 * Raw email-verification codes are never stored.
-* Verification codes are protected using HMAC-SHA-256 with a server-side pepper.
+* Raw password-reset codes are never stored.
+* Verification and reset codes are protected using HMAC-SHA-256 with separate server-side peppers.
+* Password reset does not implicitly verify an email address.
 * Unverified users cannot obtain authenticated application access.
 * Every application and reminder is scoped to its authenticated owner.
 * Database structure is managed through Flyway migrations.
@@ -239,7 +259,7 @@ ApplyMate follows these principles:
 * Local notification scheduling remains separate from backend reminder persistence.
 * Frontend screens do not depend directly on database implementation details.
 * API and storage responsibilities are isolated in frontend services.
-* Email-provider responsibilities are isolated behind a backend sender interface.
+* Transactional-email HTTP transport is centralised in the backend.
 * Production infrastructure can be replaced without redesigning the mobile client.
 
 ---
@@ -250,14 +270,14 @@ The frontend source is located under:
 
 ```text
 src/
-â”œâ”€â”€ components/
-â”œâ”€â”€ config/
-â”œâ”€â”€ context/
-â”œâ”€â”€ navigation/
-â”œâ”€â”€ screens/
-â”œâ”€â”€ services/
-â”œâ”€â”€ theme/
-â””â”€â”€ types/
+├── components/
+├── config/
+├── context/
+├── navigation/
+├── screens/
+├── services/
+├── theme/
+└── types/
 ```
 
 ## Screens
@@ -274,7 +294,16 @@ Screens are responsible for:
 * Refreshing data after user actions
 * Triggering account and reminder actions
 * Handling verification-code entry
+* Handling password-reset code entry
 * Displaying verification resend timing
+* Displaying password-reset resend timing
+
+Password-reset screens include:
+
+```text
+ForgotPasswordScreen.tsx
+ResetPasswordScreen.tsx
+```
 
 Screens do not contain backend persistence logic.
 
@@ -295,30 +324,32 @@ Components remain focused on presentation and reusable interaction behaviour.
 
 # Navigation Architecture
 
-The `navigation/` directory defines public, verification and authenticated navigation flows.
+The `navigation/` directory defines public, verification, password-reset and authenticated navigation flows.
 
 Current high-level flow:
 
 ```text
 Unauthenticated
     |
-    â”œâ”€â”€ Welcome
-    â”œâ”€â”€ Register
-    â”œâ”€â”€ Login
-    â””â”€â”€ Verify Email
+    ├── Welcome
+    ├── Register
+    ├── Login
+    ├── Verify Email
+    ├── Forgot Password
+    └── Reset Password
 
 Authenticated
     |
-    â””â”€â”€ Main application
-         â”œâ”€â”€ Dashboard
-         â”œâ”€â”€ Applications
-         â”œâ”€â”€ Reminders
-         â””â”€â”€ Profile
+    └── Main application
+         ├── Dashboard
+         ├── Applications
+         ├── Reminders
+         └── Profile
 ```
 
 Navigation does not authenticate users itself.
 
-It reacts to state supplied by `AuthContext`.
+It reacts to state supplied by `AuthContext` and individual public-flow navigation actions.
 
 ## Pending Verification Navigation
 
@@ -345,17 +376,40 @@ App starts
    v
 AuthContext bootstrap
    |
-   â”œâ”€â”€ valid authenticated user
-   â”‚       -> Main application
-   â”‚
-   â”œâ”€â”€ pending verification
-   â”‚       -> Verify Email
-   â”‚
-   â””â”€â”€ neither
+   ├── valid authenticated user
+   |       -> Main application
+   |
+   ├── pending verification
+   |       -> Verify Email
+   |
+   └── neither
            -> normal public flow
 ```
 
 A login attempt for an unverified account also redirects to the Verify Email flow.
+
+## Password Reset Navigation
+
+Password reset remains part of the unauthenticated flow.
+
+```text
+Login
+   |
+   v
+Forgot Password
+   |
+   | email carried as navigation state
+   v
+Reset Password
+   |
+   | successful reset
+   v
+Login
+```
+
+Only the email address is passed between the forgot-password and reset-password screens.
+
+The reset code and new password remain transient screen state and are not persisted locally.
 
 ---
 
@@ -393,6 +447,10 @@ Store pending verification email
 Verify Email screen
 ```
 
+Password-reset state does not become part of authenticated `AuthContext` state.
+
+The forgot/reset flow is intentionally independent from authenticated-session restoration.
+
 ---
 
 # Frontend Configuration
@@ -413,7 +471,16 @@ Production:
 https://applymate-api-bami.onrender.com
 ```
 
-A physical development device may instead use the development computer's LAN address.
+A physical development device can use the development computer's LAN address.
+
+Example topology:
+
+```text
+Phone
+  -> Wi-Fi
+  -> development computer LAN address
+  -> Spring Boot :8080
+```
 
 For Android emulator testing, ADB reverse may be used when connecting to a locally running backend.
 
@@ -451,6 +518,7 @@ pendingVerificationStorage.ts
 * Loading access tokens
 * Adding bearer authentication to protected requests
 * Parsing successful responses
+* Handling empty successful response bodies
 * Converting backend failures into `ApiError`
 * Preserving structured backend error codes
 * Detecting authenticated `401` responses
@@ -470,6 +538,8 @@ register
 login
 verifyEmail
 resendVerificationEmail
+forgotPassword
+resetPassword
 refresh
 logout
 ```
@@ -477,6 +547,8 @@ logout
 Registration does not automatically authenticate the new account.
 
 Verification proves control of the email address but still returns the user to the password-based login flow.
+
+Password reset also returns the user to the login flow rather than creating a new authenticated session.
 
 ## Pending Verification Storage
 
@@ -495,14 +567,18 @@ It does not store:
 ```text
 password
 verification code
+reset code
+new password
 access token
 refresh token
 Resend credentials
 ```
 
-Native platforms use secure device storage for this state.
+Native platforms use secure device storage for pending verification state.
 
 Corrupt or invalid stored verification state is discarded defensively.
+
+Password-reset state is intentionally not persisted.
 
 ## Silent Refresh Coordination
 
@@ -559,12 +635,12 @@ Local notification scheduling remains on the device.
 ```text
 User creates reminder
         |
-        â”œâ”€â”€> Spring Boot API
-        â”‚       |
-        â”‚       v
-        â”‚   PostgreSQL reminder
-        â”‚
-        â””â”€â”€> Expo Notifications
+        ├──> Spring Boot API
+        |       |
+        |       v
+        |   PostgreSQL reminder
+        |
+        └──> Expo Notifications
                 |
                 v
         Device notification schedule
@@ -624,23 +700,26 @@ Backend source:
 backend/src/main/java/com/applymate/backend/
 ```
 
-The project is organised by feature.
+The project is organised primarily by feature.
 
 Important backend areas include:
 
 ```text
 com.applymate.backend
-â”œâ”€â”€ application/
-â”œâ”€â”€ auth/
-â”œâ”€â”€ reminder/
-â”œâ”€â”€ security/
-â”œâ”€â”€ user/
-â”œâ”€â”€ common/error/
-â”œâ”€â”€ system/
-â””â”€â”€ ApplyMateBackendApplication.java
+├── application/
+├── auth/
+│   └── passwordreset/
+├── reminder/
+├── security/
+├── user/
+├── common/error/
+├── system/
+└── ApplyMateBackendApplication.java
 ```
 
 Although classes are grouped by feature, the backend maintains controller, service, repository and persistence responsibilities.
+
+The password-reset implementation deliberately avoids unnecessary additional abstraction layers.
 
 ---
 
@@ -659,6 +738,10 @@ Controllers are responsible for:
 
 Controllers do not directly implement database persistence.
 
+Password-reset routes are handled directly by `AuthController` delegating to `PasswordResetService`.
+
+No unnecessary password-reset passthrough methods were added to `AuthService`.
+
 ---
 
 # DTO and Validation Layer
@@ -671,6 +754,8 @@ Validation covers fields such as:
 * Maximum lengths
 * Email formatting
 * Six-digit verification-code formatting
+* Six-digit password-reset code formatting
+* Password length
 * Application statuses
 * Dates
 * URLs
@@ -678,6 +763,15 @@ Validation covers fields such as:
 * Authentication request data
 
 Persistence entities are not exposed directly as the API contract.
+
+Password reset uses:
+
+```text
+ForgotPasswordRequest
+ResetPasswordRequest
+```
+
+Password confirmation exists only in the mobile UI and is not part of the backend reset request.
 
 ---
 
@@ -696,6 +790,11 @@ Responsibilities include:
 * Email-verification challenge lifecycle
 * Verification-code validation
 * Verification resend limits
+* Password-reset challenge lifecycle
+* Password-reset validation
+* Password-reset resend and issuance limits
+* Password replacement
+* Refresh-session revocation
 * Transactional email orchestration
 * Refresh-token lifecycle management
 * Account deletion
@@ -723,9 +822,9 @@ This applies to:
 
 Another user's record must not be exposed merely because its identifier is known.
 
-Email-verification challenge access is associated with the owning user account.
+Email-verification and password-reset challenge access is associated with the owning user account.
 
-Challenge updates use locking where required to prevent concurrent issue/verification races.
+Password-reset challenge lookup uses a pessimistic write lock when challenge mutation or validation requires exclusive access.
 
 ---
 
@@ -738,6 +837,8 @@ PostgreSQL stores:
 * Email verification timestamp
 * Email-verification code hashes
 * Verification expiry and rate-limit state
+* Password-reset code hashes
+* Password-reset expiry and rate-limit state
 * Job applications
 * Reminders
 * Refresh-token session records
@@ -750,7 +851,9 @@ The following sensitive values are not stored in usable plaintext form:
 password
 raw refresh token
 raw email-verification code
+raw password-reset code
 email-verification pepper
+password-reset pepper
 Resend API key
 JWT signing secret
 ```
@@ -804,16 +907,17 @@ Conceptually:
 
 ```text
 HMAC(
-    server-side pepper,
+    email-verification pepper,
     userId + ":" + verificationCode
 )
 ```
 
-The production pepper:
+The production verification pepper:
 
 * Is separate from the JWT signing secret
+* Is separate from the password-reset pepper
 * Is stored only in backend environment configuration
-* Must be at least 32 decoded bytes
+* Must contain sufficient cryptographic entropy
 * Is never sent to the frontend
 * Is never stored in PostgreSQL
 
@@ -848,17 +952,17 @@ POST /api/v1/auth/verify-email
         v
 Lock verification state
         |
-        â”œâ”€â”€ expired
-        â”‚      -> VERIFICATION_CODE_EXPIRED
-        â”‚
-        â”œâ”€â”€ too many attempts
-        â”‚      -> VERIFICATION_ATTEMPTS_EXCEEDED
-        â”‚
-        â”œâ”€â”€ incorrect
-        â”‚      -> increment attempts
-        â”‚      -> VERIFICATION_CODE_INCORRECT
-        â”‚
-        â””â”€â”€ correct
+        ├── expired
+        |      -> VERIFICATION_CODE_EXPIRED
+        |
+        ├── too many attempts
+        |      -> VERIFICATION_ATTEMPTS_EXCEEDED
+        |
+        ├── incorrect
+        |      -> increment attempts
+        |      -> VERIFICATION_CODE_INCORRECT
+        |
+        └── correct
                |
                v
        app_users.email_verified_at = timestamp
@@ -877,87 +981,282 @@ Verification does not bypass the user's password.
 
 The user still performs normal login after verification.
 
-## Resend Flow
+---
+
+# Password Reset Architecture
+
+## Forgot-Password Flow
 
 ```text
-POST /api/v1/auth/resend-verification
-        |
-        v
-Find unverified account/challenge
-        |
-        â”œâ”€â”€ cooldown active
-        â”‚      -> VERIFICATION_RESEND_COOLDOWN
-        â”‚
-        â”œâ”€â”€ issue limit reached
-        â”‚      -> VERIFICATION_RATE_LIMITED
-        â”‚
-        â””â”€â”€ allowed
-               |
-               v
-       Generate replacement code
-               |
-               v
-       Replace stored hash/timestamps
-               |
-               v
-       Send email through Resend
+Login screen
+      |
+      v
+Forgot Password screen
+      |
+      v
+POST /api/v1/auth/forgot-password
+      |
+      v
+Normalise email
+      |
+      ├── no account
+      |       -> generic HTTP 202
+      |
+      ├── disabled account
+      |       -> generic HTTP 202
+      |
+      ├── cooldown / rate limit
+      |       -> generic HTTP 202
+      |
+      └── eligible account
+              |
+              v
+      Lock user/challenge
+              |
+              v
+      Generate six-digit code
+              |
+              v
+      HMAC code using password-reset pepper
+              |
+              v
+      Save challenge state
+              |
+              v
+      Send reset email
+              |
+              v
+      Commit transaction
+              |
+              v
+      generic HTTP 202
 ```
 
-Responses for unknown/already-verified email addresses remain generic to reduce account enumeration.
+The public endpoint deliberately does not reveal whether an account exists.
+
+For syntactically valid email requests, account existence, cooldown state, rate-limit state and email-provider failures are hidden behind generic behaviour.
+
+A minimum response-duration strategy reduces timing differences between request paths.
+
+## Password-Reset Code Security
+
+Reset codes use:
+
+```text
+SecureRandom
+6 numeric digits
+```
+
+Reset-code hashing uses:
+
+```text
+HMAC-SHA-256
+```
+
+The HMAC input is domain-separated and user-bound:
+
+```text
+password-reset:<userId>:<rawCode>
+```
+
+The production password-reset pepper:
+
+* Is separate from the email-verification pepper
+* Is separate from the JWT signing secret
+* Is Base64 encoded in configuration
+* Must decode to at least 32 bytes
+* Is stored only in backend environment configuration
+* Is never sent to the frontend
+* Is never stored in PostgreSQL
+
+Hash comparison uses `MessageDigest.isEqual`.
+
+## Reset Timing and Limits
+
+Default rules:
+
+```text
+Code TTL:                 10 minutes
+Maximum failed attempts:  5
+Resend cooldown:          60 seconds
+Issue window:             1 hour
+Maximum issues/window:    5
+Minimum public duration:  1 second
+```
+
+Each user has at most one active password-reset challenge.
+
+A resend replaces the stored code hash and resets failed attempts.
+
+The previous code becomes invalid immediately.
+
+Successful reset deletes the challenge, making the code single-use.
+
+## Reset Flow
+
+```text
+Reset Password screen
+        |
+        v
+POST /api/v1/auth/reset-password
+        |
+        v
+Lock user
+        |
+        v
+Lock reset challenge
+        |
+        ├── missing
+        ├── expired
+        ├── attempts exhausted
+        ├── incorrect
+        └── invalid for account
+                |
+                v
+PASSWORD_RESET_CODE_INVALID_OR_EXPIRED
+
+Correct code
+        |
+        v
+Encode new password
+        |
+        v
+Update app_users password hash
+        |
+        v
+Revoke all refresh sessions
+        |
+        v
+Delete reset challenge
+        |
+        v
+Commit transaction
+        |
+        v
+Send password-changed notification
+        |
+        v
+HTTP 204
+        |
+        v
+Mobile returns to Login
+```
+
+The password-changed notification is sent after the password-change transaction succeeds.
+
+Failure to send the notification is logged safely and does not undo the reset.
+
+## Email-Delivery Rollback
+
+Reset-code issuance intentionally differs from initial registration email delivery.
+
+For password reset:
+
+```text
+Save/reset challenge
+        |
+        v
+Attempt reset-code email
+        |
+        ├── success
+        |      -> commit challenge/cooldown/rate-limit state
+        |
+        └── failure
+               -> transaction rolls back
+               -> public response remains generic 202
+```
+
+This prevents a provider outage from consuming a reset challenge or resend allowance when the user never received the code.
+
+## Unverified Accounts
+
+Unverified users are permitted to reset their password.
+
+Password reset does not call the email-verification state transition.
+
+Therefore:
+
+```text
+Unverified before reset
+        |
+        v
+Password changed
+        |
+        v
+Still unverified
+        |
+        v
+Login remains blocked by
+EMAIL_VERIFICATION_REQUIRED
+```
 
 ---
 
-# Verification Email Provider Architecture
+# Transactional Email Architecture
 
-Email sending is abstracted behind:
+## Shared Resend Transport
+
+Verification and password-reset email delivery share:
 
 ```text
-VerificationEmailSender
+ResendEmailClient
 ```
 
-Current implementations include:
+This component owns provider-level responsibilities including:
+
+* Resend base URL
+* HTTP client configuration
+* API-key handling
+* Authentication header construction
+* Connection/read timeouts
+* POST `/emails`
+* Safe provider error conversion
+* Secret-safe failure handling
+
+Feature-specific components remain responsible for their own message content.
 
 ```text
+Verification
+    |
+    v
 ResendVerificationEmailSender
-UnavailableVerificationEmailSender
+    |
+    v
+ResendEmailClient
+    |
+    v
+Resend API
+
+Password reset
+    |
+    v
+PasswordResetEmailSender
+    |
+    v
+ResendEmailClient
+    |
+    v
+Resend API
 ```
 
-Provider selection is environment-driven.
+This avoids maintaining two independent Resend HTTP clients.
 
-Production:
+## Verification Email
 
-```text
-EMAIL_PROVIDER=resend
-```
+`ResendVerificationEmailSender` formats verification-specific:
 
-A disabled/unavailable provider can be used in environments where real email sending is not configured.
-
-## Resend Request Path
-
-```text
-EmailVerificationService / AuthService
-        |
-        v
-VerificationEmailSender
-        |
-        v
-ResendVerificationEmailSender
-        |
-        v
-HTTPS POST
-https://api.resend.com/emails
-```
-
-Requests contain:
-
-* Verified `from` address
-* Recipient email
-* Verification email subject
+* Subject
 * Text body
 * HTML body
 * Idempotency key
 
-The idempotency key is generated from user and issuance information and does not contain the verification code.
+## Password Reset Email
+
+`PasswordResetEmailSender` formats:
+
+* Password-reset code email
+* Password-changed notification email
+* Feature-specific idempotency keys
 
 ## Resend Secret Safety
 
@@ -972,11 +1271,11 @@ The API key:
 * Is not propagated inside safe delivery exceptions
 * Is not exposed to the mobile application
 
-A production deployment test identified that malformed header configuration could otherwise cause the underlying Java HTTP client to include the Authorization header value in an exception message.
+A previous production deployment test identified that malformed header configuration could otherwise cause the underlying Java HTTP client to include the Authorization header value in an exception message.
 
 The affected credential was revoked and replaced.
 
-The sender was subsequently hardened and regression-tested.
+The transport was subsequently hardened and regression-tested.
 
 ---
 
@@ -992,6 +1291,8 @@ GET  /api/v1/status
 POST /api/v1/auth/register
 POST /api/v1/auth/verify-email
 POST /api/v1/auth/resend-verification
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
@@ -1005,7 +1306,9 @@ GET  /actuator/health
 
 Verification endpoints are public because the user is deliberately not authenticated yet.
 
-Their behaviour is protected by verification-specific limits and generic responses where appropriate.
+Password-reset endpoints are public because forgotten-password recovery occurs before authentication.
+
+Their behaviour is protected through HMAC-bound codes, expiration, attempt limits, cooldowns, issuance limits and generic public responses.
 
 ## Protected Routes
 
@@ -1058,10 +1361,14 @@ This prevents incorrect passwords from being used to probe whether an account is
 Production access-token lifetime:
 
 ```text
-1 hour
+15 minutes
 ```
 
-The access token is intentionally shorter-lived than the persistent session.
+The production configuration defaults to `PT15M`.
+
+Render currently does not require a `JWT_ACCESS_TOKEN_TTL` override for this value.
+
+The access token is intentionally much shorter-lived than the persistent refresh session.
 
 ---
 
@@ -1100,9 +1407,9 @@ Refresh tokens belong to a session family.
 
 ```text
 Session family
-â”œâ”€â”€ Refresh A
-â”œâ”€â”€ Refresh B
-â””â”€â”€ Refresh C
+├── Refresh A
+├── Refresh B
+└── Refresh C
 ```
 
 Reuse of a revoked token can indicate token duplication.
@@ -1124,6 +1431,34 @@ The backend stores:
 * Creation time
 
 The usable refresh token itself is not stored in PostgreSQL.
+
+---
+
+# Password Reset Session Revocation
+
+Successful password reset invokes:
+
+```text
+RefreshTokenService.revokeAllForUser(userId)
+```
+
+This revokes every active refresh session belonging to the account.
+
+```text
+Password reset succeeds
+        |
+        v
+All active refresh tokens revoked
+        |
+        v
+Old persistent sessions can no longer refresh
+```
+
+Already-issued access JWTs are not blacklisted.
+
+They may remain valid until their normal expiry, which is limited to the production 15-minute access-token lifetime.
+
+No additional JWT blacklist or token-version system is used.
 
 ---
 
@@ -1166,7 +1501,9 @@ Backend:
 pessimistic write lock while rotating the token
 ```
 
-Email-verification state also uses locking where required to coordinate challenge issuance and verification.
+Email-verification state uses locking where required to coordinate challenge issuance and verification.
+
+Password-reset user/challenge state also uses pessimistic locking while issuing or consuming a challenge.
 
 ---
 
@@ -1208,7 +1545,7 @@ Clients cannot supply a different user ID to delete another account.
 
 Database relationships remove user-owned backend data when the account is deleted.
 
-Email-verification challenge records reference the user with cascade deletion.
+This includes associated email-verification and password-reset challenge records.
 
 ---
 
@@ -1258,6 +1595,7 @@ job_applications
 reminders
 refresh_tokens
 email_verification_codes
+password_reset_challenges
 flyway_schema_history
 ```
 
@@ -1287,6 +1625,34 @@ This includes:
 * Reminders
 * Refresh-token sessions
 * Email-verification challenge data
+* Password-reset challenge data
+
+---
+
+# Password Reset Persistence
+
+`password_reset_challenges` stores one challenge per user.
+
+Core state includes:
+
+```text
+id
+user_id
+code_hash
+expires_at
+failed_attempts
+last_issued_at
+issue_window_started_at
+issue_count
+created_at
+updated_at
+```
+
+`user_id` is unique and references `app_users`.
+
+The foreign key uses cascade deletion.
+
+Raw reset codes are never stored.
 
 ---
 
@@ -1309,6 +1675,7 @@ V5 - alter refresh token hash type
 V6 - add email verification
 V7 - preserve legacy registration during email verification rollout
 V8 - remove email verification rollout default
+V9 - create password reset challenges
 ```
 
 ## V6
@@ -1334,8 +1701,6 @@ for `app_users.email_verified_at`.
 
 This protected registrations handled by an older application instance during the zero-downtime Render deployment window after V6 had already changed the schema.
 
-The new backend explicitly persisted `NULL` for new registrations, so email verification remained required on the new application version.
-
 ## V8
 
 After the old deployment was fully replaced and production verification succeeded, V8 removed the temporary default:
@@ -1349,10 +1714,41 @@ DROP DEFAULT;
 Post-rollout state:
 
 ```text
-Existing verified account   -> remains verified
-Existing unverified account -> remains unverified
-New registration            -> starts unverified
+Existing verified account    -> remains verified
+Existing unverified account  -> remains unverified
+New registration             -> starts unverified
 Direct insert omitting field -> remains unverified
+```
+
+## V9
+
+V9 introduced:
+
+```text
+password_reset_challenges
+```
+
+The migration provides:
+
+* One challenge per user
+* HMAC code-hash storage
+* Expiration state
+* Failed-attempt tracking
+* Resend timing
+* Hourly issuance-window tracking
+* Creation/update timestamps
+* User foreign key with cascade deletion
+* Expiry index
+* Database constraints for challenge state
+
+V9 does not alter the email-verification challenge model.
+
+Production Flyway verification confirmed:
+
+```text
+Successfully validated 9 migrations
+Current version of schema "public": 9
+Schema "public" is up to date
 ```
 
 ## Migration Rules
@@ -1388,11 +1784,11 @@ The application does not depend on Neon-specific authentication or client librar
 
 ```text
 Developer computer
-â”œâ”€â”€ Expo / Metro on port 8081
-â”œâ”€â”€ Android emulator / Expo Go / physical device
-â”œâ”€â”€ Spring Boot on port 8080
-â””â”€â”€ Docker
-    â””â”€â”€ PostgreSQL 17 on port 5432
+├── Expo / Metro on port 8081
+├── Android emulator / Expo Go / physical device
+├── Spring Boot on port 8080
+└── Docker
+    └── PostgreSQL 17 on port 5432
 ```
 
 Metro port `8081` serves the React Native development bundle.
@@ -1410,9 +1806,9 @@ adb reverse tcp:8081 tcp:8081
 
 when local routing requires it.
 
-Physical devices can use the development computer's LAN address.
+Physical devices can use the development computer's LAN address while both devices are on the same network.
 
-Production mobile builds do not use these local ports.
+Production mobile builds do not use local ports or LAN addresses.
 
 ---
 
@@ -1422,10 +1818,10 @@ The backend Dockerfile uses a multi-stage build.
 
 ```text
 Build stage
-â”œâ”€â”€ Maven
-â”œâ”€â”€ Java 21 JDK
-â”œâ”€â”€ pom.xml
-â””â”€â”€ backend source
+├── Maven
+├── Java 21 JDK
+├── pom.xml
+└── backend source
         |
         | Maven package
         v
@@ -1433,10 +1829,10 @@ Executable Spring Boot JAR
         |
         v
 Runtime stage
-â”œâ”€â”€ Java 21 runtime
-â”œâ”€â”€ curl
-â”œâ”€â”€ non-root applymate user
-â””â”€â”€ app.jar
+├── Java 21 runtime
+├── curl
+├── non-root applymate user
+└── app.jar
 ```
 
 The final image:
@@ -1476,16 +1872,25 @@ Maven test/package
 JUnit / MockMvc / Mockito / integration tests
 ```
 
-Current backend suite:
+Current complete backend suite:
 
 ```text
-89 tests
+106 tests
 0 failures
 0 errors
 0 skipped
 ```
 
-The email-verification suite includes coverage for:
+Focused password-reset suite:
+
+```text
+14 tests
+0 failures
+0 errors
+0 skipped
+```
+
+Current validation covers email-verification behaviour including:
 
 * HMAC verification-code security
 * Verification expiry
@@ -1501,6 +1906,28 @@ The email-verification suite includes coverage for:
 * Provider secret-safety regression behaviour
 * Flyway migration compatibility
 * Post-rollout V8 schema behaviour
+
+Password-reset coverage includes:
+
+* Existing-user reset issuance
+* Unknown-email generic behaviour
+* Six-digit reset-code generation
+* Raw-code non-persistence
+* Incorrect reset code
+* Expired reset code
+* Maximum failed attempts
+* Resend cooldown
+* Hourly issuance limits
+* Cross-user code isolation
+* Password replacement
+* Refresh-session revocation
+* Single-use challenge behaviour
+* Replacement-code invalidation
+* Provider-failure transaction rollback
+* Unverified-account state preservation
+* Password-changed notification failure behaviour
+* Old-password rejection
+* New-password authentication
 
 ## Docker
 
@@ -1537,6 +1964,7 @@ Local environment values can include:
 * Local database credentials
 * Development JWT secret
 * Email-verification pepper
+* Password-reset pepper
 * Local Resend test credentials
 * Temporary test token lifetimes
 
@@ -1555,7 +1983,7 @@ The public production API configuration is:
 EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
 ```
 
-No JWT, Resend, verification-pepper or database secrets are placed in frontend environment variables.
+No JWT, Resend, verification-pepper, password-reset-pepper or database secrets are placed in frontend environment variables.
 
 ## Production Environment
 
@@ -1567,7 +1995,6 @@ DB_URL
 DB_USERNAME
 DB_PASSWORD
 JWT_SECRET
-JWT_ACCESS_TOKEN_TTL
 REFRESH_TOKEN_TTL
 APP_CORS_ALLOWED_ORIGIN_PATTERNS
 PORT
@@ -1576,16 +2003,31 @@ EMAIL_PROVIDER
 EMAIL_FROM
 RESEND_API_KEY
 EMAIL_VERIFICATION_PEPPER
+PASSWORD_RESET_PEPPER
 ```
 
-Current production email configuration includes:
+Production email configuration includes:
 
 ```text
 EMAIL_PROVIDER=resend
 EMAIL_FROM=ApplyMate <verify@applymate.website>
 ```
 
-The actual Resend API key and verification pepper are secrets and must never appear in source control or documentation.
+Production password reset requires:
+
+```text
+PASSWORD_RESET_PEPPER=<separate Base64 production secret>
+```
+
+The production application defaults access-token lifetime to:
+
+```text
+PT15M
+```
+
+No Render `JWT_ACCESS_TOKEN_TTL` override is currently required.
+
+The actual Resend API key, verification pepper, password-reset pepper, JWT secret and database credentials must never appear in source control or documentation.
 
 Neon stores the production PostgreSQL data.
 
@@ -1604,19 +2046,20 @@ DELETE /api/v1/users/me
        v
 Delete app_users record
        |
-       â”œâ”€â”€> delete job applications
-       â”œâ”€â”€> delete reminders
-       â”œâ”€â”€> delete refresh-token sessions
-       â””â”€â”€> delete verification challenge
+       ├──> delete job applications
+       ├──> delete reminders
+       ├──> delete refresh-token sessions
+       ├──> delete verification challenge
+       └──> delete password-reset challenge
        |
        v
 Mobile local cleanup
        |
-       â”œâ”€â”€> cancel scheduled notifications
-       â”œâ”€â”€> remove stored notification IDs
-       â”œâ”€â”€> remove local account settings
-       â”œâ”€â”€> clear pending verification state
-       â””â”€â”€> remove authentication tokens
+       ├──> cancel scheduled notifications
+       ├──> remove stored notification IDs
+       ├──> remove local account settings
+       ├──> clear pending verification state
+       └──> remove authentication tokens
        |
        v
 Welcome / Login
@@ -1632,9 +2075,9 @@ Privacy information is hosted separately from the backend API.
 
 ```text
 GitHub Pages
-â”œâ”€â”€ index.html
-â”œâ”€â”€ privacy-policy.html
-â””â”€â”€ delete-account.html
+├── index.html
+├── privacy-policy.html
+└── delete-account.html
 ```
 
 The Privacy Policy is linked from the Profile screen.
@@ -1661,7 +2104,7 @@ The deployed architecture has passed:
 * Email verification
 * Real verification-email delivery
 * Verification resend
-* Old-code invalidation after resend
+* Old verification-code invalidation after resend
 * Verification persistence across app restart
 * Unverified-login rejection
 * Login after verification
@@ -1687,7 +2130,14 @@ The deployed architecture has passed:
 * Resend secret-handling hotfix verification
 * Flyway V6/V7 production rollout
 * Flyway V8 post-rollout cleanup
-* Final V8 production health verification
+* Password-reset public endpoint verification
+* Real password-reset email delivery
+* Password-reset code validation
+* Old-password rejection after reset
+* New-password authentication after reset
+* Password-changed notification delivery
+* Flyway V9 production verification
+* Final V9 production health verification
 
 Verified production path:
 
@@ -1697,11 +2147,11 @@ React Native / Expo client
         v
 Render Spring Boot API
         |
-        â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€> Resend
-        â”‚                  |
-        â”‚                  v
-        â”‚             User inbox
-        â”‚
+        ├──────────────> Resend
+        |                  |
+        |                  v
+        |             User inbox
+        |
         v
 Neon PostgreSQL
 ```
@@ -1709,21 +2159,102 @@ Neon PostgreSQL
 Final production schema:
 
 ```text
-Flyway V8
+Flyway V9
 ```
 
 Final production health:
 
 ```text
-/api/v1/status   -> UP
-/actuator/health -> UP
+/api/v1/status   -> HTTP 200 / UP
+/actuator/health -> HTTP 200 / UP
 ```
+
+Password-reset public production verification:
+
+```text
+POST /api/v1/auth/forgot-password
+unknown valid email
+-> HTTP 202 Accepted
+```
+
+Password-reset real-account verification:
+
+```text
+Reset email arrives
+Old password rejected
+New password accepted
+Password-changed email arrives
+```
+
+---
+
+# Password Reset Production Rollout Architecture
+
+The password-reset feature was deployed after feature-branch validation and PR merge.
+
+```text
+v1.4.0 production
+      |
+      v
+feat/password-reset
+      |
+      ├── secure backend implementation
+      ├── React Native mobile flow
+      └── automated security tests
+      |
+      v
+106 backend tests + frontend typecheck
+      |
+      v
+PR #10
+      |
+      v
+Merge to main at d1e4d37
+      |
+      v
+Configure PASSWORD_RESET_PEPPER in Render
+      |
+      v
+Render deployment
+      |
+      ├── V9 already applied/validated
+      └── Spring startup validates reset pepper
+      |
+      v
+Production API health checks
+      |
+      v
+Unknown-email HTTP 202 verification
+      |
+      v
+Real mobile reset
+      |
+      ├── reset email received
+      ├── password changed
+      ├── old password rejected
+      ├── new password accepted
+      └── password-changed email received
+```
+
+During the first production startup attempt, the configured password-reset pepper was malformed Base64.
+
+The backend correctly refused to start with:
+
+```text
+PASSWORD_RESET_PEPPER must be valid Base64
+```
+
+The production secret was replaced with a valid independently generated Base64 value.
+
+No code change was required.
+
+This confirmed that password-reset secret validation fails closed rather than silently accepting unsafe configuration.
 
 ---
 
 # Email Verification Production Rollout Architecture
 
-The email-verification feature was deployed using a controlled staged rollout.
+The email-verification feature was previously deployed using a controlled staged rollout.
 
 ```text
 V5 production
@@ -1731,9 +2262,9 @@ V5 production
     v
 Deploy application containing V6 + V7
     |
-    â”œâ”€â”€ V6 adds verification schema
-    â”‚
-    â””â”€â”€ V7 protects old-instance registrations
+    ├── V6 adds verification schema
+    |
+    └── V7 protects old-instance registrations
             during zero-downtime overlap
     |
     v
@@ -1770,7 +2301,17 @@ Render can experience cold-start delays after inactivity.
 
 During cold start, the mobile application may temporarily be unable to reach the backend until the service becomes ready.
 
-This affects response time but does not change data integrity or application architecture.
+The password-reset production deployment demonstrated that application startup can take more than two minutes while Render is scanning for an open port.
+
+Render may temporarily report:
+
+```text
+No open ports detected
+```
+
+while Spring Boot is still initialising.
+
+This is not an application port failure if Tomcat subsequently binds successfully to the platform-provided port.
 
 The production API is checked using:
 
@@ -1791,9 +2332,15 @@ The following boundaries remain in place:
 * PostgreSQL remains the backend system of record.
 * Mobile clients never connect directly to PostgreSQL.
 * Mobile clients never receive Resend credentials.
-* Verification email delivery remains backend-controlled.
+* Verification and password-reset email delivery remain backend-controlled.
 * Raw verification codes are not persisted.
+* Raw password-reset codes are not persisted.
 * Email-verification secrets remain backend-only.
+* Password-reset secrets remain backend-only.
+* Email verification and password reset use separate peppers.
+* Password reset does not change email-verification state.
+* Successful reset revokes persistent refresh sessions.
+* No JWT blacklist is used.
 * Reminder records are backend-synchronised.
 * Notification scheduling remains device-side.
 * Device preferences remain local.

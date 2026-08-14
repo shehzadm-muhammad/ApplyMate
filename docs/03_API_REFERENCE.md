@@ -18,17 +18,20 @@ https://applymate-api-bami.onrender.com
 
 The API currently supports:
 
-- User registration
-- Email verification
-- Verification-email resend
-- Email/password authentication
-- JWT access tokens
-- Rotating refresh-token sessions
-- Account deletion
-- Job-application CRUD
-- Dashboard summaries
-- Reminder CRUD
-- Per-user data isolation
+* User registration
+* Email verification
+* Verification-email resend
+* Forgot-password requests
+* Secure password reset
+* Email/password authentication
+* JWT access tokens
+* Rotating refresh-token sessions
+* Refresh-session revocation after password reset
+* Account deletion
+* Job-application CRUD
+* Dashboard summaries
+* Reminder CRUD
+* Per-user data isolation
 
 ---
 
@@ -40,6 +43,8 @@ Requests containing JSON should use:
 Content-Type: application/json
 Accept: application/json
 ```
+
+Successful `202` and `204` password-reset responses do not require a JSON response body.
 
 ---
 
@@ -53,18 +58,21 @@ Authorization: Bearer <access-token>
 
 ApplyMate uses:
 
-- Short-lived JWT access tokens
-- Long-lived refresh tokens
-- Refresh-token rotation
-- Server-side refresh-session revocation
-- Email-verification enforcement before authenticated access
+* Short-lived JWT access tokens
+* Long-lived refresh tokens
+* Refresh-token rotation
+* Server-side refresh-session revocation
+* Email-verification enforcement before authenticated access
+* Complete refresh-session revocation after password reset
 
 Production session configuration:
 
 ```text
-Access token lifetime: 1 hour
+Access token lifetime: 15 minutes
 Refresh session lifetime: 30 days
 ```
+
+The production backend defaults access-token lifetime to `PT15M`.
 
 ---
 
@@ -83,12 +91,12 @@ Before the user can obtain authenticated application access, they must verify th
 Verification rules:
 
 ```text
-Code format:               6 numeric digits
-Code lifetime:             10 minutes
-Maximum incorrect attempts: 5
-Resend cooldown:           60 seconds
-Issue-rate window:         1 hour
-Maximum issues per window: 5
+Code format:                 6 numeric digits
+Code lifetime:               10 minutes
+Maximum incorrect attempts:  5
+Resend cooldown:             60 seconds
+Issue-rate window:           1 hour
+Maximum issues per window:   5
 ```
 
 Raw verification codes are not stored by the backend.
@@ -96,6 +104,45 @@ Raw verification codes are not stored by the backend.
 The backend stores an HMAC-SHA-256 representation protected by a server-side secret pepper.
 
 Resending creates a replacement verification code and invalidates the previous code.
+
+---
+
+# Password Reset
+
+Users who cannot remember their password can request a six-digit reset code by email.
+
+Password-reset rules:
+
+```text
+Code format:                 6 numeric digits
+Code lifetime:               10 minutes
+Maximum incorrect attempts:  5
+Resend cooldown:             60 seconds
+Issue-rate window:           1 hour
+Maximum issues per window:   5
+Minimum forgot-response time: 1 second
+```
+
+Raw password-reset codes are never stored.
+
+Stored challenge codes are protected with HMAC-SHA-256 using a password-reset pepper that is separate from the email-verification pepper and JWT signing secret.
+
+The HMAC input is bound to the owning user:
+
+```text
+password-reset:<userId>:<code>
+```
+
+Successful password reset:
+
+```text
+Changes the password hash
+Revokes all active refresh-token sessions
+Deletes the reset challenge
+Sends a password-changed notification
+```
+
+Password reset does **not** mark an account as email verified.
 
 ---
 
@@ -109,6 +156,8 @@ GET  /api/v1/status
 POST /api/v1/auth/register
 POST /api/v1/auth/verify-email
 POST /api/v1/auth/resend-verification
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
@@ -116,9 +165,9 @@ POST /api/v1/auth/logout
 GET  /actuator/health
 ```
 
-The verification endpoints must remain public because the user is not authenticated until verification and login are complete.
+Verification and password-reset endpoints must remain public because those flows occur before normal authentication.
 
-The refresh endpoint remains public because it is specifically used when an access token has expired.
+The refresh endpoint remains public because it is used specifically when an access token has expired.
 
 Logout accepts a refresh token directly and does not require the access token to remain valid.
 
@@ -203,6 +252,8 @@ Not required.
 
 This verifies that the main application API is responding.
 
+Production verification after the V9 deployment returned HTTP `200`.
+
 ---
 
 ## Get Operational Health
@@ -219,17 +270,15 @@ Not required.
 
 **Status:** `200 OK`
 
-A healthy production response may look like:
+The health response reports:
 
 ```json
 {
-  "groups": [
-    "liveness",
-    "readiness"
-  ],
   "status": "UP"
 }
 ```
+
+Additional health metadata can be present depending on Actuator configuration.
 
 Production URLs:
 
@@ -237,6 +286,8 @@ Production URLs:
 https://applymate-api-bami.onrender.com/api/v1/status
 https://applymate-api-bami.onrender.com/actuator/health
 ```
+
+Both were revalidated successfully after the password-reset production rollout.
 
 ---
 
@@ -265,12 +316,12 @@ Not required.
 
 ### Validation
 
-| Field | Required | Rules |
-|---|---:|---|
-| `firstName` | Yes | Must not be blank; maximum 100 characters |
-| `lastName` | Yes | Must not be blank; maximum 100 characters |
-| `email` | Yes | Valid email address; maximum 320 characters |
-| `password` | Yes | Between 8 and 72 characters |
+| Field       | Required | Rules                                       |
+| ----------- | -------: | ------------------------------------------- |
+| `firstName` |      Yes | Must not be blank; maximum 100 characters   |
+| `lastName`  |      Yes | Must not be blank; maximum 100 characters   |
+| `email`     |      Yes | Valid email address; maximum 320 characters |
+| `password`  |      Yes | Between 8 and 72 characters                 |
 
 Email addresses are normalised before storage.
 
@@ -286,10 +337,10 @@ Example:
   "email": "muhammad@example.com",
   "firstName": "Muhammad",
   "lastName": "Shehzad",
-  "createdAt": "2026-08-11T10:00:00Z",
+  "createdAt": "2026-08-14T10:00:00Z",
   "verificationRequired": true,
-  "verificationExpiresAt": "2026-08-11T10:10:00Z",
-  "resendAvailableAt": "2026-08-11T10:01:00Z",
+  "verificationExpiresAt": "2026-08-14T10:10:00Z",
+  "resendAvailableAt": "2026-08-14T10:01:00Z",
   "verificationEmailSent": true
 }
 ```
@@ -302,16 +353,7 @@ The account must first complete email verification and then perform normal login
 
 Account creation and verification-challenge creation are committed before external email delivery is attempted.
 
-If the account is created successfully but the initial verification email cannot be delivered, the response can indicate:
-
-```json
-{
-  "verificationRequired": true,
-  "verificationEmailSent": false
-}
-```
-
-The account remains recoverable through:
+If the account is created successfully but the initial verification email cannot be delivered, the account remains recoverable through:
 
 ```http
 POST /api/v1/auth/resend-verification
@@ -319,9 +361,9 @@ POST /api/v1/auth/resend-verification
 
 ### Possible Errors
 
-- `400 Bad Request` â€” validation failed
-- `409 Conflict` â€” an account already exists for the email
-- `500 Internal Server Error` â€” unexpected backend failure
+* `400 Bad Request` — validation failed
+* `409 Conflict` — an account already exists for the email
+* `500 Internal Server Error` — unexpected backend failure
 
 ---
 
@@ -346,10 +388,10 @@ Not required.
 
 ### Validation
 
-| Field | Required | Rules |
-|---|---:|---|
-| `email` | Yes | Valid email address |
-| `code` | Yes | Exactly six numeric digits |
+| Field   | Required | Rules                      |
+| ------- | -------: | -------------------------- |
+| `email` |      Yes | Valid email address        |
+| `code`  |      Yes | Exactly six numeric digits |
 
 ### Successful Response
 
@@ -384,8 +426,6 @@ After successful verification, the client returns the user to normal email/passw
 }
 ```
 
-A failed attempt is recorded.
-
 #### Expired code
 
 **Status:** `410 Gone`
@@ -405,8 +445,6 @@ A failed attempt is recorded.
   "code": "VERIFICATION_ATTEMPTS_EXCEEDED"
 }
 ```
-
-Other validation or unexpected backend errors can also occur.
 
 ---
 
@@ -428,35 +466,15 @@ Not required.
 }
 ```
 
-### Validation
-
-| Field | Required | Rules |
-|---|---:|---|
-| `email` | Yes | Valid email address |
-
 ### Successful Response
 
 **Status:** `202 Accepted`
-
-Example for an account where a new challenge was issued:
-
-```json
-{
-  "message": "If verification is required for this email, a verification code will be sent when allowed.",
-  "verificationExpiresAt": "2026-08-11T11:09:55Z",
-  "resendAvailableAt": "2026-08-11T11:00:55Z"
-}
-```
 
 The endpoint deliberately uses generic wording.
 
 For an unknown or already-verified email address, the response does not reveal unnecessary account state.
 
-Timing fields may be `null` when no verification challenge was issued.
-
 ### Replacement-Code Behaviour
-
-When resend succeeds:
 
 ```text
 Existing code
@@ -473,8 +491,6 @@ Old code becomes invalid
 
 ### Resend Cooldown
 
-If resend is requested before the cooldown expires:
-
 **Status:** `429 Too Many Requests`
 
 ```json
@@ -484,15 +500,13 @@ If resend is requested before the cooldown expires:
 }
 ```
 
-The HTTP response also includes:
+The response can include:
 
 ```http
 Retry-After: 42
 ```
 
 ### Issue Rate Limit
-
-If the maximum number of verification-code issues is reached:
 
 **Status:** `429 Too Many Requests`
 
@@ -503,11 +517,7 @@ If the maximum number of verification-code issues is reached:
 }
 ```
 
-A `Retry-After` header is also returned.
-
 ### Email Provider Failure
-
-If the backend cannot safely send the verification email:
 
 **Status:** `503 Service Unavailable`
 
@@ -518,7 +528,281 @@ If the backend cannot safely send the verification email:
 }
 ```
 
-Provider API keys, request Authorization headers and verification codes must never be exposed in this response.
+Provider API keys, Authorization headers and verification codes are never exposed.
+
+---
+
+# Forgot Password
+
+```http
+POST /api/v1/auth/forgot-password
+```
+
+### Authentication
+
+Not required.
+
+### Request Body
+
+```json
+{
+  "email": "muhammad@example.com"
+}
+```
+
+### Validation
+
+| Field   | Required | Rules               |
+| ------- | -------: | ------------------- |
+| `email` |      Yes | Valid email address |
+
+Email is normalised by the backend.
+
+### Successful Response
+
+**Status:** `202 Accepted`
+
+No response body is required.
+
+```text
+HTTP 202 Accepted
+```
+
+This endpoint deliberately returns generic behaviour.
+
+For syntactically valid email requests, the public response does not reveal whether:
+
+* An account exists
+* An account is disabled
+* A reset challenge is currently in cooldown
+* The hourly issue limit has been reached
+* Email delivery failed
+
+Production verification confirmed that a deliberately nonexistent valid email receives:
+
+```text
+HTTP 202 Accepted
+```
+
+### Existing Account Behaviour
+
+When the account is eligible:
+
+```text
+Find and lock user
+      |
+      v
+Load/reset challenge
+      |
+      v
+Generate 6-digit code
+      |
+      v
+Store HMAC hash
+      |
+      v
+Send reset email
+      |
+      v
+Commit transaction
+      |
+      v
+HTTP 202
+```
+
+### Email-Delivery Failure Behaviour
+
+Reset challenge changes and email delivery occur inside the same issuance transaction.
+
+If reset-code email delivery fails:
+
+```text
+Email send fails
+      |
+      v
+Transaction rolls back
+      |
+      v
+Challenge/cooldown/rate-limit mutation is not committed
+      |
+      v
+Client still receives generic HTTP 202
+```
+
+This means a user does not lose a reset attempt or enter cooldown because of a provider failure.
+
+### Account-Enumeration Protection
+
+The endpoint uses:
+
+* Generic public responses
+* No account-existence response field
+* No provider-failure disclosure
+* A configurable minimum response duration
+
+Default minimum response duration:
+
+```text
+1 second
+```
+
+---
+
+# Reset Password
+
+```http
+POST /api/v1/auth/reset-password
+```
+
+### Authentication
+
+Not required.
+
+### Request Body
+
+```json
+{
+  "email": "muhammad@example.com",
+  "code": "482731",
+  "newPassword": "NewSecurePassword123"
+}
+```
+
+### Validation
+
+| Field         | Required | Rules                       |
+| ------------- | -------: | --------------------------- |
+| `email`       |      Yes | Valid email address         |
+| `code`        |      Yes | Exactly six numeric digits  |
+| `newPassword` |      Yes | Between 8 and 72 characters |
+
+Password confirmation is a frontend-only validation field.
+
+It is not sent to the API.
+
+### Successful Response
+
+**Status:** `204 No Content`
+
+No response body is returned.
+
+Successful reset performs:
+
+```text
+Validate account
+      |
+      v
+Validate reset challenge
+      |
+      v
+Verify HMAC-protected code
+      |
+      v
+Encode new password
+      |
+      v
+Update password hash
+      |
+      v
+Revoke every active refresh session for the user
+      |
+      v
+Delete reset challenge
+      |
+      v
+Commit
+      |
+      v
+Send password-changed notification
+```
+
+### Single-Use Behaviour
+
+Successful reset deletes the challenge.
+
+Submitting the same code again fails.
+
+### Replacement-Code Behaviour
+
+A successful resend replaces the previous stored code hash.
+
+Therefore:
+
+```text
+Old code -> invalid
+New code -> valid until expiry/use/attempt limit
+```
+
+### Refresh-Session Revocation
+
+All active refresh-token sessions for the account are revoked during successful reset.
+
+Any previously issued refresh token can no longer obtain a new access token.
+
+Already-issued access JWTs are not blacklisted and can remain valid until normal expiry.
+
+Production access-token lifetime is limited to:
+
+```text
+15 minutes
+```
+
+### Generic Reset-Code Error
+
+Invalid reset-challenge cases use one public machine-readable error:
+
+**Status:** `400 Bad Request`
+
+```json
+{
+  "code": "PASSWORD_RESET_CODE_INVALID_OR_EXPIRED",
+  "message": "Password reset code is invalid or expired. Request a new code."
+}
+```
+
+This generic result covers cases including:
+
+```text
+Missing reset challenge
+Incorrect code
+Expired code
+Maximum attempts reached
+Invalid/cross-account challenge use
+Already-consumed challenge
+```
+
+The API does not expose which internal condition caused the rejection.
+
+### Unverified Account Behaviour
+
+An unverified account may use password reset.
+
+A successful password reset does **not** modify:
+
+```text
+email_verified_at
+```
+
+Therefore an unverified user who changes their password still receives:
+
+```text
+EMAIL_VERIFICATION_REQUIRED
+```
+
+when attempting authenticated login.
+
+### Password-Changed Email Failure
+
+The password-changed notification is informational.
+
+If that notification cannot be delivered after the reset transaction commits:
+
+```text
+Password remains changed
+Refresh sessions remain revoked
+Reset challenge remains consumed
+HTTP reset success is not rolled back
+```
 
 ---
 
@@ -543,10 +827,10 @@ Not required.
 
 ### Validation
 
-| Field | Required | Rules |
-|---|---:|---|
-| `email` | Yes | Valid email address |
-| `password` | Yes | Must not be blank |
+| Field      | Required | Rules               |
+| ---------- | -------: | ------------------- |
+| `email`    |      Yes | Valid email address |
+| `password` |      Yes | Must not be blank   |
 
 ### Successful Response
 
@@ -556,9 +840,9 @@ Not required.
 {
   "accessToken": "<jwt-access-token>",
   "tokenType": "Bearer",
-  "expiresAt": "2026-08-11T12:00:00Z",
+  "expiresAt": "2026-08-14T11:15:00Z",
   "refreshToken": "<opaque-refresh-token>",
-  "refreshExpiresAt": "2026-09-10T11:00:00Z",
+  "refreshExpiresAt": "2026-09-13T11:00:00Z",
   "userId": "9cb0a8ba-1117-4af0-a04f-32a383459987",
   "email": "muhammad@example.com",
   "firstName": "Muhammad",
@@ -572,7 +856,7 @@ The access token is used for protected API requests:
 Authorization: Bearer <jwt-access-token>
 ```
 
-The refresh token must be stored securely and used only with the refresh/logout endpoints.
+The refresh token must be stored securely and used only with refresh/logout operations.
 
 ### Unverified Account
 
@@ -589,26 +873,26 @@ If the password is correct but the account remains unverified:
 }
 ```
 
-No access or refresh tokens are issued.
-
-The mobile application uses this error code to redirect the user to the Verify Email flow.
+No authentication tokens are issued.
 
 ### Incorrect Password
 
-Incorrect credentials remain:
+Incorrect credentials return:
 
 ```text
 401 Unauthorized
 ```
 
-This prevents an incorrect password from being used to determine verification state.
+### Password Reset Effect
 
-### Possible Errors
+After a successful password reset:
 
-- `400 Bad Request` â€” malformed or invalid request
-- `401 Unauthorized` â€” credentials are incorrect
-- `403 Forbidden` â€” correct credentials but email verification is still required
-- `500 Internal Server Error` â€” unexpected backend failure
+```text
+Old password -> rejected
+New password -> accepted
+```
+
+This behaviour has been verified against production.
 
 ---
 
@@ -636,25 +920,9 @@ The refresh token must not be blank.
 
 **Status:** `200 OK`
 
-The endpoint returns the same authentication response structure as login:
-
-```json
-{
-  "accessToken": "<new-jwt-access-token>",
-  "tokenType": "Bearer",
-  "expiresAt": "2026-08-11T13:00:00Z",
-  "refreshToken": "<new-refresh-token>",
-  "refreshExpiresAt": "2026-09-10T12:00:00Z",
-  "userId": "9cb0a8ba-1117-4af0-a04f-32a383459987",
-  "email": "muhammad@example.com",
-  "firstName": "Muhammad",
-  "lastName": "Shehzad"
-}
-```
+The endpoint returns the same authentication response structure as login with a newly issued access token and rotated refresh token.
 
 ### Rotation Behaviour
-
-A successful refresh:
 
 ```text
 Current refresh token
@@ -672,35 +940,25 @@ Issue new access token
 Issue new refresh token
 ```
 
-The client must replace the previous token pair with the newly returned pair.
+The client must replace the previous token pair.
+
+### Password Reset Revocation
+
+A successful password reset calls the backend's all-session revocation path.
+
+A refresh token belonging to a session that existed before password reset becomes unusable.
+
+Expected result:
+
+```text
+401 Unauthorized
+```
 
 ### Unverified Account Protection
 
 Refresh cannot be used to bypass email verification.
 
-If a refresh session belongs to an unverified account:
-
-```text
-Refresh session
-      |
-      v
-User found to be unverified
-      |
-      v
-Session revoked
-      |
-      v
-403 EMAIL_VERIFICATION_REQUIRED
-```
-
-No access token is returned.
-
-### Possible Errors
-
-- `400 Bad Request` â€” refresh token missing/blank
-- `401 Unauthorized` â€” refresh token invalid, expired, revoked or otherwise unusable
-- `403 Forbidden` â€” account requires email verification
-- `500 Internal Server Error` â€” unexpected backend failure
+If a refresh session belongs to an unverified account, the session is revoked and authenticated access is denied.
 
 ---
 
@@ -725,8 +983,6 @@ No valid access token required.
 ### Successful Response
 
 **Status:** `204 No Content`
-
-No response body is returned.
 
 Logout revokes the backend refresh session represented by the supplied token.
 
@@ -757,15 +1013,9 @@ Required.
   "firstName": "Muhammad",
   "lastName": "Shehzad",
   "enabled": true,
-  "createdAt": "2026-08-11T10:00:00Z"
+  "createdAt": "2026-08-14T10:00:00Z"
 }
 ```
-
-### Possible Errors
-
-- `401 Unauthorized` â€” access token missing, invalid or expired
-- `404 Not Found` â€” authenticated user no longer exists
-- `500 Internal Server Error` â€” unexpected backend failure
 
 ---
 
@@ -783,27 +1033,20 @@ Required.
 
 **Status:** `204 No Content`
 
-No body is returned.
-
 The backend derives the user ID from the authenticated JWT.
 
 The client cannot supply another user's identifier.
 
 Deleting the user permanently removes user-owned backend data including:
 
-- User account
-- Job applications
-- Reminders
-- Refresh-token sessions
-- Email-verification challenge data
+* User account
+* Job applications
+* Reminders
+* Refresh-token sessions
+* Email-verification challenge data
+* Password-reset challenge data
 
 The mobile client separately performs local cleanup after the server confirms successful deletion.
-
-### Possible Errors
-
-- `401 Unauthorized` â€” access token missing, invalid or expired
-- `404 Not Found` â€” authenticated user no longer exists
-- `500 Internal Server Error` â€” unexpected backend failure
 
 ---
 
@@ -828,7 +1071,7 @@ When an application does not exist or does not belong to the authenticated user:
   "company": "Example Company",
   "jobTitle": "Junior Java Developer",
   "location": "Birmingham",
-  "salary": "Â£30,000",
+  "salary": "£30,000",
   "status": "APPLIED",
   "notes": "Applied through the company website.",
   "jobDescription": "Develop and maintain backend services.",
@@ -836,27 +1079,27 @@ When an application does not exist or does not belong to the authenticated user:
   "benefits": "Hybrid working and pension",
   "recruiter": "Jane Smith",
   "applicationDeadline": "2026-08-15",
-  "createdAt": "2026-08-11T08:00:00Z",
-  "updatedAt": "2026-08-11T08:00:00Z"
+  "createdAt": "2026-08-14T08:00:00Z",
+  "updatedAt": "2026-08-14T08:00:00Z"
 }
 ```
 
 ## Application Fields
 
-| Field | Required | Validation |
-|---|---:|---|
-| `jobUrl` | No | Maximum 2,000 characters; empty or HTTP/HTTPS URL |
-| `company` | Yes | Must not be blank; maximum 200 characters |
-| `jobTitle` | Yes | Must not be blank; maximum 200 characters |
-| `location` | No | Maximum 200 characters |
-| `salary` | No | Maximum 200 characters |
-| `status` | Yes | Supported application status |
-| `notes` | No | Maximum 5,000 characters |
-| `jobDescription` | No | Maximum 20,000 characters |
-| `requiredSkills` | No | Maximum 10,000 characters |
-| `benefits` | No | Maximum 10,000 characters |
-| `recruiter` | No | Maximum 200 characters |
-| `applicationDeadline` | No | ISO date `YYYY-MM-DD` |
+| Field                 | Required | Validation                                        |
+| --------------------- | -------: | ------------------------------------------------- |
+| `jobUrl`              |       No | Maximum 2,000 characters; empty or HTTP/HTTPS URL |
+| `company`             |      Yes | Must not be blank; maximum 200 characters         |
+| `jobTitle`            |      Yes | Must not be blank; maximum 200 characters         |
+| `location`            |       No | Maximum 200 characters                            |
+| `salary`              |       No | Maximum 200 characters                            |
+| `status`              |      Yes | Supported application status                      |
+| `notes`               |       No | Maximum 5,000 characters                          |
+| `jobDescription`      |       No | Maximum 20,000 characters                         |
+| `requiredSkills`      |       No | Maximum 10,000 characters                         |
+| `benefits`            |       No | Maximum 10,000 characters                         |
+| `recruiter`           |       No | Maximum 200 characters                            |
+| `applicationDeadline` |       No | ISO date `YYYY-MM-DD`                             |
 
 Optional text values may be supplied as empty strings.
 
@@ -874,46 +1117,24 @@ Required.
 
 ### Query Parameters
 
-| Parameter | Required | Description |
-|---|---:|---|
-| `status` | No | Filter by backend application status |
-| `search` | No | Case-insensitive text search |
+| Parameter | Required | Description                          |
+| --------- | -------: | ------------------------------------ |
+| `status`  |       No | Filter by backend application status |
+| `search`  |       No | Case-insensitive text search         |
 
 The parameters may be used independently or together.
 
 Search applies to:
 
-- Company
-- Job title
-- Location
-- Recruiter
-- Required skills
-
-Examples:
-
-```http
-GET /api/v1/applications
-```
-
-```http
-GET /api/v1/applications?status=INTERVIEW
-```
-
-```http
-GET /api/v1/applications?search=java
-```
-
-```http
-GET /api/v1/applications?status=APPLIED&search=barclays
-```
-
-### Successful Response
-
-**Status:** `200 OK`
+* Company
+* Job title
+* Location
+* Recruiter
+* Required skills
 
 Applications are returned newest-first.
 
-If there are no matches:
+An empty result is:
 
 ```json
 []
@@ -935,8 +1156,6 @@ Required.
 
 **Status:** `201 Created`
 
-The response contains the created application including generated ID and timestamps.
-
 ---
 
 # Get Application
@@ -954,8 +1173,6 @@ Required.
 ### Successful Response
 
 **Status:** `200 OK`
-
-The response contains the requested application.
 
 ---
 
@@ -976,8 +1193,6 @@ Required fields such as `company`, `jobTitle` and `status` must still be supplie
 ### Successful Response
 
 **Status:** `200 OK`
-
-The response contains the updated application.
 
 ---
 
@@ -1043,26 +1258,24 @@ A user cannot retrieve, modify or delete another user's reminder.
   "title": "Prepare for interview",
   "company": "Example Company",
   "type": "INTERVIEW",
-  "dueAt": "2026-08-12T09:30:00Z",
+  "dueAt": "2026-08-15T09:30:00Z",
   "notes": "Review Java and Spring Boot examples.",
   "completed": false,
-  "createdAt": "2026-08-11T08:00:00Z",
-  "updatedAt": "2026-08-11T08:00:00Z"
+  "createdAt": "2026-08-14T08:00:00Z",
+  "updatedAt": "2026-08-14T08:00:00Z"
 }
 ```
 
 ## Reminder Fields
 
-| Field | Create | Update | Rules |
-|---|---:|---:|---|
-| `title` | Required | Required | Non-blank; maximum 200 characters |
-| `company` | Supported | Supported | Maximum 200 characters |
-| `type` | Required | Required | Valid reminder type |
-| `dueAt` | Required | Required | ISO-8601 instant |
-| `notes` | Optional | Optional | Text |
-| `completed` | Backend default | Required | Boolean |
-
-When no company is required, the mobile client uses an empty string.
+| Field       |          Create |    Update | Rules                             |
+| ----------- | --------------: | --------: | --------------------------------- |
+| `title`     |        Required |  Required | Non-blank; maximum 200 characters |
+| `company`   |       Supported | Supported | Maximum 200 characters            |
+| `type`      |        Required |  Required | Valid reminder type               |
+| `dueAt`     |        Required |  Required | ISO-8601 instant                  |
+| `notes`     |        Optional |  Optional | Text                              |
+| `completed` | Backend default |  Required | Boolean                           |
 
 ---
 
@@ -1079,8 +1292,6 @@ Required.
 ### Successful Response
 
 **Status:** `201 Created`
-
-The response contains the created reminder.
 
 ---
 
@@ -1144,8 +1355,6 @@ Required.
 
 **Status:** `200 OK`
 
-Returns the updated reminder.
-
 ---
 
 # Delete Reminder
@@ -1170,37 +1379,36 @@ Required.
 
 Application access is scoped using:
 
-- Requested application ID
-- Authenticated user ID
+```text
+Requested application ID
+Authenticated user ID
+```
 
 Another user's application is not exposed.
 
-The API returns:
-
-```text
-404 Not Found
-```
-
 ## Reminders
 
-Reminder access is similarly scoped using:
-
-- Requested reminder ID
-- Authenticated user ID
-
-Another user's reminder is not exposed.
+Reminder access is similarly scoped to the authenticated owner.
 
 ## Email Verification
 
-Verification challenge records are associated with an individual user.
+Verification challenges belong to an individual user.
 
 Raw verification codes are never used as persistent identifiers.
+
+## Password Reset
+
+Password-reset challenges belong to an individual user.
+
+The stored HMAC is calculated using the owning user ID.
+
+A reset code issued for one user cannot validly reset another user's account.
 
 ## Account Deletion
 
 Account deletion does not accept a user ID in the URL or request body.
 
-The backend derives the account identity from the authenticated JWT.
+The account identity comes from the authenticated JWT.
 
 ---
 
@@ -1208,16 +1416,16 @@ The backend derives the account identity from the authenticated JWT.
 
 API errors use a consistent JSON structure.
 
-Current structure:
+Example:
 
 ```json
 {
-  "timestamp": "2026-08-11T12:00:00Z",
+  "timestamp": "2026-08-14T12:00:00Z",
   "status": 400,
   "error": "Bad Request",
-  "code": "VERIFICATION_CODE_INCORRECT",
-  "message": "Verification code is incorrect",
-  "path": "/api/v1/auth/verify-email",
+  "code": "PASSWORD_RESET_CODE_INVALID_OR_EXPIRED",
+  "message": "Password reset code is invalid or expired. Request a new code.",
+  "path": "/api/v1/auth/reset-password",
   "fieldErrors": {},
   "retryAfterSeconds": null
 }
@@ -1225,82 +1433,76 @@ Current structure:
 
 ## Error Fields
 
-| Field | Description |
-|---|---|
-| `timestamp` | Time the backend created the error |
-| `status` | Numeric HTTP status |
-| `error` | HTTP reason |
-| `code` | Machine-readable ApplyMate error code when available |
-| `message` | User-readable/backend-defined explanation |
-| `path` | Requested API path |
-| `fieldErrors` | Validation messages keyed by request field |
+| Field               | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| `timestamp`         | Time the backend created the error                    |
+| `status`            | Numeric HTTP status                                   |
+| `error`             | HTTP reason                                           |
+| `code`              | Machine-readable ApplyMate error code when available  |
+| `message`           | User-readable/backend-defined explanation             |
+| `path`              | Requested API path                                    |
+| `fieldErrors`       | Validation messages keyed by request field            |
 | `retryAfterSeconds` | Retry delay for applicable rate-limit/cooldown errors |
-
-For errors that do not have an ApplyMate-specific machine code:
-
-```json
-"code": null
-```
-
-For errors without retry timing:
-
-```json
-"retryAfterSeconds": null
-```
-
----
-
-# Validation Error Example
-
-```json
-{
-  "timestamp": "2026-08-11T12:00:00Z",
-  "status": 400,
-  "error": "Bad Request",
-  "code": null,
-  "message": "Request validation failed",
-  "path": "/api/v1/applications",
-  "fieldErrors": {
-    "company": "Company is required",
-    "status": "Status is required"
-  },
-  "retryAfterSeconds": null
-}
-```
 
 ---
 
 # Email Verification Error Codes
 
-| Code | Typical HTTP Status | Meaning |
-|---|---:|---|
-| `EMAIL_VERIFICATION_REQUIRED` | `403` | Account must verify email before authenticated access |
-| `VERIFICATION_CODE_INCORRECT` | `400` | Submitted verification code is incorrect |
-| `VERIFICATION_CODE_EXPIRED` | `410` | Verification challenge has expired |
-| `VERIFICATION_ATTEMPTS_EXCEEDED` | `429` | Too many incorrect verification attempts |
-| `VERIFICATION_RESEND_COOLDOWN` | `429` | Resend requested too soon |
-| `VERIFICATION_RATE_LIMITED` | `429` | Verification-code issuance limit reached |
-| `VERIFICATION_EMAIL_UNAVAILABLE` | `503` | Verification email provider is temporarily unavailable |
+| Code                             | Typical HTTP Status | Meaning                                                |
+| -------------------------------- | ------------------: | ------------------------------------------------------ |
+| `EMAIL_VERIFICATION_REQUIRED`    |               `403` | Account must verify email before authenticated access  |
+| `VERIFICATION_CODE_INCORRECT`    |               `400` | Submitted verification code is incorrect               |
+| `VERIFICATION_CODE_EXPIRED`      |               `410` | Verification challenge has expired                     |
+| `VERIFICATION_ATTEMPTS_EXCEEDED` |               `429` | Too many incorrect verification attempts               |
+| `VERIFICATION_RESEND_COOLDOWN`   |               `429` | Resend requested too soon                              |
+| `VERIFICATION_RATE_LIMITED`      |               `429` | Verification-code issuance limit reached               |
+| `VERIFICATION_EMAIL_UNAVAILABLE` |               `503` | Verification email provider is temporarily unavailable |
+
+---
+
+# Password Reset Error Codes
+
+| Code                                     | Typical HTTP Status | Meaning                                         |
+| ---------------------------------------- | ------------------: | ----------------------------------------------- |
+| `PASSWORD_RESET_CODE_INVALID_OR_EXPIRED` |               `400` | Reset code cannot be used; request another code |
+
+The backend intentionally does not provide separate public codes for:
+
+```text
+WRONG_RESET_CODE
+EXPIRED_RESET_CODE
+RESET_ATTEMPTS_EXCEEDED
+NO_RESET_CHALLENGE
+CROSS_USER_RESET_CODE
+```
+
+Those internal conditions remain hidden behind the single generic reset error.
+
+Forgot-password account-existence, cooldown, rate-limit and provider-delivery outcomes are also hidden behind HTTP `202` for syntactically valid requests.
 
 ---
 
 # Common HTTP Statuses
 
-| Status | Meaning |
-|---:|---|
-| `200 OK` | Request succeeded |
-| `201 Created` | Resource created |
-| `202 Accepted` | Verification resend request accepted |
-| `204 No Content` | Operation succeeded without response body |
-| `400 Bad Request` | Validation, malformed JSON, UUID, parameter or verification-code error |
-| `401 Unauthorized` | Authentication missing/invalid, login failure or invalid refresh session |
-| `403 Forbidden` | Email verification required or authenticated operation forbidden |
-| `404 Not Found` | User or owned resource not found |
-| `409 Conflict` | Registration email already exists |
-| `410 Gone` | Verification code has expired |
-| `429 Too Many Requests` | Verification attempts/cooldown/rate limit exceeded |
-| `500 Internal Server Error` | Unexpected backend failure |
-| `503 Service Unavailable` | Verification email provider unavailable |
+|                      Status | Meaning                                                                  |
+| --------------------------: | ------------------------------------------------------------------------ |
+|                    `200 OK` | Request succeeded                                                        |
+|               `201 Created` | Resource created                                                         |
+|              `202 Accepted` | Generic verification/password-reset request accepted                     |
+|            `204 No Content` | Operation succeeded without response body                                |
+|           `400 Bad Request` | Validation, malformed request or generic password-reset-code failure     |
+|          `401 Unauthorized` | Authentication missing/invalid, login failure or invalid refresh session |
+|             `403 Forbidden` | Email verification required or authenticated operation forbidden         |
+|             `404 Not Found` | User or owned resource not found                                         |
+|              `409 Conflict` | Registration email already exists                                        |
+|                  `410 Gone` | Verification code has expired                                            |
+|     `429 Too Many Requests` | Verification attempts/cooldown/rate limit exceeded                       |
+| `500 Internal Server Error` | Unexpected backend failure                                               |
+|   `503 Service Unavailable` | Verification email provider unavailable                                  |
+
+Password-reset email-provider failure during forgot-password is deliberately **not** exposed as `503`.
+
+The caller continues to receive the generic accepted response.
 
 ---
 
@@ -1312,9 +1514,7 @@ A protected request without valid access authentication returns:
 WWW-Authenticate: Bearer
 ```
 
-A `401` from a protected request does not necessarily mean the user must immediately log in again.
-
-The mobile client performs:
+The mobile client can respond to an expired access token by using the stored refresh token.
 
 ```text
 Protected request returns 401
@@ -1325,15 +1525,15 @@ Check refresh token
         v
 POST /api/v1/auth/refresh
         |
-        â”œâ”€â”€ Success
-        â”‚      |
-        â”‚      v
-        â”‚  Store rotated token pair
-        â”‚      |
-        â”‚      v
-        â”‚  Retry original request once
-        â”‚
-        â””â”€â”€ Invalid/expired/revoked refresh session
+        ├── Success
+        |      |
+        |      v
+        |  Store rotated token pair
+        |      |
+        |      v
+        |  Retry original request once
+        |
+        └── Invalid/expired/revoked refresh session
                |
                v
            Clear session
@@ -1342,13 +1542,7 @@ POST /api/v1/auth/refresh
            Return to authentication flow
 ```
 
-If refresh fails with:
-
-```text
-EMAIL_VERIFICATION_REQUIRED
-```
-
-the session cannot be used to bypass verification.
+After password reset, an old refresh token falls into the invalid/revoked path.
 
 ---
 
@@ -1373,7 +1567,40 @@ Resend API key
 verification pepper
 ```
 
-This allows an interrupted verification flow to resume after the application is restarted.
+This allows an interrupted verification flow to resume after application restart.
+
+---
+
+# Frontend Password Reset State
+
+Password-reset screens keep sensitive reset data only in transient screen state.
+
+The client may pass:
+
+```text
+email
+```
+
+between password-reset screens.
+
+It does not persist:
+
+```text
+reset code
+new password
+confirm password
+password-reset pepper
+```
+
+The reset request sends:
+
+```text
+email
+code
+newPassword
+```
+
+`confirmPassword` exists only to validate matching input in the mobile UI.
 
 ---
 
@@ -1387,9 +1614,9 @@ User, application and reminder identifiers use UUID strings:
 06feb388-7a80-409a-a8b3-9cff672b083c
 ```
 
-## Verification Codes
+## Authentication Codes
 
-Email-verification codes use:
+Email-verification and password-reset codes use:
 
 ```text
 NNNNNN
@@ -1417,19 +1644,19 @@ Example:
 
 ## Instants and Timestamps
 
-Reminder due times, authentication expiry times and verification timestamps use ISO-8601 instants.
+Reminder due times, authentication expiry times and verification/reset timestamps use ISO-8601 instants.
 
 Example:
 
 ```text
-2026-08-12T09:30:00Z
+2026-08-14T09:30:00Z
 ```
 
 ---
 
 # Production Email Delivery
 
-Verification email is sent through Resend.
+Authentication email is sent through Resend.
 
 Production sender:
 
@@ -1443,11 +1670,21 @@ Verified sending domain:
 applymate.website
 ```
 
+Current authentication email types include:
+
+```text
+Email-verification code
+Password-reset code
+Password-changed notification
+```
+
 The Resend API key exists only in backend production configuration.
 
 It is never returned by the API or bundled with the mobile application.
 
-The backend also uses a separate secret verification pepper for HMAC protection of stored verification codes.
+Email verification and password reset use separate server-side peppers.
+
+Production secret values are stored only in Render environment variables.
 
 ---
 
@@ -1480,10 +1717,20 @@ Resend
 Current production Flyway schema:
 
 ```text
-V8
+V9
 ```
 
-The production environment can experience a cold-start delay after inactivity.
+Production access-token default:
+
+```text
+PT15M
+```
+
+Production refresh-token lifetime:
+
+```text
+P30D
+```
 
 Backend readiness can be checked through:
 
@@ -1492,7 +1739,19 @@ GET /api/v1/status
 GET /actuator/health
 ```
 
-When healthy, both return HTTP `200` and `UP`.
+Current production verification:
+
+```text
+GET  /api/v1/status
+-> HTTP 200
+
+GET  /actuator/health
+-> HTTP 200
+
+POST /api/v1/auth/forgot-password
+with a nonexistent syntactically valid email
+-> HTTP 202
+```
 
 ---
 
@@ -1507,6 +1766,8 @@ AUTHENTICATION
 POST   /api/v1/auth/register
 POST   /api/v1/auth/verify-email
 POST   /api/v1/auth/resend-verification
+POST   /api/v1/auth/forgot-password
+POST   /api/v1/auth/reset-password
 POST   /api/v1/auth/login
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
@@ -1537,26 +1798,54 @@ DELETE /api/v1/reminders/{reminderId}
 
 The following API behaviour has been verified against the deployed production environment:
 
-- API status
-- Actuator health
-- Existing-user login after migration
-- New-user registration
-- New users initially remaining unverified
-- Verification challenge creation
-- Real verification-email delivery
-- Verification code acceptance
-- Incorrect-code rejection
-- Verification resend
-- Old-code invalidation after resend
-- Unverified-login rejection
-- Successful login after verification
-- Access-token issuance
-- Refresh-token issuance
-- Refresh-token rotation
-- Unverified-refresh protection
-- Application access after authentication
-- Flyway V6/V7 rollout
-- Resend configuration recovery
-- Resend secret-handling hotfix
-- Flyway V8 rollout cleanup
-- Final production API and health checks
+* API status
+* Actuator health
+* Existing-user login
+* New-user registration
+* New users initially remaining unverified
+* Verification challenge creation
+* Real verification-email delivery
+* Verification code acceptance
+* Incorrect-code rejection
+* Verification resend
+* Old verification-code invalidation after resend
+* Unverified-login rejection
+* Successful login after verification
+* Access-token issuance
+* Refresh-token issuance
+* Refresh-token rotation
+* Unverified-refresh protection
+* Application access after authentication
+* Password-reset endpoint public access
+* Unknown-email forgot-password `202`
+* Real password-reset email delivery
+* Successful password reset
+* Old password rejected after reset
+* New password accepted after reset
+* Password-changed notification delivery
+* Flyway V6/V7 email-verification rollout
+* Flyway V8 email-verification cleanup
+* Flyway V9 password-reset schema
+* Resend secret-handling hardening
+* Password-reset secret validation
+* Final production API and health checks
+
+Current automated backend validation:
+
+```text
+Tests run: 106
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+Focused password-reset validation:
+
+```text
+Tests run: 14
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
