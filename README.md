@@ -6,7 +6,13 @@ ApplyMate is a full-stack mobile job-application tracker built with React Native
 
 It allows users to manage job applications, reminders and authenticated sessions from a mobile application backed by a production REST API.
 
-The current production release also includes mandatory email verification for new accounts.
+Current production authentication includes:
+
+* Mandatory email verification for new accounts
+* Secure password reset by email
+* Password-changed notifications
+* Persistent rotating refresh-token sessions
+* Short-lived JWT access tokens
 
 ---
 
@@ -14,50 +20,59 @@ The current production release also includes mandatory email verification for ne
 
 Users can:
 
-- Create an account
-- Verify their email address
-- Sign in securely
-- Maintain a persistent authenticated session
-- Create and manage job applications
-- Search, filter and sort applications
-- View dashboard statistics
-- Create reminders
-- Receive local reminder notifications
-- Permanently delete their account and associated data
+* Create an account
+* Verify their email address
+* Sign in securely
+* Reset a forgotten password
+* Maintain a persistent authenticated session
+* Create and manage job applications
+* Search, filter and sort applications
+* View dashboard statistics
+* Create reminders
+* Receive local reminder notifications
+* Permanently delete their account and associated data
 
 Server-managed data is stored in PostgreSQL and isolated by authenticated user.
 
 Current capabilities include:
 
-- React Native / Expo frontend
-- Spring Boot backend
-- PostgreSQL persistence
-- Email verification
-- Resend transactional email
-- Verified `applymate.website` sending domain
-- JWT access tokens
-- Refresh-token rotation
-- Secure persistent sessions
-- Job-application CRUD
-- Backend-synchronised reminders
-- Search, filtering and sorting
-- Dashboard summaries
-- Account deletion
-- Privacy Policy integration
-- Automated testing
-- Docker deployment
-- GitHub Actions CI
-- Render production hosting
-- Neon PostgreSQL
-- Expo Application Services
-- Android internal distribution
+* React Native / Expo frontend
+* Spring Boot backend
+* PostgreSQL persistence
+* Email verification
+* Secure password reset
+* Resend transactional email
+* Verified `applymate.website` sending domain
+* JWT access tokens
+* Refresh-token rotation
+* Refresh-session revocation
+* Secure persistent sessions
+* Job-application CRUD
+* Backend-synchronised reminders
+* Search, filtering and sorting
+* Dashboard summaries
+* Account deletion
+* Privacy Policy integration
+* Automated testing
+* Docker deployment
+* GitHub Actions CI
+* Render production hosting
+* Neon PostgreSQL
+* Expo Application Services
+* Android internal distribution
 
-The email-verification feature is deployed and verified in production.
+Email verification and password reset are both deployed and verified in production.
 
-The project is currently being closed out for release:
+Current release:
 
 ```text
 v1.4.0
+```
+
+Release currently being closed out:
+
+```text
+v1.5.0
 ```
 
 ---
@@ -65,43 +80,46 @@ v1.4.0
 # Production Architecture
 
 ```text
-┌────────────────────────────────────┐
-│     React Native / Expo Client     │
-│                                    │
-│  TypeScript                        │
-│  React Navigation                  │
-│  Expo SecureStore                  │
-│  Expo Notifications                │
-└────────────────┬───────────────────┘
-                 │
-                 │ HTTPS + JSON
-                 │ JWT / refresh session
-                 ▼
-┌────────────────────────────────────┐
-│              Render                │
-│                                    │
-│  Spring Boot Docker API            │
-│  Java 21                           │
-│  Spring Security                   │
-│  Flyway                            │
-│  JPA / Hibernate                   │
-└─────────────┬─────────────┬────────┘
-              │             │
-              │ JDBC/TLS    │ HTTPS
-              ▼             ▼
-┌──────────────────────┐  ┌─────────────────────┐
-│        Neon          │  │       Resend        │
-│                      │  │                     │
-│ PostgreSQL 17        │  │ Verification email  │
-│ Flyway V8            │  │                     │
-└──────────────────────┘  │ applymate.website   │
-                          │                     │
-                          │ verify@             │
-                          │ applymate.website   │
-                          └──────────┬──────────┘
-                                     │
-                                     ▼
-                               User inbox
++------------------------------------+
+|     React Native / Expo Client     |
+|                                    |
+|  TypeScript                        |
+|  React Navigation                  |
+|  Expo SecureStore                  |
+|  Expo Notifications                |
++----------------+-------------------+
+                 |
+                 | HTTPS + JSON
+                 | JWT / refresh session
+                 v
++------------------------------------+
+|              Render                |
+|                                    |
+|  Spring Boot Docker API            |
+|  Java 21                           |
+|  Spring Security                   |
+|  Flyway                            |
+|  JPA / Hibernate                   |
++-------------+----------------------+
+              |
+        +-----+------+
+        |            |
+   JDBC/TLS        HTTPS
+        |            |
+        v            v
++----------------+  +-------------------------+
+|      Neon      |  |         Resend          |
+|                |  |                         |
+| PostgreSQL 17  |  | Verification email      |
+| Flyway V9      |  | Password-reset email    |
+|                |  | Password-changed email  |
++----------------+  |                         |
+                    | applymate.website        |
+                    | verify@applymate.website |
+                    +------------+------------+
+                                 |
+                                 v
+                           User inbox
 ```
 
 Supporting services:
@@ -142,11 +160,11 @@ Operational health:
 https://applymate-api-bami.onrender.com/actuator/health
 ```
 
-Current production status:
+Current production verification:
 
 ```text
-/api/v1/status   -> UP
-/actuator/health -> UP
+/api/v1/status   -> HTTP 200 / UP
+/actuator/health -> HTTP 200 / UP
 ```
 
 ## Public Website
@@ -173,9 +191,9 @@ Support/privacy contact:
 support.applymate@gmail.com
 ```
 
-## Verification Email
+## Transactional Email
 
-Transactional email provider:
+Provider:
 
 ```text
 Resend
@@ -191,6 +209,14 @@ Production sender:
 
 ```text
 ApplyMate <verify@applymate.website>
+```
+
+Current authentication email types:
+
+```text
+Email-verification code
+Password-reset code
+Password-changed notification
 ```
 
 ---
@@ -227,31 +253,85 @@ Normal login
 
 Verification security includes:
 
-- Six-digit numeric verification codes
-- `SecureRandom` code generation
-- Ten-minute expiry
-- Maximum five incorrect attempts
-- Sixty-second resend cooldown
-- Five-code issue limit per one-hour window
-- Replacement-code invalidation
-- HMAC-SHA-256 code protection
-- Server-side verification pepper
-- No raw verification-code persistence
-- Unverified-login protection
-- Unverified-refresh protection
+* Six-digit numeric verification codes
+* `SecureRandom` generation
+* Ten-minute expiry
+* Maximum five incorrect attempts
+* Sixty-second resend cooldown
+* Five-code issue limit per one-hour window
+* Replacement-code invalidation
+* HMAC-SHA-256 code protection
+* Server-side verification pepper
+* No raw verification-code persistence
+* Unverified-login protection
+* Unverified-refresh protection
 
 Pending verification state survives an application restart.
 
-The mobile client stores only information required to restore the flow.
+The mobile client does not persist the user's password or raw verification code.
 
-It does not store:
+---
+
+## Password Reset
+
+ApplyMate provides secure forgotten-password recovery.
+
+Flow:
 
 ```text
-password
-verification code
-Resend API key
-verification pepper
+Login
+   |
+   v
+Forgot Password
+   |
+   v
+Send reset code
+   |
+   v
+Reset Password
+   |
+   v
+Change password
+   |
+   v
+Login with new password
 ```
+
+Security includes:
+
+* Six-digit numeric reset codes
+* `SecureRandom` generation
+* Ten-minute expiry
+* Maximum five incorrect attempts
+* Sixty-second resend cooldown
+* Five-code issue limit per one-hour window
+* HMAC-SHA-256 reset-code protection
+* Separate password-reset pepper
+* User-bound reset-code hashes
+* Replacement-code invalidation
+* Single-use reset challenges
+* Generic invalid/expired reset response
+* Account-enumeration-resistant forgot-password responses
+* Minimum forgot-password response duration
+* No raw reset-code persistence
+* Refresh-session revocation after successful reset
+
+Successful password reset:
+
+```text
+Password changed
+      |
+      v
+All active refresh sessions revoked
+      |
+      v
+Reset challenge deleted
+      |
+      v
+Password-changed email
+```
+
+Password reset does **not** automatically verify an unverified email address.
 
 ---
 
@@ -259,27 +339,28 @@ verification pepper
 
 ApplyMate supports:
 
-- User registration
-- Email verification
-- Secure password hashing
-- Email/password login
-- JWT access tokens
-- Refresh tokens
-- Refresh-token rotation
-- Refresh-token families
-- Refresh-session revocation
-- Secure native token storage
-- Silent access-token renewal
-- Persistent session restoration
-- Backend logout
-- Invalid-session handling
-- Current-user profile
-- Protected navigation
+* User registration
+* Email verification
+* Password reset
+* Secure password hashing
+* Email/password login
+* JWT access tokens
+* Refresh tokens
+* Refresh-token rotation
+* Refresh-token families
+* Refresh-session revocation
+* Secure native token storage
+* Silent access-token renewal
+* Persistent session restoration
+* Backend logout
+* Invalid-session handling
+* Current-user profile
+* Protected navigation
 
 Production session configuration:
 
 ```text
-Access token:    1 hour
+Access token:    15 minutes
 Refresh session: 30 days
 ```
 
@@ -287,21 +368,23 @@ If an access token expires while the refresh session remains valid, ApplyMate au
 
 An unverified account cannot obtain authenticated application access through either login or refresh.
 
+A successful password reset revokes all existing refresh-token sessions for the account.
+
 ---
 
 ## Job Applications
 
 Users can:
 
-- Create applications
-- List applications
-- View application details
-- Edit applications
-- Delete applications
-- Search applications
-- Filter by status
-- Sort records
-- View backend-powered dashboard statistics
+* Create applications
+* List applications
+* View application details
+* Edit applications
+* Delete applications
+* Search applications
+* Filter by status
+* Sort records
+* View backend-powered dashboard statistics
 
 Every application belongs to one authenticated user.
 
@@ -313,16 +396,16 @@ Backend ownership rules prevent users from accessing another user's records.
 
 The dashboard provides:
 
-- Total application count
-- Saved count
-- Applied count
-- Assessment count
-- Interview count
-- Offer count
-- Rejected count
-- Loading state
-- Error state
-- Pull-to-refresh
+* Total application count
+* Saved count
+* Applied count
+* Assessment count
+* Interview count
+* Offer count
+* Rejected count
+* Loading state
+* Error state
+* Pull-to-refresh
 
 Summary values come from:
 
@@ -336,13 +419,13 @@ GET /api/v1/applications/summary
 
 ApplyMate supports:
 
-- Create reminders
-- Edit reminders
-- Delete reminders
-- Backend reminder persistence
-- Per-user reminder isolation
-- Local notification scheduling
-- Device notification cleanup
+* Create reminders
+* Edit reminders
+* Delete reminders
+* Backend reminder persistence
+* Per-user reminder isolation
+* Local notification scheduling
+* Device notification cleanup
 
 Architecture:
 
@@ -358,7 +441,7 @@ Notification scheduling
 
 Reminder records are server-managed.
 
-Actual operating-system notification scheduling remains device-side.
+Operating-system notification scheduling remains device-side.
 
 ---
 
@@ -374,19 +457,20 @@ The application uses two destructive confirmation prompts.
 
 Successful deletion removes backend-owned data including:
 
-- User account
-- Job applications
-- Reminders
-- Refresh-token sessions
-- Email-verification challenge data
+* User account
+* Job applications
+* Reminders
+* Refresh-token sessions
+* Email-verification challenge data
+* Password-reset challenge data
 
 The mobile client also removes:
 
-- Authentication credentials
-- Pending verification state
-- Reminder notification identifiers
-- Scheduled reminder notifications
-- Account-specific local settings
+* Authentication credentials
+* Pending verification state
+* Reminder notification identifiers
+* Scheduled reminder notifications
+* Account-specific local settings
 
 Deleted credentials can no longer authenticate.
 
@@ -396,51 +480,51 @@ Deleted credentials can no longer authenticate.
 
 ## Mobile Frontend
 
-- React Native
-- Expo SDK 54
-- TypeScript
-- React Navigation
-- Expo SecureStore
-- AsyncStorage
-- Expo Notifications
-- Expo Application Services
+* React Native
+* Expo SDK 54
+* TypeScript
+* React Navigation
+* Expo SecureStore
+* AsyncStorage
+* Expo Notifications
+* Expo Application Services
 
 ## Backend
 
-- Java 21
-- Spring Boot 4.1
-- Spring Security
-- OAuth2 Resource Server
-- Spring Data JPA
-- Bean Validation
-- Spring Boot Actuator
-- Spring RestClient
-- Maven
+* Java 21
+* Spring Boot 4.1
+* Spring Security
+* OAuth2 Resource Server
+* Spring Data JPA
+* Bean Validation
+* Spring Boot Actuator
+* Spring RestClient
+* Maven
 
 ## Database
 
-- PostgreSQL 17
-- Flyway
-- Hibernate
-- HikariCP
+* PostgreSQL 17
+* Flyway
+* Hibernate
+* HikariCP
 
 ## Email
 
-- Resend
-- Custom verified sending domain
-- DKIM
-- SPF
-- DMARC
+* Resend
+* Custom verified sending domain
+* DKIM
+* SPF
+* DMARC
 
 ## Infrastructure
 
-- Docker
-- Docker Compose
-- Render
-- Neon
-- GitHub Actions
-- GitHub Pages
-- Expo Application Services
+* Docker
+* Docker Compose
+* Render
+* Neon
+* GitHub Actions
+* GitHub Pages
+* Expo Application Services
 
 ---
 
@@ -448,30 +532,47 @@ Deleted credentials can no longer authenticate.
 
 ApplyMate uses:
 
-- TypeScript compiler validation
-- Expo Doctor
-- Expo web export
-- JUnit
-- MockMvc
-- Mockito
-- Testcontainers
-- Maven
-- Docker verification
-- PowerShell API smoke tests
-- Android emulator testing
-- Physical-device Expo testing
-- Production mobile smoke testing
-- Production email-delivery testing
-- Flyway migration integration testing
+* TypeScript compiler validation
+* Expo Doctor
+* Expo web export
+* JUnit
+* MockMvc
+* Mockito
+* Testcontainers
+* Maven
+* Docker verification
+* PowerShell API smoke tests
+* Android emulator testing
+* Physical-device Expo testing
+* Production mobile smoke testing
+* Production email-delivery testing
+* Flyway migration integration testing
 
 Current backend result:
 
 ```text
-Tests run: 89
+Tests run: 106
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
+```
+
+Focused password-reset result:
+
+```text
+Tests run: 14
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+Frontend TypeScript validation:
+
+```text
+tsc --noEmit
+PASS
 ```
 
 Latest Expo Doctor result:
@@ -480,7 +581,7 @@ Latest Expo Doctor result:
 18/18 checks passed
 ```
 
-GitHub Actions is green for the current production code.
+GitHub Actions is green for the merged password-reset implementation.
 
 ---
 
@@ -533,11 +634,11 @@ ApplyMate/
 
 Install:
 
-- Git
-- Node.js and npm
-- Java 21
-- Docker Desktop
-- Expo Go, Android emulator or compatible development device
+* Git
+* Node.js and npm
+* Java 21
+* Docker Desktop
+* Expo Go, Android emulator or compatible development device
 
 Docker must be running for the local PostgreSQL database and Testcontainers integration tests.
 
@@ -580,6 +681,8 @@ Production:
 EXPO_PUBLIC_API_URL=https://applymate-api-bami.onrender.com
 ```
 
+A physical device can use the development computer's LAN address when both devices are on the same network.
+
 For Android emulator development:
 
 ```powershell
@@ -615,6 +718,7 @@ JWT_SECRET=<local-secret>
 
 EMAIL_PROVIDER=<local-provider>
 EMAIL_VERIFICATION_PEPPER=<local-secret>
+PASSWORD_RESET_PEPPER=<separate-local-secret>
 ```
 
 If real email delivery is used locally, provider credentials must remain inside ignored environment configuration.
@@ -636,11 +740,17 @@ For a 32-byte Base64 secret in PowerShell:
 $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 $bytes = New-Object byte[] 32
 $rng.GetBytes($bytes)
-[Convert]::ToBase64String($bytes)
+$secret = [Convert]::ToBase64String($bytes)
 $rng.Dispose()
+$secret
 ```
 
-Use independently generated values where separate secrets are required.
+Use independently generated values for:
+
+```text
+EMAIL_VERIFICATION_PEPPER
+PASSWORD_RESET_PEPPER
+```
 
 Do not reuse a production secret for local development.
 
@@ -695,18 +805,24 @@ npm run android
 npm run web
 ```
 
+If the frontend API URL changes, restart Metro with a cleared cache:
+
+```powershell
+npx expo start -c
+```
+
 ---
 
 # Environment Files
 
-| File | Purpose | Committed |
-|---|---|---:|
-| `.env.example` | Frontend environment template | Yes |
-| `.env.local` | Local frontend configuration | No |
-| `backend/.env.example` | Backend environment template | Yes |
-| `backend/.env` | Local backend secrets | No |
+| File                   | Purpose                       | Committed |
+| ---------------------- | ----------------------------- | --------: |
+| `.env.example`         | Frontend environment template |       Yes |
+| `.env.local`           | Local frontend configuration  |        No |
+| `backend/.env.example` | Backend environment template  |       Yes |
+| `backend/.env`         | Local backend secrets         |        No |
 
-Secrets, passwords, signing keys and provider credentials must never be committed.
+Secrets, passwords, signing keys, peppers and provider credentials must never be committed.
 
 ---
 
@@ -736,6 +852,33 @@ Email verified
 Login
 ```
 
+## Password Reset
+
+```text
+Forgot Password
+       |
+       v
+POST /api/v1/auth/forgot-password
+       |
+       v
+Reset email
+       |
+       v
+Six-digit reset code
+       |
+       v
+POST /api/v1/auth/reset-password
+       |
+       v
+Password changed
+       |
+       v
+Existing refresh sessions revoked
+       |
+       v
+Login with new password
+```
+
 ## Login
 
 ```text
@@ -747,13 +890,13 @@ Spring Boot authentication
        v
 Email verification check
        |
-       ├── Unverified
-       │      -> EMAIL_VERIFICATION_REQUIRED
-       │
-       └── Verified
+       +-- Unverified
+       |      -> EMAIL_VERIFICATION_REQUIRED
+       |
+       +-- Verified
               |
-              ├── JWT access token
-              └── Refresh token
+              +-- JWT access token
+              +-- Refresh token
 ```
 
 ## Silent Refresh
@@ -813,6 +956,8 @@ GET  /api/v1/status
 POST /api/v1/auth/register
 POST /api/v1/auth/verify-email
 POST /api/v1/auth/resend-verification
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
@@ -858,9 +1003,9 @@ See the complete [API Reference](docs/03_API_REFERENCE.md).
 
 ---
 
-# Email Verification Errors
+# Authentication Errors
 
-The API exposes machine-readable verification errors such as:
+Email-verification errors include:
 
 ```text
 EMAIL_VERIFICATION_REQUIRED
@@ -872,7 +1017,15 @@ VERIFICATION_RATE_LIMITED
 VERIFICATION_EMAIL_UNAVAILABLE
 ```
 
-Cooldown and rate-limit errors can include retry timing.
+Password-reset challenge failures use:
+
+```text
+PASSWORD_RESET_CODE_INVALID_OR_EXPIRED
+```
+
+The reset error is intentionally generic.
+
+Forgot-password requests for syntactically valid email addresses return generic `202 Accepted` behaviour to reduce account enumeration.
 
 ---
 
@@ -907,36 +1060,6 @@ OTHER
 
 ---
 
-# Database Management
-
-Local PostgreSQL is defined by:
-
-```text
-backend/compose.yaml
-```
-
-Start:
-
-```powershell
-docker compose up -d
-```
-
-Stop without deleting data:
-
-```powershell
-docker compose down
-```
-
-Delete the local database volume:
-
-```powershell
-docker compose down -v
-```
-
-The final command permanently removes local database data.
-
----
-
 # Flyway
 
 Database migrations are stored under:
@@ -956,19 +1079,21 @@ V5 - refresh-token schema correction
 V6 - email verification
 V7 - email-verification rollout compatibility
 V8 - remove rollout compatibility default
+V9 - password-reset challenges
 ```
 
 Current production schema:
 
 ```text
-V8
+V9
 ```
 
-Final `email_verified_at` schema behaviour:
+Production verification:
 
 ```text
-column_default = NULL
-is_nullable    = YES
+Successfully validated 9 migrations
+Current version of schema "public": 9
+Schema "public" is up to date
 ```
 
 Applied migrations must never be edited.
@@ -1064,24 +1189,24 @@ No production credentials are required by CI.
 
 ## Backend
 
-- Provider: Render
-- Deployment: Docker
-- Production profile: `prod`
-- Health endpoint: `/actuator/health`
+* Provider: Render
+* Deployment: Docker
+* Production profile: `prod`
+* Health endpoint: `/actuator/health`
 
 ## Database
 
-- Provider: Neon
-- PostgreSQL: 17
-- Database: `applymate`
-- SSL required
-- Flyway: V8
+* Provider: Neon
+* PostgreSQL: 17
+* Database: `applymate`
+* SSL required
+* Flyway: V9
 
 ## Email
 
-- Provider: Resend
-- Domain: `applymate.website`
-- Sender: `verify@applymate.website`
+* Provider: Resend
+* Domain: `applymate.website`
+* Sender: `verify@applymate.website`
 
 Production configuration uses platform-managed environment variables.
 
@@ -1095,7 +1220,6 @@ DB_USERNAME
 DB_PASSWORD
 
 JWT_SECRET
-JWT_ACCESS_TOKEN_TTL
 REFRESH_TOKEN_TTL
 
 APP_CORS_ALLOWED_ORIGIN_PATTERNS
@@ -1105,7 +1229,16 @@ EMAIL_PROVIDER
 EMAIL_FROM
 RESEND_API_KEY
 EMAIL_VERIFICATION_PEPPER
+PASSWORD_RESET_PEPPER
 ```
+
+Production access-token lifetime defaults to:
+
+```text
+PT15M
+```
+
+No Render `JWT_ACCESS_TOKEN_TTL` override is currently required.
 
 Secret values must never be committed to Git or included in documentation.
 
@@ -1139,13 +1272,11 @@ Marketing version:
 
 EAS build profiles include:
 
-- Development
-- Preview
-- Production
+* Development
+* Preview
+* Production
 
 Preview and production environments use the Render production API.
-
----
 
 ## Android
 
@@ -1153,20 +1284,18 @@ Android preview/internal-distribution builds have been generated successfully.
 
 Standalone production-connected testing verified:
 
-- Launch
-- Login
-- Dashboard
-- Application CRUD
-- Search/filtering
-- Reminders
-- Session restoration
-- Privacy Policy
-- Delete Account UI
-- Logout
+* Launch
+* Login
+* Dashboard
+* Application CRUD
+* Search/filtering
+* Reminders
+* Session restoration
+* Privacy Policy
+* Delete Account UI
+* Logout
 
-Email verification has additionally been verified against production from a real mobile device through Expo.
-
----
+Email verification and password reset have also been verified against production from a real mobile device through Expo.
 
 ## iOS
 
@@ -1214,67 +1343,35 @@ support.applymate@gmail.com
 
 # Security Notes
 
-ApplyMate follows the following security rules:
+ApplyMate follows these security rules:
 
-- Passwords are stored as secure hashes.
-- JWT access tokens are short-lived.
-- Refresh tokens are opaque random credentials.
-- Only refresh-token hashes are persisted.
-- Refresh tokens rotate after use.
-- Refresh sessions can be revoked.
-- Native authentication credentials use Expo SecureStore.
-- Raw verification codes are never persisted.
-- Verification-code hashes use HMAC-SHA-256.
-- The verification pepper is backend-only.
-- Resend credentials are backend-only.
-- Unverified accounts cannot obtain normal authenticated access.
-- Application and reminder queries are user-scoped.
-- Account deletion derives identity from the authenticated JWT.
-- Database credentials remain backend-only.
-- JWT signing secrets remain backend-only.
-- Production traffic uses HTTPS.
-- Secrets are stored using platform environment configuration.
-- Credentials exposed in logs must be treated as compromised and rotated.
-- Applied production Flyway migrations are immutable.
-
----
-
-# Production Email Verification Rollout
-
-The feature was deployed using a controlled migration sequence.
-
-```text
-Production V5
-      |
-      v
-V6 - add email verification
-      |
-      v
-V7 - temporary zero-downtime compatibility
-      |
-      v
-Verify production registration/email flow
-      |
-      v
-Security hardening
-      |
-      v
-V8 - remove temporary compatibility default
-```
-
-Existing accounts were backfilled as verified.
-
-New accounts start unverified.
-
-Final production state:
-
-```text
-Flyway: V8
-
-email_verified_at:
-default  = NULL
-nullable = YES
-```
+* Passwords are stored as secure hashes.
+* JWT access tokens are short-lived.
+* Production access tokens default to 15 minutes.
+* Refresh tokens are opaque random credentials.
+* Only refresh-token hashes are persisted.
+* Refresh tokens rotate after use.
+* Refresh sessions can be revoked.
+* Successful password reset revokes active refresh sessions.
+* Native authentication credentials use Expo SecureStore.
+* Raw verification codes are never persisted.
+* Raw password-reset codes are never persisted.
+* Verification-code hashes use HMAC-SHA-256.
+* Password-reset hashes use HMAC-SHA-256.
+* Verification and password reset use separate peppers.
+* Authentication peppers are backend-only.
+* Resend credentials are backend-only.
+* Forgot-password responses do not expose account existence.
+* Password reset does not imply email verification.
+* Unverified accounts cannot obtain normal authenticated access.
+* Application and reminder queries are user-scoped.
+* Account deletion derives identity from the authenticated JWT.
+* Database credentials remain backend-only.
+* JWT signing secrets remain backend-only.
+* Production traffic uses HTTPS.
+* Secrets are stored using platform environment configuration.
+* Credentials exposed in logs must be treated as compromised and rotated.
+* Applied production Flyway migrations are immutable.
 
 ---
 
@@ -1301,9 +1398,6 @@ Resend
 Real user inbox
       |
       v
-Verify Email screen
-      |
-      v
 Verification
       |
       v
@@ -1313,23 +1407,57 @@ Login
 Dashboard
 ```
 
-Verified production behaviour includes:
+Password reset has also been tested end to end:
 
-- Existing-account compatibility
-- New unverified registration
-- Verification email delivery
-- Custom sender domain
-- Correct-code verification
-- Incorrect-code handling
-- Resend
-- Old-code invalidation
-- App-restart recovery
-- Unverified-login redirection
-- Login after verification
-- Persistent authenticated session
-- Final V8 database migration
-- API status `UP`
-- Actuator health `UP`
+```text
+Forgot Password
+      |
+      v
+Render API
+      |
+      v
+Neon reset challenge
+      |
+      v
+Resend
+      |
+      v
+Real user inbox
+      |
+      v
+Reset Password
+      |
+      v
+Old password rejected
+      |
+      v
+New password accepted
+      |
+      v
+Password-changed email
+```
+
+Current verified production behaviour includes:
+
+* Existing-account compatibility
+* New unverified registration
+* Verification email delivery
+* Verification resend
+* Old verification-code invalidation
+* Unverified-login protection
+* Unverified-refresh protection
+* Login after verification
+* Persistent authenticated sessions
+* Forgot-password public access
+* Unknown valid email returning HTTP `202`
+* Real reset-email delivery
+* Successful password reset
+* Old-password rejection
+* New-password authentication
+* Password-changed email delivery
+* Flyway V9
+* API status HTTP `200`
+* Actuator health HTTP `200`
 
 ---
 
@@ -1339,7 +1467,7 @@ The production environment uses portfolio-tier infrastructure.
 
 Render can experience a cold-start delay after inactivity.
 
-During startup, the API may temporarily be unavailable.
+During startup, the API may temporarily be unavailable while Spring Boot and PostgreSQL connectivity initialise.
 
 Readiness can be checked through:
 
@@ -1359,15 +1487,15 @@ UP
 
 # Documentation
 
-| Document | Description |
-|---|---|
-| [Project Context](docs/01_PROJECT_CONTEXT.md) | Current project state and production configuration |
-| [Architecture](docs/02_ARCHITECTURE.md) | Frontend, backend, security and infrastructure architecture |
-| [API Reference](docs/03_API_REFERENCE.md) | Routes, request/response contracts and errors |
-| [Development Log](docs/04_DEVELOPMENT_LOG.md) | Chronological implementation and production history |
-| [Roadmap](docs/05_ROADMAP.md) | Completed phases and future development |
-| [Privacy Policy](docs/privacy-policy.html) | Public privacy information |
-| [Account Deletion](docs/delete-account.html) | Public account-deletion information |
+| Document                                      | Description                                                 |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| [Project Context](docs/01_PROJECT_CONTEXT.md) | Current project state and production configuration          |
+| [Architecture](docs/02_ARCHITECTURE.md)       | Frontend, backend, security and infrastructure architecture |
+| [API Reference](docs/03_API_REFERENCE.md)     | Routes, request/response contracts and errors               |
+| [Development Log](docs/04_DEVELOPMENT_LOG.md) | Chronological implementation and production history         |
+| [Roadmap](docs/05_ROADMAP.md)                 | Completed phases and future development                     |
+| [Privacy Policy](docs/privacy-policy.html)    | Public privacy information                                  |
+| [Account Deletion](docs/delete-account.html)  | Public account-deletion information                         |
 
 ---
 
@@ -1375,71 +1503,83 @@ UP
 
 Completed milestones:
 
-- Frontend MVP
-- Backend MVP
-- Frontend/backend integration
-- MVP polish
-- Deployment and production readiness
-- Render deployment
-- Neon PostgreSQL deployment
-- CI
-- Docker production configuration
-- EAS configuration
-- Android internal distribution
-- Backend reminder synchronisation
-- Persistent refresh-token authentication
-- Account deletion
-- Privacy and account-deletion webpages
-- Production authentication testing
-- Mobile distribution release
-- Email verification
-- Resend integration
-- Verified transactional-email domain
-- Verification restart recovery
-- Verification rate limiting
-- Unverified login/refresh protection
-- Resend secret-safety hardening
-- Flyway V8 rollout cleanup
-- Production email-verification testing
+* Frontend MVP
+* Backend MVP
+* Frontend/backend integration
+* MVP polish
+* Deployment and production readiness
+* Render deployment
+* Neon PostgreSQL deployment
+* CI
+* Docker production configuration
+* EAS configuration
+* Android internal distribution
+* Backend reminder synchronisation
+* Persistent refresh-token authentication
+* Account deletion
+* Privacy and account-deletion webpages
+* Production authentication testing
+* Mobile distribution release
+* Email verification
+* Resend integration
+* Verified transactional-email domain
+* Verification restart recovery
+* Verification rate limiting
+* Unverified login/refresh protection
+* Resend secret-safety hardening
+* Flyway V8 rollout cleanup
+* Secure password reset
+* Shared Resend email transport
+* Password-reset rate limiting
+* Password-reset session revocation
+* Password-changed notification
+* Flyway V9
+* Password-reset production testing
 
 Current release:
-
-```text
-v1.3.0
-```
-
-Next release:
 
 ```text
 v1.4.0
 ```
 
+Next release:
+
+```text
+v1.5.0
+```
+
 Current production code before documentation closeout:
 
 ```text
-beca795
+d1e4d37
 ```
 
 Current production database:
 
 ```text
-Flyway V8
+Flyway V9
 ```
 
 Current backend automated result:
 
 ```text
-89 tests passing
+106 tests passing
+```
+
+Focused password-reset result:
+
+```text
+14 tests passing
 ```
 
 Potential future development includes:
 
-- Password reset
-- Job-link import
-- Expanded email integration
-- Application automation
-- Public Google Play release
-- Apple TestFlight/App Store distribution
+* Job-link import
+* Expanded email integration
+* Application automation
+* Profile/account-management improvements
+* Public Google Play release
+* Apple TestFlight/App Store distribution
 
 ---
 
