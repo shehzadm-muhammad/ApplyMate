@@ -10,9 +10,11 @@ ApplyMate is a full-stack mobile application consisting of:
 * Persistent rotating refresh-token sessions
 * Email verification during registration
 * Secure password reset
+* Secure public job-link import previews
 * Resend transactional email delivery
 * A PostgreSQL relational database
 * Flyway database migrations
+* Deterministic JSON-LD / HTML job extraction with jsoup
 * Backend-synchronised reminders
 * Local device notification scheduling
 * A Docker-based production backend
@@ -23,6 +25,8 @@ ApplyMate is a full-stack mobile application consisting of:
 The application uses one mobile client, one backend service and one PostgreSQL database.
 
 Transactional authentication email is sent from the backend through Resend.
+
+Supported public job pages are fetched only by the backend. The mobile client never connects directly to third-party job sites for import.
 
 ---
 
@@ -41,6 +45,7 @@ Transactional authentication email is sent from the backend through Resend.
 |  Auth state                              |
 |  Pending verification state              |
 |  Forgot/reset password screens           |
+|  Editable job-import form workflow       |
 +--------------------+---------------------+
                      |
                      | HTTPS + JSON
@@ -57,14 +62,13 @@ Transactional authentication email is sent from the backend through Resend.
 |  JPA / Hibernate                         |
 |  Flyway                                  |
 |  Spring RestClient                       |
+|  jsoup                                   |
 |  Actuator Health Check                   |
-+----------------+-------------------------+
-                 |
-          +------+------+
-          |             |
-   JDBC over TLS      HTTPS
-          |             |
-          v             v
++-----------+----------------+-------------+
+            |                |
+       JDBC over TLS       HTTPS
+            |                |
+            v                v
 +------------------+   +---------------------------+
 |       Neon       |   |          Resend           |
 |                  |   |                           |
@@ -81,11 +85,24 @@ Transactional authentication email is sent from the backend through Resend.
 | flyway_schema_   |                 v
 | history          |          User's email inbox
 +------------------+
+
+            Render outbound HTTPS
+                     |
+                     v
+         +--------------------------+
+         | Supported public job     |
+         | pages                    |
+         |                          |
+         | JSON-LD JobPosting       |
+         | HTML fallback            |
+         +--------------------------+
 ```
 
 The mobile application communicates only with the Spring Boot API.
 
-It never connects directly to PostgreSQL or Resend.
+It never connects directly to PostgreSQL, Resend or third-party job pages.
+
+For Job Link Import, the backend validates the submitted URL, performs the outbound fetch, revalidates redirects, extracts an editable non-persistent preview and returns safe fields to the mobile client.
 
 Local operating-system notifications are scheduled by the mobile application and do not require a direct database connection.
 
@@ -123,7 +140,7 @@ https://applymate-api-bami.onrender.com/actuator/health
 Current production release commit before documentation closeout:
 
 ```text
-d1e4d37
+5be432d
 ```
 
 Render supplies the production HTTP port through the platform environment.
@@ -131,6 +148,8 @@ Render supplies the production HTTP port through the platform environment.
 The application does not assume local port `8080` in production.
 
 Production startup after the password-reset rollout confirmed Tomcat binding successfully to Render port `10000`.
+
+The Job Link Import release was subsequently deployed from `main` at commit `5be432d` and verified against the production API.
 
 ## Database
 
@@ -240,6 +259,11 @@ ApplyMate follows these principles:
 
 * The mobile client never accesses PostgreSQL directly.
 * The mobile client never accesses Resend directly.
+* The mobile client never fetches third-party job pages directly for import.
+* Job-page fetching is backend-controlled and treated as an SSRF-sensitive operation.
+* Job-import previews are transient and are not persisted until the user explicitly saves the application.
+* Imported status and notes remain user-controlled.
+* Full user-submitted job URLs and query strings must not be logged.
 * Server-backed user data passes through the Spring Boot REST API.
 * Access tokens are short-lived.
 * Refresh-token sessions are persisted and revocable.
@@ -297,6 +321,8 @@ Screens are responsible for:
 * Handling password-reset code entry
 * Displaying verification resend timing
 * Displaying password-reset resend timing
+* Initiating job-link import from the Add Application workflow
+* Displaying import success, warnings and safe import errors
 
 Password-reset screens include:
 
@@ -319,6 +345,10 @@ Examples include:
 * Shared presentation controls
 
 Components remain focused on presentation and reusable interaction behaviour.
+
+`ApplicationForm.tsx` owns the editable application-form state. On the Add Application screen it can optionally receive a job-import callback. The Edit Application screen does not opt into re-import behaviour.
+
+A successful import populates existing form fields without automatically saving the application. Status and notes remain unchanged, and empty imported fields do not erase values the user has already entered.
 
 ---
 
@@ -621,10 +651,20 @@ AsyncStorage remains available for non-secret device-specific state.
 The application service:
 
 * Calls application endpoints
+* Calls the authenticated Job Link Import preview endpoint
 * Maps frontend status labels to backend enum values
 * Maps backend DTOs into frontend models
+* Defines the frontend `JobImportPreview` shape
 * Encodes search/filter parameters
 * Keeps API shapes separate from screens
+
+Job import uses:
+
+```text
+POST /api/v1/applications/import-preview
+```
+
+The service returns the preview to the existing form. It does not persist the preview. The existing application create endpoint remains the only save step after the user reviews or edits the imported values.
 
 ## Reminder Architecture
 
@@ -707,6 +747,7 @@ Important backend areas include:
 ```text
 com.applymate.backend
 ├── application/
+│   └── job import controller/service/fetcher/extractor DTOs
 ├── auth/
 │   └── passwordreset/
 ├── reminder/
@@ -720,6 +761,8 @@ com.applymate.backend
 Although classes are grouped by feature, the backend maintains controller, service, repository and persistence responsibilities.
 
 The password-reset implementation deliberately avoids unnecessary additional abstraction layers.
+
+Job Link Import is implemented as a bounded backend preview pipeline rather than as persistence logic or a separate database feature.
 
 ---
 
@@ -739,6 +782,8 @@ Controllers are responsible for:
 Controllers do not directly implement database persistence.
 
 Password-reset routes are handled directly by `AuthController` delegating to `PasswordResetService`.
+
+Job Link Import is exposed through `JobImportController`, which reads the authenticated principal and delegates preview creation to `JobImportService`.
 
 No unnecessary password-reset passthrough methods were added to `AuthService`.
 
@@ -771,7 +816,16 @@ ForgotPasswordRequest
 ResetPasswordRequest
 ```
 
+Job Link Import uses:
+
+```text
+JobImportRequest
+JobImportPreview
+```
+
 Password confirmation exists only in the mobile UI and is not part of the backend reset request.
+
+Imported values are normalised and truncated to the existing application DTO/model save limits so a returned preview remains compatible with the normal save flow after user review.
 
 ---
 
@@ -800,6 +854,10 @@ Responsibilities include:
 * Account deletion
 * Response mapping
 * Domain-specific exceptions
+* Job-import rate limiting
+* Safe job-page fetch orchestration
+* Structured job-data extraction
+* Import-preview confidence validation
 
 ---
 
@@ -844,6 +902,8 @@ PostgreSQL stores:
 * Refresh-token session records
 * Ownership relationships
 * Creation/update timestamps
+
+Job-import previews are not stored in PostgreSQL by the import endpoint. They remain transient until the user explicitly submits the normal application save flow.
 
 The following sensitive values are not stored in usable plaintext form:
 
@@ -1192,6 +1252,157 @@ EMAIL_VERIFICATION_REQUIRED
 
 ---
 
+# Job Link Import Architecture
+
+## End-to-End Import Flow
+
+```text
+Add Application screen
+        |
+        v
+User pastes public job URL
+        |
+        v
+POST /api/v1/applications/import-preview
+        |
+        v
+Authenticated principal resolved
+        |
+        v
+Per-user import-rate check
+        |
+        v
+SafeJobPageFetcher
+        |
+        ├── parse and canonicalise URL/hostname
+        ├── reject unsupported/unsafe destinations
+        ├── resolve destination safely
+        ├── fetch without user auth/cookies
+        ├── revalidate every redirect
+        ├── enforce timeouts
+        ├── validate response type
+        └── enforce 2 MiB streaming/decompression limit
+        |
+        v
+JobPageExtractor
+        |
+        ├── JSON-LD Schema.org JobPosting first
+        └── deterministic HTML fallback second
+        |
+        v
+Normalise / strip HTML / truncate
+        |
+        v
+Minimum extraction-success threshold
+        |
+        v
+JobImportPreview + warnings
+        |
+        v
+Existing editable ApplicationForm
+        |
+        v
+User reviews or changes values
+        |
+        v
+Existing Save Application endpoint
+        |
+        v
+PostgreSQL persistence
+```
+
+The import endpoint never persists application data.
+
+## URL Canonicalisation and SSRF Protection
+
+Submitted destinations are canonicalised before policy checks.
+
+Canonicalisation and validation cover:
+
+* Lowercase hostname handling
+* IDN/punycode conversion
+* Trailing-dot normalisation
+* Domain/subdomain matching rather than substring matching
+* Loopback/private/link-local and other unsafe destination rejection
+* Redirect-target revalidation
+* Unsupported LinkedIn and Indeed domain handling
+
+The backend never relies on the mobile client to decide whether a URL is safe.
+
+The fetcher uses direct connections rather than inherited proxy configuration and does not forward mobile cookies, bearer tokens or other user authentication headers to third-party job pages.
+
+## Response Safety
+
+Outbound fetches use bounded network behaviour:
+
+```text
+Connect timeout: 4 seconds
+Read timeout:    8 seconds
+Maximum body:    2 MiB
+```
+
+The body limit is enforced while streaming and remains bounded for supported compressed responses.
+
+Unsupported content types and oversized responses are rejected before extraction.
+
+Full user-submitted URLs and query strings are not logged. Logging is limited to safe host/reason information where needed.
+
+## Extraction Strategy
+
+Extraction intentionally avoids AI.
+
+Priority order:
+
+```text
+1. Schema.org JobPosting JSON-LD
+2. Deterministic HTML fallback
+```
+
+The extractor strips HTML and returns plain text.
+
+A success threshold prevents ordinary non-job webpages from being returned as misleading successful imports. Structured and fallback extraction use different confidence requirements appropriate to their source quality.
+
+Imported fields are constrained to the existing application save limits, including URL, company, title, location, salary, recruiter, description, skills, benefits and application deadline.
+
+## Import Rate Limiting
+
+The authenticated import endpoint uses an in-memory per-user limiter:
+
+```text
+10 attempts per 10 minutes per user
+```
+
+Expired buckets are cleaned so limiter state remains bounded.
+
+Attempts that reach the import service count even when fetching or extraction fails. Bean-validation failures that are rejected before the service do not consume an attempt.
+
+Rate-limit responses can include structured retry timing for the mobile UI.
+
+## Frontend Import Behaviour
+
+The Add Application screen supplies the import callback to the shared `ApplicationForm`.
+
+```text
+URL entered
+   |
+   v
+Import job details
+   |
+   ├── success -> populate editable fields + show warnings
+   |
+   └── failure -> safe error + manual-entry fallback
+```
+
+The importer does not overwrite status or notes.
+
+If an extracted field is empty, existing user-entered content for that field is preserved.
+
+Unsaved Add Application state remains mounted when the user navigates away. After a successful save, the Add screen changes the form key so a fresh empty form is mounted the next time the user returns.
+
+The Edit Application screen does not supply the import callback and remains an edit-only workflow.
+
+---
+
 # Transactional Email Architecture
 
 ## Shared Resend Transport
@@ -1318,6 +1529,8 @@ Protected application, reminder, profile and account-deletion operations require
 Authorization: Bearer <access-token>
 ```
 
+Job Link Import is protected by the same authenticated-route policy; it is not added to the public allow-list.
+
 Examples include:
 
 ```text
@@ -1326,6 +1539,7 @@ DELETE /api/v1/users/me
 
 GET    /api/v1/applications
 POST   /api/v1/applications
+POST   /api/v1/applications/import-preview
 PUT    /api/v1/applications/{id}
 DELETE /api/v1/applications/{id}
 ```
@@ -1743,6 +1957,8 @@ The migration provides:
 
 V9 does not alter the email-verification challenge model.
 
+Job Link Import required no Flyway migration because previews are transient and existing `job_applications` persistence is reused only after explicit user save.
+
 Production Flyway verification confirmed:
 
 ```text
@@ -1875,16 +2091,16 @@ JUnit / MockMvc / Mockito / integration tests
 Current complete backend suite:
 
 ```text
-106 tests
+144 tests
 0 failures
 0 errors
 0 skipped
 ```
 
-Focused password-reset suite:
+Focused Job Link Import suite:
 
 ```text
-14 tests
+38 tests
 0 failures
 0 errors
 0 skipped
@@ -1928,6 +2144,25 @@ Password-reset coverage includes:
 * Password-changed notification failure behaviour
 * Old-password rejection
 * New-password authentication
+
+Job Link Import coverage includes:
+
+* URL parsing and canonicalisation
+* Unsafe destination rejection
+* Redirect revalidation
+* Unsupported-domain handling
+* Connection/read timeout behaviour
+* Content-type enforcement
+* Streaming 2 MiB body limits
+* Compressed/decompressed response limits
+* JSON-LD JobPosting extraction
+* HTML fallback extraction
+* Plain-text sanitisation
+* Save-limit truncation
+* Extraction-success thresholds
+* Per-user rate limiting and cleanup
+* Service orchestration
+* Controller request/response and safe error behaviour
 
 ## Docker
 
@@ -2138,6 +2373,14 @@ The deployed architecture has passed:
 * Password-changed notification delivery
 * Flyway V9 production verification
 * Final V9 production health verification
+* Job Link Import deployment at commit `5be432d`
+* Supported public job-link import
+* Editable imported-field verification
+* Existing save flow after import
+* Add-form reset after successful save
+* LinkedIn/Indeed safe rejection
+* Unsafe loopback URL rejection
+* Existing application edit/delete regression verification
 
 Verified production path:
 
@@ -2151,6 +2394,11 @@ Render Spring Boot API
         |                  |
         |                  v
         |             User inbox
+        |
+        ├──────────────> Supported public job pages
+        |                  |
+        |                  v
+        |             Import preview
         |
         v
 Neon PostgreSQL
@@ -2169,6 +2417,18 @@ Final production health:
 /actuator/health -> HTTP 200 / UP
 ```
 
+Job Link Import production verification:
+
+```text
+Render commit 5be432d -> live
+Supported public job URL -> import PASS
+Imported-field editing   -> PASS
+Save + Add-form reset     -> PASS
+LinkedIn/Indeed rejection -> PASS
+Unsafe URL rejection      -> PASS
+Existing edit/delete      -> PASS
+```
+
 Password-reset public production verification:
 
 ```text
@@ -2185,6 +2445,62 @@ Old password rejected
 New password accepted
 Password-changed email arrives
 ```
+
+---
+
+# Job Link Import Production Rollout Architecture
+
+The Job Link Import feature was developed and validated without a database migration or AI dependency.
+
+```text
+v1.5.0 baseline at 619ee57
+      |
+      v
+feat/job-link-import
+      |
+      ├── secure backend import-preview pipeline
+      ├── JSON-LD / HTML extraction
+      ├── SSRF / redirect / size protections
+      └── existing React Native form integration
+      |
+      v
+38 focused importer tests
+144 complete backend tests
+frontend typecheck
+      |
+      v
+Backend commit 7c32417
+      |
+      v
+Frontend commit fab622b
+      |
+      v
+Merge to main at 5be432d
+      |
+      v
+Push origin/main
+      |
+      v
+Render production deployment
+      |
+      ├── /api/v1/status -> 200 / UP
+      └── /actuator/health -> 200 / UP
+      |
+      v
+Production mobile verification
+      |
+      ├── supported job import succeeds
+      ├── imported fields remain editable
+      ├── save persists reviewed values
+      ├── Add form resets after save
+      ├── LinkedIn/Indeed rejected safely
+      ├── unsafe URL rejected safely
+      └── existing edit/delete still work
+```
+
+No `SecurityConfig` change was required because the new endpoint falls under the existing authenticated-route rule.
+
+No Flyway migration was required because import previews are non-persistent and the existing application save model is reused.
 
 ---
 
@@ -2332,6 +2648,11 @@ The following boundaries remain in place:
 * PostgreSQL remains the backend system of record.
 * Mobile clients never connect directly to PostgreSQL.
 * Mobile clients never receive Resend credentials.
+* Mobile clients never fetch third-party job pages directly for import.
+* Job-page fetches remain backend-controlled and SSRF-validated.
+* Job-import previews remain non-persistent until explicit user save.
+* Job Link Import does not require or use AI.
+* Unsupported LinkedIn/Indeed automatic import remains intentionally blocked.
 * Verification and password-reset email delivery remain backend-controlled.
 * Raw verification codes are not persisted.
 * Raw password-reset codes are not persisted.

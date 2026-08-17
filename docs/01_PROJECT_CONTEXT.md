@@ -15,11 +15,12 @@ It allows authenticated users to:
 * Maintain a persistent authenticated session
 * Verify their email address during registration
 * Securely reset a forgotten password by email
+* Import supported public job links into an editable application preview
 * Permanently delete their account and associated data
 
 ## Current Phase
 
-**Password Reset & Production Release Closeout**
+**Job Link Import & Production Release Closeout**
 
 The following phases are complete:
 
@@ -48,21 +49,28 @@ The following phases are complete:
 * Password-reset session revocation
 * Password-reset automated security validation
 * Password-reset production rollout and end-to-end verification
+* Secure backend job-link import preview
+* Job-link SSRF and redirect protection
+* Structured job-data extraction
+* Editable mobile job-import workflow
+* Job-import rate limiting and safe error handling
+* Job-link import production rollout and end-to-end verification
 
 The application is running successfully against the production Spring Boot backend and Neon PostgreSQL database.
 
-Email verification and password reset are both live and verified end-to-end in production.
+Email verification, password reset and Job Link Import are live and verified end-to-end in production.
 
 ## Current Git State
 
 * Stable branch: `main`
-* Documentation branch: `docs/password-reset-closeout`
-* Current production/main commit: `d1e4d37`
-* Current release tag: `v1.4.0`
-* Next planned release tag: `v1.5.0`
-* Current milestone: Password Reset & Production Release Closeout
+* Current production/main commit: `5be432d`
+* Current release tag: `v1.5.0`
+* Next planned release tag: `v1.6.0`
+* Current milestone: Job Link Import & Production Release Closeout
 
-The `v1.5.0` tag will be created after documentation is updated and release closeout checks are complete.
+The Job Link Import feature has been merged to `main`, pushed to `origin/main`, deployed to Render and verified against production.
+
+The `v1.6.0` tag will be created after documentation is updated and final release-closeout checks are complete.
 
 ## Technology Stack
 
@@ -130,14 +138,14 @@ React Native / Expo application
                v
 Render
 Spring Boot API
-       |                |
-       |                | HTTPS
-       |                v
-       |              Resend
-       |                |
-       |                v
-       |        Verification emails
-       |        Password-reset emails
+       |                |                 |
+       |                | HTTPS           | HTTPS
+       |                v                 v
+       |              Resend        Public job pages
+       |                |                 |
+       |                v                 v
+       |        Verification emails   Import preview
+       |        Password-reset emails JSON-LD / HTML
        |        Password-changed emails
        |        verify@applymate.website
        |
@@ -148,7 +156,9 @@ Neon PostgreSQL
 
 The mobile application communicates only with the Spring Boot API.
 
-It never connects directly to PostgreSQL or Resend.
+It never connects directly to PostgreSQL, Resend or third-party job pages.
+
+For Job Link Import, the backend performs the outbound fetch, validates the destination and redirects, extracts a non-persistent preview, and returns safe editable fields to the mobile application.
 
 ## Production Services
 
@@ -177,7 +187,7 @@ https://applymate-api-bami.onrender.com/actuator/health
 Current production deployment commit:
 
 ```text
-d1e4d37
+5be432d
 ```
 
 ### Database
@@ -557,6 +567,101 @@ Deleted credentials can no longer be used to log in.
 * Reset-code resend and rate limiting
 * Password-changed notification
 * Refresh-session revocation after password change
+* Secure public job-link import preview
+* JSON-LD JobPosting extraction
+* HTML fallback job extraction
+* Editable imported application details
+* Import warnings and manual-entry fallback
+* SSRF-safe URL and redirect validation
+* Per-user job-import rate limiting
+
+## Job Link Import
+
+ApplyMate can import supported public job-advert URLs into the existing Add Application form.
+
+The import flow is:
+
+```text
+User pastes public job URL
+        -> authenticated backend import-preview endpoint
+        -> safe server-side fetch
+        -> JSON-LD JobPosting extraction first
+        -> HTML fallback extraction second
+        -> editable preview returned to mobile
+        -> user reviews and edits all fields
+        -> existing Save Application flow persists the application
+```
+
+The importer never saves a job application automatically.
+
+Status and notes remain user-controlled and are not overwritten by imported data.
+
+### Supported extraction behaviour
+
+The backend:
+
+* Prefers Schema.org `JobPosting` JSON-LD
+* Falls back to deterministic HTML extraction
+* Strips HTML and returns plain text
+* Normalises imported values
+* Truncates imported fields to existing application save limits
+* Requires a minimum extraction-confidence threshold before returning success
+* Returns warnings for partially extracted previews
+* Allows manual entry when import is unavailable or incomplete
+
+### URL and network security
+
+The backend importer:
+
+* Accepts only supported HTTP/HTTPS public job URLs
+* Canonicalises hostnames before validation
+* Handles lowercase hostnames, IDN/punycode and trailing-dot normalisation
+* Rejects private, loopback, link-local and otherwise unsafe destinations
+* Revalidates every redirect target
+* Uses domain/subdomain matching rather than substring matching
+* Explicitly treats LinkedIn and Indeed as unsupported for automatic import
+* Uses direct connections rather than inherited proxy settings
+* Sends no user cookies or authentication headers to job sites
+* Applies connection and read timeouts
+* Enforces a 2 MiB response limit while streaming
+* Applies the size limit safely to compressed/decompressed responses
+* Rejects unsupported content types
+* Never logs the full user-submitted URL or query string
+
+### Import rate limiting
+
+Import attempts are rate-limited per authenticated user:
+
+```text
+10 import attempts per 10 minutes
+```
+
+The in-memory limiter removes expired entries so its state remains bounded.
+
+Malformed, unsafe, unavailable and extraction-failure attempts count toward the import limit once they reach the service.
+
+Bean-validation failures such as a blank URL are rejected before the service and do not consume an import attempt.
+
+### Mobile behaviour
+
+The existing Add Application form contains the Job Link Import workflow.
+
+After a successful import:
+
+* Imported values populate the existing form fields
+* Every imported field remains editable
+* Status remains unchanged
+* Notes remain unchanged
+* Warnings are shown when appropriate
+* Nothing is persisted until the user presses Save Application
+
+If an import fails, the user can continue entering the application manually.
+
+Unsaved Add Application drafts remain available when navigating away and returning.
+
+After a successful save, the Add Application form resets to a fresh state.
+
+The Edit Application screen remains an edit-only workflow and does not expose re-import behaviour.
 
 ## Application Statuses
 
@@ -642,6 +747,7 @@ DELETE /api/v1/users/me
 ```text
 GET    /api/v1/applications
 POST   /api/v1/applications
+POST   /api/v1/applications/import-preview
 GET    /api/v1/applications/{id}
 PUT    /api/v1/applications/{id}
 DELETE /api/v1/applications/{id}
@@ -665,6 +771,8 @@ A user must never be able to read, update or delete another user's data.
 Email-verification challenges and password-reset challenges are associated with their owning user account.
 
 Password-reset codes are cryptographically bound to the owning user's ID.
+
+Job-import previews are transient and are not persisted by the import endpoint. Persistence occurs only when the authenticated user submits the existing application save flow.
 
 ## Mobile Distribution
 
@@ -736,7 +844,7 @@ Verified behaviour included:
 * Logout
 * Reopening after logout remains logged out
 
-The email-verification and password-reset flows have additionally been tested on a real mobile device against the production backend using Expo.
+The email-verification, password-reset and Job Link Import flows have additionally been tested on a real mobile device against the production backend using Expo.
 
 ## iOS Distribution
 
@@ -914,6 +1022,38 @@ Verified:
 * Logout
 * Second-user data isolation
 
+### Production Job Link Import
+
+Verified end-to-end against the production Render backend:
+
+```text
+Mobile Add Application
+    -> public job URL
+    -> Render authenticated import-preview API
+    -> safe outbound fetch
+    -> structured extraction
+    -> editable mobile preview
+    -> user review/edit
+    -> existing Save Application flow
+    -> Neon PostgreSQL
+```
+
+Production verification confirmed:
+
+* Render deployed commit `5be432d`
+* `/api/v1/status` returned HTTP `200`
+* `/actuator/health` returned HTTP `200`
+* A supported public job URL imported successfully
+* Imported fields remained editable
+* Status and notes remained user-controlled
+* The imported application saved successfully through the existing save flow
+* The Add Application form reset after a successful save
+* LinkedIn/Indeed import was rejected safely
+* An unsafe loopback URL was rejected safely
+* Sensitive query-string content was not echoed back in the mobile error flow
+* Existing application edit behaviour still worked
+* Existing application delete behaviour still worked
+
 ### Production account deletion
 
 Verified:
@@ -1038,21 +1178,26 @@ Current automated and manual validation includes:
 * Flyway production migration validation
 * Password-reset transaction rollback testing
 * Password-reset session-revocation testing
+* Job-import URL/SSRF validation testing
+* Job-import redirect and response-limit testing
+* Job-import extraction testing
+* Job-import service and controller testing
+* Production Job Link Import end-to-end testing
 
 Latest backend test result:
 
 ```text
-Tests run: 106
+Tests run: 144
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
 ```
 
-Focused password-reset validation:
+Focused Job Link Import validation:
 
 ```text
-Tests run: 14
+Tests run: 38
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -1066,7 +1211,7 @@ tsc --noEmit
 PASS
 ```
 
-GitHub CI is green for the password-reset feature merged into `main`.
+The Job Link Import feature was also verified manually against the production Render backend from the mobile application.
 
 ## Security Rules
 
@@ -1093,6 +1238,11 @@ GitHub CI is green for the password-reset feature merged into `main`.
 * Do not treat password reset as email verification
 * Preserve per-user ownership checks
 * Avoid logging authentication secrets, verification codes, reset codes or provider credentials
+* Never log full user-submitted job URLs or query strings
+* Treat outbound job-page fetching as an SSRF-sensitive operation
+* Revalidate every job-import redirect target
+* Keep job-import response size and decompression bounded
+* Never persist imported job data until the user reviews and explicitly saves it
 * Run CI before release changes are merged
 * Run smoke tests after production deployment changes
 
@@ -1110,57 +1260,78 @@ Transactional email provider transport is centralised through the backend `Resen
 
 ## Release Status
 
-The functional work for the **Password Reset** feature is complete and deployed to production.
+The functional work for **Job Link Import** is complete, merged to `main`, deployed to production and verified end-to-end.
+
+Current production/main commit:
+
+```text
+5be432d
+```
 
 Completed release work includes:
 
-1. Secure password-reset challenge data model
-2. Flyway V9 password-reset migration
-3. Six-digit HMAC-protected reset codes
-4. Dedicated password-reset production pepper
-5. Reset expiry, incorrect-attempt protection, cooldown and rate limiting
-6. Account-enumeration-resistant forgot-password behaviour
-7. Transaction rollback when reset-code email delivery fails
-8. Generic public reset-code failure behaviour
-9. Shared hardened Resend email transport
-10. Password-reset code email delivery
-11. Password-changed notification email
-12. Password update using the existing secure password encoder
-13. Refresh-session revocation after successful reset
-14. Unverified-account reset support without changing verification state
-15. Mobile Forgot Password screen
-16. Mobile Reset Password screen
-17. Login success messaging after reset
-18. 14 focused password-reset security and transaction tests
-19. 106-test complete backend suite
-20. Frontend TypeScript validation
-21. GitHub PR #10 merge into `main`
-22. Render production deployment
-23. Neon/Flyway V9 production validation
-24. Production API health verification
-25. Unknown-email `202 Accepted` verification
-26. Real production reset-email delivery
-27. Old-password rejection after reset
-28. New-password authentication after reset
-29. Real password-changed notification delivery
+1. Authenticated `POST /api/v1/applications/import-preview`
+2. Non-persistent import-preview architecture
+3. Safe URL parsing and hostname canonicalisation
+4. Private/loopback/link-local destination blocking
+5. Redirect-by-redirect safety validation
+6. LinkedIn and Indeed unsupported-domain handling
+7. Direct outbound connections without user cookies or authentication headers
+8. Connection and read timeouts
+9. 2 MiB streaming response limit
+10. Safe compressed/decompressed response handling
+11. Content-type validation
+12. JSON-LD Schema.org `JobPosting` extraction
+13. Deterministic HTML fallback extraction
+14. Plain-text sanitisation
+15. Save-limit normalisation and truncation
+16. Minimum extraction-success thresholds
+17. Per-user 10-imports-per-10-minutes rate limiting
+18. Bounded cleanup of expired rate-limit entries
+19. Structured safe import error handling
+20. Existing Add Application form integration
+21. Editable imported preview fields
+22. Status and notes preserved during import
+23. Manual-entry fallback after import failure
+24. Unsaved Add Application draft preservation
+25. Add Application reset after successful save
+26. Edit Application kept unchanged
+27. 38 focused Job Link Import tests
+28. 144-test complete backend suite
+29. Frontend TypeScript validation
+30. Local mobile end-to-end verification
+31. Merge commit `5be432d`
+32. Push to `origin/main`
+33. Render production deployment
+34. Production API health verification
+35. Production successful-import verification
+36. Production imported-field editing verification
+37. Production save/reset verification
+38. Production LinkedIn/Indeed rejection verification
+39. Production unsafe-URL rejection verification
+40. Production existing edit/delete regression verification
+
+No Flyway migration was required for Job Link Import.
+
+No application data is persisted by the import endpoint.
 
 Remaining release-closeout work:
 
 1. Update shared project documentation
 2. Update the root README
 3. Commit and merge documentation closeout
-4. Create the `v1.5.0` release tag
-5. Remove completed temporary feature/documentation branches
+4. Create the `v1.6.0` release tag
+5. Remove completed temporary documentation branches if any
 
 ## Next Development Phase
 
 Potential future work includes:
 
-* Job-link import
 * Email integration beyond authentication emails
 * Additional automation features
 * Profile/account-management improvements
+* Broader job-source compatibility where technically and legally appropriate
 * Google Play public release preparation
 * Apple TestFlight/App Store distribution after Apple Developer Program enrolment
 
-New product development should begin after the `v1.5.0` release is formally closed.
+New product development should begin after the `v1.6.0` release is formally closed.
