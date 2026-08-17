@@ -6,13 +6,14 @@ ApplyMate is a full-stack mobile job-application tracker built with React Native
 
 It allows users to manage job applications, reminders and authenticated sessions from a mobile application backed by a production REST API.
 
-Current production authentication includes:
+Current production capabilities include:
 
 * Mandatory email verification for new accounts
 * Secure password reset by email
 * Password-changed notifications
 * Persistent rotating refresh-token sessions
 * Short-lived JWT access tokens
+* Secure public job-link import into an editable application preview
 
 ---
 
@@ -25,6 +26,7 @@ Users can:
 * Sign in securely
 * Reset a forgotten password
 * Maintain a persistent authenticated session
+* Import supported public job links into an editable application preview
 * Create and manage job applications
 * Search, filter and sort applications
 * View dashboard statistics
@@ -48,6 +50,9 @@ Current capabilities include:
 * Refresh-session revocation
 * Secure persistent sessions
 * Job-application CRUD
+* Secure Job Link Import preview
+* JSON-LD and HTML job extraction
+* SSRF-safe outbound job-page fetching
 * Backend-synchronised reminders
 * Search, filtering and sorting
 * Dashboard summaries
@@ -61,18 +66,24 @@ Current capabilities include:
 * Expo Application Services
 * Android internal distribution
 
-Email verification and password reset are both deployed and verified in production.
+Email verification, password reset and Job Link Import are deployed and verified in production.
 
 Current release:
 
 ```text
-v1.4.0
+v1.5.0
 ```
 
 Release currently being closed out:
 
 ```text
-v1.5.0
+v1.6.0
+```
+
+Current production/main commit:
+
+```text
+5be432d
 ```
 
 ---
@@ -102,25 +113,26 @@ v1.5.0
 |  JPA / Hibernate                   |
 +-------------+----------------------+
               |
-        +-----+------+
-        |            |
-   JDBC/TLS        HTTPS
-        |            |
-        v            v
-+----------------+  +-------------------------+
-|      Neon      |  |         Resend          |
-|                |  |                         |
-| PostgreSQL 17  |  | Verification email      |
-| Flyway V9      |  | Password-reset email    |
-|                |  | Password-changed email  |
-+----------------+  |                         |
-                    | applymate.website        |
-                    | verify@applymate.website |
-                    +------------+------------+
-                                 |
-                                 v
-                           User inbox
+      +-------+---------+----------------------+
+      |                 |                      |
+  JDBC/TLS           HTTPS                  HTTPS
+      |                 |                      |
+      v                 v                      v
++------------+   +------------------+   +----------------------+
+|    Neon    |   |      Resend      |   | Public job websites  |
+|            |   |                  |   |                      |
+| PostgreSQL |   | Verification     |   | Server-side fetch    |
+| 17         |   | Password reset   |   | JSON-LD / HTML       |
+| Flyway V9  |   | Password changed |   | extraction           |
++------------+   +--------+---------+   +----------------------+
+                         |
+                         v
+                    User inbox
 ```
+
+The mobile application communicates with the Spring Boot API rather than fetching third-party job pages directly.
+
+For Job Link Import, the backend validates and fetches the public page, extracts a transient preview, and returns editable fields to the mobile client. Nothing is persisted until the user explicitly saves the application.
 
 Supporting services:
 
@@ -134,7 +146,7 @@ GitHub Pages
     -> Account deletion information
 ```
 
-The mobile application never connects directly to PostgreSQL or Resend.
+The mobile application never connects directly to PostgreSQL, Resend or third-party job pages.
 
 Backend secrets remain backend-only.
 
@@ -372,6 +384,86 @@ A successful password reset revokes all existing refresh-token sessions for the 
 
 ---
 
+## Job Link Import
+
+ApplyMate can import supported public job adverts into the existing Add Application form.
+
+Flow:
+
+```text
+Paste public job URL
+      |
+      v
+POST /api/v1/applications/import-preview
+      |
+      v
+Safe server-side fetch
+      |
+      v
+JSON-LD JobPosting first
+      |
+      v
+HTML fallback if needed
+      |
+      v
+Editable preview
+      |
+      v
+User reviews/changes fields
+      |
+      v
+Existing Save Application flow
+```
+
+The import endpoint does **not** create an application record.
+
+Imported fields remain editable and the user controls the final saved data.
+
+The importer does not overwrite:
+
+```text
+status
+notes
+```
+
+If an import fails or is unsupported, the user can continue entering the application manually.
+
+### Import security
+
+The backend treats submitted URLs as untrusted input.
+
+Controls include:
+
+* HTTP/HTTPS destination validation
+* Hostname canonicalisation
+* IDN/punycode handling
+* Trailing-dot normalisation
+* Private, loopback and link-local destination rejection
+* DNS destination checks
+* Redirect-by-redirect revalidation
+* Direct connections without forwarding user cookies or bearer credentials
+* Connection and read timeouts
+* Supported content-type checks
+* 2 MiB streaming response limit
+* Bounded compressed/decompressed responses
+* Safe plain-text extraction
+* No full submitted URL/query-string logging
+* Per-user import rate limiting
+
+LinkedIn and Indeed are intentionally unsupported for automatic import.
+
+Rate limit:
+
+```text
+10 import attempts per authenticated user per 10 minutes
+```
+
+The mobile Add Application form preserves unsaved drafts when navigating away.
+
+After a successful save, the form resets to a fresh state.
+
+---
+
 ## Job Applications
 
 Users can:
@@ -551,17 +643,17 @@ ApplyMate uses:
 Current backend result:
 
 ```text
-Tests run: 106
+Tests run: 144
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
 ```
 
-Focused password-reset result:
+Focused Job Link Import result:
 
 ```text
-Tests run: 14
+Tests run: 38
 Failures: 0
 Errors: 0
 Skipped: 0
@@ -581,7 +673,7 @@ Latest Expo Doctor result:
 18/18 checks passed
 ```
 
-GitHub Actions is green for the merged password-reset implementation.
+GitHub Actions validates frontend, backend and Docker changes on pushes and pull requests.
 
 ---
 
@@ -977,6 +1069,7 @@ DELETE /api/v1/users/me
 ```text
 GET    /api/v1/applications
 POST   /api/v1/applications
+POST   /api/v1/applications/import-preview
 GET    /api/v1/applications/summary
 GET    /api/v1/applications/{id}
 PUT    /api/v1/applications/{id}
@@ -1026,6 +1119,16 @@ PASSWORD_RESET_CODE_INVALID_OR_EXPIRED
 The reset error is intentionally generic.
 
 Forgot-password requests for syntactically valid email addresses return generic `202 Accepted` behaviour to reduce account enumeration.
+
+Job Link Import uses structured safe errors for invalid/unsafe URLs, unsupported sites/content, extraction failure, rate limiting, upstream unavailability and timeouts.
+
+Rate-limited import responses can include:
+
+```text
+retryAfterSeconds
+```
+
+The frontend displays safe import failures without echoing sensitive submitted query-string data.
 
 ---
 
@@ -1295,7 +1398,7 @@ Standalone production-connected testing verified:
 * Delete Account UI
 * Logout
 
-Email verification and password reset have also been verified against production from a real mobile device through Expo.
+Email verification, password reset and Job Link Import have also been verified against production from a real mobile device through Expo.
 
 ## iOS
 
@@ -1372,6 +1475,13 @@ ApplyMate follows these security rules:
 * Secrets are stored using platform environment configuration.
 * Credentials exposed in logs must be treated as compromised and rotated.
 * Applied production Flyway migrations are immutable.
+* Submitted job URLs are treated as untrusted input.
+* Full submitted job URLs and query strings are not logged.
+* Every job-import redirect target is revalidated.
+* Private, loopback and link-local import destinations are rejected.
+* Job-page response and decompression sizes are bounded.
+* Mobile authentication headers and user cookies are not forwarded to job sites.
+* Imported data is not persisted until the user explicitly saves it.
 
 ---
 
@@ -1437,6 +1547,30 @@ New password accepted
 Password-changed email
 ```
 
+Job Link Import has also been tested end to end against production:
+
+```text
+Public job URL
+      |
+      v
+Render import-preview API
+      |
+      v
+Safe server-side fetch
+      |
+      v
+Editable mobile preview
+      |
+      v
+User reviews/edits
+      |
+      v
+Existing Save Application API
+      |
+      v
+Neon PostgreSQL
+```
+
 Current verified production behaviour includes:
 
 * Existing-account compatibility
@@ -1455,6 +1589,13 @@ Current verified production behaviour includes:
 * Old-password rejection
 * New-password authentication
 * Password-changed email delivery
+* Supported public job-link import
+* Imported fields remaining editable
+* Save through the existing application API
+* Add Application form reset after successful save
+* LinkedIn/Indeed automatic-import rejection
+* Unsafe loopback URL rejection
+* Existing application edit/delete regression after import rollout
 * Flyway V9
 * API status HTTP `200`
 * Actuator health HTTP `200`
@@ -1535,23 +1676,30 @@ Completed milestones:
 * Password-changed notification
 * Flyway V9
 * Password-reset production testing
+* Secure Job Link Import backend
+* JSON-LD and HTML job extraction
+* Job-import SSRF and redirect protection
+* Job-import response-size protection
+* Job-import per-user rate limiting
+* Editable mobile import preview
+* Production Job Link Import testing
 
 Current release:
-
-```text
-v1.4.0
-```
-
-Next release:
 
 ```text
 v1.5.0
 ```
 
+Next release:
+
+```text
+v1.6.0
+```
+
 Current production code before documentation closeout:
 
 ```text
-d1e4d37
+5be432d
 ```
 
 Current production database:
@@ -1563,20 +1711,20 @@ Flyway V9
 Current backend automated result:
 
 ```text
-106 tests passing
+144 tests passing
 ```
 
-Focused password-reset result:
+Focused Job Link Import result:
 
 ```text
-14 tests passing
+38 tests passing
 ```
 
 Potential future development includes:
 
-* Job-link import
 * Expanded email integration
-* Application automation
+* Additional application automation
+* Broader supported job-source compatibility where appropriate
 * Profile/account-management improvements
 * Public Google Play release
 * Apple TestFlight/App Store distribution

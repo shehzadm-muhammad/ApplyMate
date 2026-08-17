@@ -1,13 +1,10 @@
-## 1. Replace the opening `## Current Phase`
+# ApplyMate Roadmap
 
-Replace everything from `## Current Phase` down to the first `---` before Phase 1 with:
-
-````markdown
 ## Current Phase
 
-**Password Reset & v1.5.0 Release Closeout**
+**Job Link Import & v1.6.0 Release Closeout**
 
-Password Reset is fully implemented, tested and live in production.
+Job Link Import is fully implemented, merged to `main`, deployed to production and verified end-to-end.
 
 Current production architecture:
 
@@ -18,15 +15,15 @@ React Native / Expo mobile application
         v
 Render Spring Boot API
         |
-        +---------------> Resend
-        |                   |
-        |                   v
-        |          Authentication email
-        |          verify@applymate.website
+        +---------------> Neon PostgreSQL
         |
-        v
-Neon PostgreSQL
-````
+        +---------------> Resend
+        |
+        +---------------> Supported public job pages
+                              |
+                              v
+                       Safe import preview
+```
 
 Supporting services:
 
@@ -53,16 +50,22 @@ Production API:
 https://applymate-api-bami.onrender.com
 ```
 
+Current production/main commit:
+
+```text
+5be432d
+```
+
 Current release tag:
 
 ```text
-v1.4.0
+v1.5.0
 ```
 
 Next planned release tag:
 
 ```text
-v1.5.0
+v1.6.0
 ```
 
 Current production Flyway version:
@@ -74,13 +77,13 @@ V9
 Latest backend test result:
 
 ```text
-106 tests passing
+144 tests passing
 ```
 
-Focused password-reset validation:
+Focused Job Link Import validation:
 
 ```text
-14 tests passing
+38 tests passing
 ```
 
 Frontend TypeScript validation:
@@ -89,9 +92,21 @@ Frontend TypeScript validation:
 PASS
 ```
 
+Production Job Link Import verification:
+
+```text
+Supported public job import          PASS
+Imported fields remain editable      PASS
+Save through existing application API PASS
+Add form reset after save            PASS
+LinkedIn/Indeed rejection            PASS
+Unsafe URL rejection                 PASS
+Existing application edit/delete     PASS
+```
+
 ---
 
-# Phase 1 â€” Frontend MVP
+# Phase 1 — Frontend MVP
 
 **Status: Complete**
 
@@ -115,7 +130,7 @@ PASS
 
 ---
 
-# Phase 2 â€” Backend MVP
+# Phase 2 — Backend MVP
 
 **Status: Complete**
 
@@ -139,7 +154,7 @@ PASS
 
 ---
 
-# Phase 3 â€” Frontend and Backend Integration
+# Phase 3 — Frontend and Backend Integration
 
 **Status: Complete**
 
@@ -157,7 +172,7 @@ PASS
 
 ---
 
-# Phase 4 â€” MVP Polish
+# Phase 4 — MVP Polish
 
 **Status: Complete**
 
@@ -195,7 +210,7 @@ PASS
 
 ---
 
-# Phase 5 â€” Deployment & Production Readiness
+# Phase 5 — Deployment & Production Readiness
 
 **Status: Complete**
 
@@ -282,7 +297,7 @@ v1.2.0
 
 ---
 
-# Phase 6 â€” Mobile Distribution & Release Readiness
+# Phase 6 — Mobile Distribution & Release Readiness
 
 **Status: Complete**
 
@@ -572,7 +587,7 @@ v1.3.0
 
 ---
 
-# Phase 7 â€” Public Store Release
+# Phase 7 — Public Store Release
 
 **Status: Future**
 
@@ -612,7 +627,7 @@ This phase remains intentionally separate from the current portfolio/internal di
 
 ---
 
-# Phase 8 â€” Account & Authentication Improvements
+# Phase 8 — Account & Authentication Improvements
 
 **Status: Complete**
 
@@ -677,12 +692,12 @@ ApplyMate <verify@applymate.website>
 
 ### Database Rollout
 
-- [x] Add Flyway V6 â€” email verification
+- [x] Add Flyway V6 — email verification
 - [x] Backfill existing users as verified
-- [x] Add Flyway V7 â€” zero-downtime compatibility
+- [x] Add Flyway V7 — zero-downtime compatibility
 - [x] Verify existing accounts remain usable
 - [x] Verify new accounts remain unverified
-- [x] Add Flyway V8 â€” remove temporary rollout default
+- [x] Add Flyway V8 — remove temporary rollout default
 - [x] Confirm final production schema
 
 Final state:
@@ -925,22 +940,148 @@ Existing refresh sessions are revoked.
 Password reset does not imply email verification.
 ```
 
-# Phase 9 â€” Product Automation
+# Phase 9 — Product Automation
+
+**Status: Partially Complete**
+
+## 9.1 Job Link Import
+
+**Status: Complete and deployed to production**
+
+### Backend
+
+- [x] Add authenticated job-import preview endpoint
+- [x] Keep import preview non-persistent
+- [x] Parse and canonicalise submitted URLs
+- [x] Reject malformed and unsafe destinations
+- [x] Reject loopback, private and link-local destinations
+- [x] Revalidate redirect targets
+- [x] Use domain/subdomain matching rather than substring matching
+- [x] Explicitly treat LinkedIn and Indeed as unsupported
+- [x] Use direct outbound connections without forwarding user cookies/auth headers
+- [x] Add connection and read timeouts
+- [x] Enforce a 2 MiB streaming response limit
+- [x] Bound compressed/decompressed response handling
+- [x] Validate supported content types
+- [x] Parse Schema.org `JobPosting` JSON-LD first
+- [x] Add deterministic HTML fallback extraction
+- [x] Strip HTML and return plain text
+- [x] Normalise/truncate fields to existing application save limits
+- [x] Require a minimum extraction-confidence threshold
+- [x] Return import warnings for incomplete previews
+- [x] Add per-user rate limiting
+- [x] Keep rate-limiter memory bounded
+- [x] Avoid logging full submitted URLs/query strings
+- [x] Keep the feature AI-free
+- [x] Avoid database/Flyway changes
+
+API:
+
+```text
+POST /api/v1/applications/import-preview
+```
+
+Rate limit:
+
+```text
+10 import attempts per authenticated user per 10 minutes
+```
+
+### Frontend
+
+- [x] Reuse the existing Add Application form
+- [x] Add "Import job details" workflow
+- [x] Populate existing editable fields from the preview
+- [x] Preserve manual editing after import
+- [x] Preserve user-controlled status
+- [x] Preserve user-controlled notes
+- [x] Display safe import errors
+- [x] Display extraction warnings
+- [x] Keep manual-entry fallback available
+- [x] Keep Edit Application as an edit-only workflow
+- [x] Preserve unsaved Add Application drafts when navigating away
+- [x] Reset Add Application after a successful save
+- [x] Reuse the existing application save endpoint for persistence
+
+### Automated Validation
+
+Focused Job Link Import tests:
+
+```text
+38 passing
+0 failures
+0 errors
+```
+
+Complete backend suite:
+
+```text
+144 passing
+0 failures
+0 errors
+```
+
+Frontend:
+
+```text
+tsc --noEmit
+PASS
+```
+
+### Production Verification
+
+- [x] Deploy merge commit `5be432d` to Render
+- [x] Verify `/api/v1/status`
+- [x] Verify `/actuator/health`
+- [x] Import a supported public job URL
+- [x] Edit imported fields
+- [x] Save imported application through existing CRUD
+- [x] Verify Add form resets after successful save
+- [x] Verify LinkedIn/Indeed rejection
+- [x] Verify unsafe URL rejection
+- [x] Verify sensitive URL query data is not echoed in the mobile error flow
+- [x] Regression-test existing application editing
+- [x] Regression-test existing application deletion
+
+Target behaviour achieved:
+
+```text
+Public job URL
+      |
+      v
+Safe authenticated import preview
+      |
+      v
+Editable existing application form
+      |
+      v
+User review
+      |
+      v
+Explicit Save Application
+      |
+      v
+PostgreSQL
+```
+
+No application record is created by the import-preview endpoint itself.
+
+---
+
+## 9.2 Future Application Automation
 
 **Status: Future**
 
-## Job Application Import
-
-- [ ] Job-link import
-- [ ] Job-description extraction
-- [ ] Job-board import
+- [ ] Broaden supported public job-source compatibility where appropriate
 - [ ] Email-based application import
 - [ ] Application activity history
 - [ ] Document attachments
 
-## AI Assistance
+## 9.3 AI Assistance
 
-- [ ] Job-description parser
+**Status: Future**
+
+- [ ] AI-assisted job-description analysis
 - [ ] CV analyser
 - [ ] CV-to-job matching
 - [ ] Cover-letter assistance
@@ -948,7 +1089,7 @@ Password reset does not imply email verification.
 
 ---
 
-# Phase 10 â€” Notifications & Cross-Device Improvements
+# Phase 10 — Notifications & Cross-Device Improvements
 
 **Status: Future**
 
@@ -960,7 +1101,7 @@ Password reset does not imply email verification.
 
 ---
 
-# Phase 11 â€” Platform & Account Improvements
+# Phase 11 — Platform & Account Improvements
 
 **Status: Future**
 
@@ -973,7 +1114,7 @@ Password reset does not imply email verification.
 
 ---
 
-# Phase 12 â€” Future Integrations
+# Phase 12 — Future Integrations
 
 **Status: Future**
 
@@ -984,24 +1125,24 @@ Password reset does not imply email verification.
 
 ---
 
-# Current Release Closeout — v1.5.0
+# Current Release Closeout — v1.6.0
 
-The Password Reset feature is functionally complete and production verified.
+The Job Link Import feature is functionally complete and production verified.
 
 Production currently runs:
 
 ```text
 Main commit:
-d1e4d37
+5be432d
 
 Flyway:
 V9
 
 Backend tests:
-106 passing
+144 passing
 
-Focused password-reset tests:
-14 passing
+Focused Job Link Import tests:
+38 passing
 
 Frontend typecheck:
 passing
@@ -1015,55 +1156,52 @@ Production API:
 Production health:
 /actuator/health -> HTTP 200 / UP
 
-Forgot-password unknown account:
-HTTP 202 Accepted
-
-Reset email:
-operational
-
-Password-changed email:
-operational
-
-Sender:
-verify@applymate.website
-````
+Job Link Import:
+production verified
+```
 
 Production end-to-end verification:
 
 ```text
-Reset email received            PASS
-Old password rejected           PASS
-New password accepted           PASS
-Password-changed email received PASS
+Supported public job import          PASS
+Imported fields remain editable      PASS
+Save through existing application API PASS
+Add form reset after save            PASS
+LinkedIn/Indeed rejection            PASS
+Unsafe URL rejection                 PASS
+Existing application edit/delete     PASS
 ```
 
-Remaining work before `v1.5.0`:
+No Flyway migration was required for Job Link Import.
+
+Remaining work before `v1.6.0`:
 
 * [ ] Finish documentation refresh
 * [ ] Update root README
 * [ ] Review documentation diffs
 * [ ] Commit documentation closeout
-* [ ] Merge documentation branch
 * [ ] Confirm final `main` state
-* [ ] Create `v1.5.0` release tag
-* [ ] Push `v1.5.0` tag
-* [ ] Remove completed feature/documentation branches
+* [ ] Run final validation gate
+* [ ] Create `v1.6.0` release tag
+* [ ] Push `v1.6.0` tag
+* [ ] Remove any completed temporary documentation branch
 
 ---
 
 # Current Immediate Task
 
-Complete the `v1.5.0` Password Reset release closeout.
+Complete the `v1.6.0` Job Link Import release closeout.
 
-After `v1.5.0` is formally tagged, begin the next ApplyMate product feature on a dedicated branch.
+After `v1.6.0` is formally tagged, begin the next ApplyMate feature on a dedicated branch.
 
 Current next candidates include:
 
 ```text
-Job-link import
 Expanded email integration
-Application automation
+Additional application automation
 Profile/account improvements
+Broader supported job-source compatibility
+Google Play public release preparation
 ```
 
-Password Reset is complete and is no longer part of the backlog.
+Job Link Import is complete and is no longer part of the backlog.

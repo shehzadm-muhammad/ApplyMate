@@ -29,6 +29,7 @@ The API currently supports:
 * Refresh-session revocation after password reset
 * Account deletion
 * Job-application CRUD
+* Secure public job-link import preview
 * Dashboard summaries
 * Reminder CRUD
 * Per-user data isolation
@@ -44,7 +45,7 @@ Content-Type: application/json
 Accept: application/json
 ```
 
-Successful `202` and `204` password-reset responses do not require a JSON response body.
+Successful `202` and `204` password-reset responses do not require a JSON response body. Job-import preview success returns a JSON body.
 
 ---
 
@@ -175,13 +176,15 @@ Logout accepts a refresh token directly and does not require the access token to
 
 # Protected Routes
 
-User, application and reminder routes require:
+User, application, job-import and reminder routes require:
 
 ```http
 Authorization: Bearer <access-token>
 ```
 
 Unverified accounts cannot obtain normal authenticated application access.
+
+The Job Link Import preview endpoint is protected and requires a verified authenticated user.
 
 ---
 
@@ -252,7 +255,7 @@ Not required.
 
 This verifies that the main application API is responding.
 
-Production verification after the V9 deployment returned HTTP `200`.
+Production verification after the Job Link Import deployment returned HTTP `200`.
 
 ---
 
@@ -287,7 +290,7 @@ https://applymate-api-bami.onrender.com/api/v1/status
 https://applymate-api-bami.onrender.com/actuator/health
 ```
 
-Both were revalidated successfully after the password-reset production rollout.
+Both were revalidated successfully after the Job Link Import production rollout.
 
 ---
 
@@ -1105,6 +1108,180 @@ Optional text values may be supplied as empty strings.
 
 ---
 
+## Import Job Link Preview
+
+```http
+POST /api/v1/applications/import-preview
+```
+
+### Authentication
+
+Required.
+
+The endpoint uses the authenticated user's identity and additionally requires that the account is email verified.
+
+### Purpose
+
+This endpoint analyses one supported public job URL and returns an editable preview.
+
+It does **not** create or update a `job_applications` record.
+
+The user must review the returned fields and then use the normal application create/update flow to persist anything.
+
+### Request Body
+
+```json
+{
+  "url": "https://company.example/jobs/software-engineer"
+}
+```
+
+### Request Validation
+
+| Field | Required | Rules |
+| ----- | -------: | ----- |
+| `url` | Yes | Must not be blank; maximum 2,000 characters |
+
+The backend additionally validates the URL before any outbound request.
+
+Only supported public HTTP/HTTPS destinations are accepted.
+
+### Successful Response
+
+**Status:** `200 OK`
+
+Example:
+
+```json
+{
+  "jobUrl": "https://company.example/jobs/software-engineer",
+  "company": "Example Ltd",
+  "jobTitle": "Graduate Software Engineer",
+  "location": "Birmingham",
+  "salary": "£30,000 - £35,000",
+  "jobDescription": "Build and maintain backend services.",
+  "requiredSkills": "Java, Spring Boot, SQL",
+  "benefits": "Hybrid working, pension",
+  "recruiter": "",
+  "applicationDeadline": "2026-09-15",
+  "warnings": []
+}
+```
+
+`applicationDeadline` may be `null` when no reliable date can be extracted.
+
+String fields that are not available are returned as empty strings rather than `null`.
+
+The preview deliberately does **not** include:
+
+```text
+id
+status
+notes
+createdAt
+updatedAt
+```
+
+Those belong to a saved application record rather than an import preview.
+
+### Extraction Behaviour
+
+The backend uses deterministic extraction only.
+
+Priority order:
+
+```text
+1. Schema.org JobPosting JSON-LD
+2. HTML fallback
+```
+
+The backend:
+
+* Strips HTML and returns plain text
+* Normalises extracted values
+* Truncates fields to the existing application save limits
+* Requires a minimum extraction-confidence threshold
+* Returns warnings when useful information could not be extracted reliably
+* Does not use AI
+* Does not save the preview automatically
+
+### URL and SSRF Safety
+
+The backend treats submitted URLs as untrusted input.
+
+Controls include:
+
+* HTTP/HTTPS only
+* Malformed URL rejection
+* Credential-in-URL rejection
+* Hostname canonicalisation
+* Lowercase hostname handling
+* IDN/punycode handling
+* Trailing-dot normalisation
+* Domain/subdomain matching rather than substring matching
+* Loopback/private/link-local/metadata-style destination rejection
+* DNS resolution checks
+* Redirect-target revalidation
+* Redirect-count limits
+* Direct connections without forwarding user cookies or bearer credentials
+* Connection/read timeouts
+* Supported-content-type enforcement
+* 2 MiB streaming response limit
+* Bounded handling of supported compressed responses
+* No JavaScript execution
+* No CAPTCHA/login-wall bypass
+
+LinkedIn and Indeed are intentionally unsupported for automatic import.
+
+Unsupported/protected pages fall back to manual application entry in the mobile client.
+
+### Rate Limit
+
+The endpoint allows:
+
+```text
+10 import attempts per authenticated user per 10 minutes
+```
+
+Attempts that reach the import service count toward the limit even if fetching or extraction later fails.
+
+Bean-validation failures rejected before the service, such as a blank URL, do not consume an import attempt.
+
+A rate-limited response may include:
+
+```json
+{
+  "code": "JOB_IMPORT_RATE_LIMITED",
+  "retryAfterSeconds": 120
+}
+```
+
+and can include:
+
+```http
+Retry-After: 120
+```
+
+The in-memory limiter removes expired user buckets so limiter state remains bounded.
+
+### Persistence Behaviour
+
+There is deliberately no persistence side effect from this endpoint.
+
+```text
+import-preview
+    -> fetch
+    -> extract
+    -> return preview
+    -> user reviews/edits
+    -> POST /api/v1/applications
+    -> persistence
+```
+
+The existing application save endpoint remains the only path that creates the application record.
+
+---
+
 ## List Applications
 
 ```http
@@ -1404,6 +1581,12 @@ The stored HMAC is calculated using the owning user ID.
 
 A reset code issued for one user cannot validly reset another user's account.
 
+## Job Link Import
+
+The import preview is scoped to the authenticated user for verification and rate limiting.
+
+The preview itself is transient and is not stored in PostgreSQL by the import endpoint.
+
 ## Account Deletion
 
 Account deletion does not accept a user ID in the URL or request body.
@@ -1460,6 +1643,26 @@ Example:
 
 ---
 
+# Job Link Import Error Codes
+
+| Code                            | Typical HTTP Status | Meaning |
+| ------------------------------- | ------------------: | ------- |
+| `JOB_IMPORT_INVALID_URL`        |               `400` | URL is malformed or otherwise invalid |
+| `JOB_IMPORT_UNSUPPORTED_URL`    |               `400` | URL points to a destination that cannot safely be imported |
+| `JOB_IMPORT_UNSUPPORTED_SITE`   |               `400` | Website is intentionally unsupported for automatic import |
+| `JOB_IMPORT_RESPONSE_TOO_LARGE` |               `400` | Job page exceeds the supported response-size limit |
+| `JOB_IMPORT_UNSUPPORTED_CONTENT`|               `400` | URL does not return supported public job-page content |
+| `JOB_IMPORT_EXTRACTION_FAILED`  |               `400` | Page could not be extracted with sufficient confidence |
+| `JOB_IMPORT_RATE_LIMITED`       |               `429` | Per-user import-attempt limit has been reached |
+| `JOB_IMPORT_UNAVAILABLE`        |               `502` | Job page is unavailable or redirect handling could not complete safely |
+| `JOB_IMPORT_TIMEOUT`            |               `504` | Job page did not respond within the configured timeout |
+
+For rate limiting, `retryAfterSeconds` can be populated and the response can include the HTTP `Retry-After` header.
+
+Import errors use safe messages and do not echo sensitive URL query-string content.
+
+---
+
 # Password Reset Error Codes
 
 | Code                                     | Typical HTTP Status | Meaning                                         |
@@ -1496,9 +1699,11 @@ Forgot-password account-existence, cooldown, rate-limit and provider-delivery ou
 |             `404 Not Found` | User or owned resource not found                                         |
 |              `409 Conflict` | Registration email already exists                                        |
 |                  `410 Gone` | Verification code has expired                                            |
-|     `429 Too Many Requests` | Verification attempts/cooldown/rate limit exceeded                       |
+|     `429 Too Many Requests` | Verification or job-import rate limit/cooldown exceeded                   |
+|          `502 Bad Gateway` | Job-import target unavailable or redirect chain could not complete safely |
 | `500 Internal Server Error` | Unexpected backend failure                                               |
 |   `503 Service Unavailable` | Verification email provider unavailable                                  |
+|      `504 Gateway Timeout` | Job-import target timed out                                               |
 
 Password-reset email-provider failure during forgot-password is deliberately **not** exposed as `503`.
 
@@ -1702,6 +1907,12 @@ Production backend:
 Render
 ```
 
+Current production/main commit:
+
+```text
+5be432d
+```
+
 Production database:
 
 ```text
@@ -1751,6 +1962,10 @@ GET  /actuator/health
 POST /api/v1/auth/forgot-password
 with a nonexistent syntactically valid email
 -> HTTP 202
+
+POST /api/v1/applications/import-preview
+with a verified authenticated user and supported public job URL
+-> HTTP 200
 ```
 
 ---
@@ -1779,6 +1994,7 @@ DELETE /api/v1/users/me
 APPLICATIONS
 GET    /api/v1/applications
 POST   /api/v1/applications
+POST   /api/v1/applications/import-preview
 GET    /api/v1/applications/summary
 GET    /api/v1/applications/{applicationId}
 PUT    /api/v1/applications/{applicationId}
@@ -1816,6 +2032,15 @@ The following API behaviour has been verified against the deployed production en
 * Refresh-token rotation
 * Unverified-refresh protection
 * Application access after authentication
+* Authenticated Job Link Import access
+* Successful public-job import preview
+* Imported fields remaining editable in the mobile form
+* Successful save after import through the existing application endpoint
+* Add Application form reset after successful save
+* LinkedIn/Indeed automatic-import rejection
+* Unsafe loopback URL rejection
+* Safe import error behaviour without sensitive query-string echoing
+* Existing application edit/delete regression after the import rollout
 * Password-reset endpoint public access
 * Unknown-email forgot-password `202`
 * Real password-reset email delivery
@@ -1833,19 +2058,26 @@ The following API behaviour has been verified against the deployed production en
 Current automated backend validation:
 
 ```text
-Tests run: 106
+Tests run: 144
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
 ```
 
-Focused password-reset validation:
+Focused Job Link Import validation:
 
 ```text
-Tests run: 14
+Tests run: 38
 Failures: 0
 Errors: 0
 Skipped: 0
 BUILD SUCCESS
+```
+
+Latest frontend validation:
+
+```text
+tsc --noEmit
+PASS
 ```

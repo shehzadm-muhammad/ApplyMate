@@ -1,21 +1,21 @@
 ## Current Status
 
-* **Current phase:** Password Reset & Production Release Closeout
+* **Current phase:** Job Link Import & Production Release Closeout
 * **Stable branch:** `main`
-* **Documentation branch:** `docs/password-reset-closeout`
-* **Current production/main commit:** `d1e4d37`
-* **Current release tag:** `v1.4.0`
-* **Next planned release tag:** `v1.5.0`
+* **Current production/main commit:** `5be432d`
+* **Current release tag:** `v1.5.0`
+* **Next planned release tag:** `v1.6.0`
 * **Production Flyway version:** `V9`
-* **Backend automated tests:** `106 passing`
-* **Focused password-reset tests:** `14 passing`
+* **Backend automated tests:** `144 passing`
+* **Focused Job Link Import tests:** `38 passing`
 * **Frontend TypeScript validation:** `PASS`
 * **Production API:** `UP`
 * **Production health:** `UP`
+* **Production Job Link Import:** `VERIFIED`
 
-The frontend MVP, backend MVP, production deployment, mobile distribution, persistent-session authentication, backend reminder synchronisation, account deletion, privacy/store-readiness work, email verification and password reset are complete.
+The frontend MVP, backend MVP, production deployment, mobile distribution, persistent-session authentication, backend reminder synchronisation, account deletion, privacy/store-readiness work, email verification, password reset and Job Link Import are complete.
 
-Authentication email is live in production using:
+Current production architecture includes:
 
 ```text
 React Native / Expo
@@ -26,18 +26,31 @@ Render Spring Boot API
         +----> Neon PostgreSQL
         |
         +----> Resend
+        |
+        +----> Supported public job pages
                  |
                  v
-        verify@applymate.website
+        Safe non-persistent import preview
 ```
 
-Production authentication email now supports:
+Production authentication email supports:
 
 * Email-verification codes
 * Password-reset codes
 * Password-changed notifications
 
-The remaining work for `v1.5.0` is documentation closeout, release tagging and branch cleanup.
+Production Job Link Import supports:
+
+* Authenticated public-job import preview
+* JSON-LD `JobPosting` extraction first
+* Deterministic HTML fallback
+* SSRF-safe URL and redirect validation
+* Safe plain-text extraction
+* Save-limit normalisation/truncation
+* Per-user import rate limiting
+* Editable mobile preview before persistence
+
+The remaining work for `v1.6.0` is documentation closeout, release tagging and final branch cleanup.
 
 ---
 
@@ -2208,6 +2221,517 @@ Production now provides both secure email verification and secure password recov
 
 ---
 
+# Job Link Import Feature
+
+## 14 August 2026 — Job Link Import Architecture Approval
+
+Job Link Import was selected as the next product feature after the `v1.5.0` password-reset release.
+
+Development branch:
+
+```text
+feat/job-link-import
+```
+
+The feature goal was:
+
+```text
+User pastes public job URL
+        |
+        v
+Backend safely fetches page
+        |
+        v
+Extract job details
+        |
+        v
+Return editable preview
+        |
+        v
+User reviews/corrects everything
+        |
+        v
+Existing Save Application flow persists it
+```
+
+### Architecture Decisions
+
+The approved MVP intentionally avoided unnecessary complexity.
+
+Key decisions:
+
+* No AI extraction.
+* No Flyway migration.
+* No separate preview screen.
+* Reuse the existing Add Application form.
+* The import endpoint must never persist an application automatically.
+* JSON-LD Schema.org `JobPosting` extraction is attempted first.
+* Deterministic HTML extraction is the fallback.
+* LinkedIn and Indeed are intentionally unsupported.
+* The user must review and explicitly save imported data.
+* Status and notes remain user-controlled.
+* Existing application save limits remain authoritative.
+
+Additional safety requirements were agreed before implementation:
+
+1. Normalise and truncate imported fields to existing application DTO/model limits.
+2. Strip HTML and return safe plain text.
+3. Require a minimum extraction-success threshold.
+4. Canonicalise hostnames before SSRF/domain checks.
+5. Never log full user-submitted URLs or query strings.
+6. Enforce a 2 MiB response limit while streaming, including compressed content.
+7. Keep the in-memory rate limiter bounded by removing expired entries.
+
+### Development Workflow Reset
+
+An initial patch-based implementation attempt proved brittle against the actual repository state.
+
+The feature branch was therefore reset to the known-good `v1.5.0` baseline.
+
+Verified baseline:
+
+```text
+Tests run: 106
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+From that point, development proceeded only from the exact current files in the repository, with grouped checkpoints, validation commands and explicit stop conditions.
+
+---
+
+## 15–16 August 2026 — Secure Backend Job Import
+
+### Stage A — API Contract
+
+Added the initial import-preview contract:
+
+```text
+JobImportRequest
+JobImportPreview
+JobImportException
+```
+
+No existing production behaviour changed at this stage.
+
+Baseline validation remained:
+
+```text
+106/106 tests passing
+```
+
+### Stage B1 — URL Canonicalisation and SSRF Validation
+
+Implemented safe destination validation including:
+
+* HTTP/HTTPS scheme enforcement
+* URL parsing
+* Hostname canonicalisation
+* Lowercase host handling
+* IDN/punycode handling
+* Trailing-dot handling
+* Domain/subdomain comparison
+* Private-address rejection
+* Loopback rejection
+* Link-local rejection
+* Unsafe destination rejection
+
+Focused result:
+
+```text
+10/10 tests passing
+```
+
+Full backend result:
+
+```text
+116/116 tests passing
+```
+
+### Stage B2 — HTTP Fetching
+
+Expanded `SafeJobPageFetcher` with actual HTTP behaviour.
+
+Implemented:
+
+* Explicit direct connections
+* No inherited proxy use
+* No user cookies
+* No forwarded Authorization header
+* Manual redirect handling
+* Redirect target revalidation
+* 4-second connection timeout
+* 8-second read timeout
+* 2 MiB streaming response limit
+* Safe gzip/deflate handling
+* Decompressed-size enforcement
+* Supported content-type validation
+
+Focused result:
+
+```text
+21/21 fetcher tests passing
+```
+
+Full backend result:
+
+```text
+127/127 tests passing
+```
+
+### Stage C — Structured Extraction
+
+Added:
+
+```text
+jsoup 1.23.1
+JobPageExtractor
+```
+
+Extraction priority:
+
+```text
+1. Schema.org JobPosting JSON-LD
+2. HTML fallback
+```
+
+The extractor:
+
+* Converts imported content to plain text
+* Normalises fields
+* Truncates fields to existing save limits
+* Parses supported deadline formats
+* Applies confidence thresholds
+* Rejects arbitrary webpages that do not look sufficiently like job adverts
+* Returns warnings for incomplete previews
+
+A test exposed an ISO-date parsing issue for:
+
+```text
+2026-09-15T23:59:59Z
+```
+
+The date regex was corrected without broad parser changes.
+
+Validation after the fix:
+
+```text
+8/8 extractor tests passing
+29/29 fetcher + extractor tests passing
+135/135 full backend tests passing
+```
+
+### Stage D — Service, Controller and Error Handling
+
+Added:
+
+```text
+JobImportService
+JobImportController
+```
+
+and integrated safe import errors into the existing global API error handler.
+
+The endpoint became:
+
+```text
+POST /api/v1/applications/import-preview
+```
+
+The endpoint is protected automatically by the existing global Spring Security rules.
+
+No `SecurityConfig` change was required.
+
+The service added:
+
+* Authenticated-user scoped import attempts
+* 10 attempts per user per 10 minutes
+* Bounded expired-entry cleanup
+* Safe fetch/extraction orchestration
+* Non-persistent preview generation
+
+An ApplicationContext test failure identified that Spring could not choose the intended `JobImportService` constructor.
+
+The public production constructor was explicitly marked for dependency injection while the package-private `Clock` constructor remained available for deterministic tests.
+
+Final backend validation:
+
+```text
+Focused Job Link Import:
+38/38 passing
+
+Complete backend:
+144/144 passing
+
+Failures: 0
+Errors:   0
+```
+
+No Flyway migration was added.
+
+No `SecurityConfig` change was added.
+
+No AI dependency was introduced.
+
+### Backend Commit
+
+Committed as:
+
+```text
+7c32417 feat: add secure job link import preview
+```
+
+---
+
+## 17 August 2026 — Mobile Job Import Integration
+
+The existing mobile application structure was preserved.
+
+The React Native frontend lives at repository root under:
+
+```text
+src/
+```
+
+rather than a separate `frontend/` directory.
+
+### Application Service
+
+Added the import-preview client contract to:
+
+```text
+src/services/applicationService.ts
+```
+
+The existing central `apiRequest` client remained responsible for:
+
+* Bearer authentication
+* Access-token refresh
+* Structured `ApiError`
+* Retry behaviour
+* Network error handling
+
+No duplicate HTTP client was introduced.
+
+### Add Application Form
+
+Updated:
+
+```text
+src/components/ApplicationForm.tsx
+src/screens/AddApplicationScreen.tsx
+```
+
+The existing form now supports:
+
+```text
+Paste public job URL
+        |
+        v
+Import job details
+        |
+        v
+POST /api/v1/applications/import-preview
+        |
+        v
+Populate existing editable fields
+        |
+        v
+User reviews/edits
+        |
+        v
+Existing Save Application flow
+```
+
+Imported fields remain editable.
+
+The importer deliberately does not overwrite:
+
+```text
+status
+notes
+```
+
+Import warnings and safe backend errors are displayed in the form.
+
+Failed imports still allow manual entry.
+
+### Edit Application Boundary
+
+`EditApplicationScreen.tsx` remained unchanged.
+
+Job importing is opt-in from Add Application only.
+
+This prevents the shared form from accidentally turning the Edit screen into a re-import workflow.
+
+### Add Form Reset Behaviour
+
+Manual testing identified that a successfully saved application left the Add Application form populated when the user returned to it.
+
+The intended behaviour was:
+
+```text
+Navigate away without saving
+-> keep draft
+
+Successful save
+-> reset form
+```
+
+The Add screen now remounts the form only after a successful save.
+
+If save fails, the form is preserved.
+
+### Frontend Validation
+
+```text
+npm run typecheck
+tsc --noEmit
+PASS
+```
+
+Frontend commit:
+
+```text
+fab622b feat: integrate job link import into application form
+```
+
+---
+
+## 17 August 2026 — Merge and Production Deployment
+
+The complete feature was merged to `main`.
+
+Merge commit:
+
+```text
+5be432d merge: complete job link import
+```
+
+Final local validation before/after merge:
+
+```text
+Frontend typecheck: PASS
+
+Backend:
+Tests run: 144
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+
+SecurityConfig diff: none
+Flyway diff:         none
+```
+
+`main` was pushed successfully:
+
+```text
+619ee57..5be432d  main -> main
+```
+
+Final Git state:
+
+```text
+main = origin/main = 5be432d
+```
+
+The completed local feature branch was deleted after merge.
+
+---
+
+# Job Link Import Production Verification
+
+## 17 August 2026 — Render & Mobile End-to-End Testing
+
+Render deployed:
+
+```text
+5be432d
+```
+
+Production health was revalidated:
+
+```text
+GET /api/v1/status
+-> HTTP 200 / UP
+
+GET /actuator/health
+-> HTTP 200 / UP
+```
+
+The mobile application was then tested against the production Render backend.
+
+### Production Verification
+
+Verified:
+
+```text
+Supported public job import          PASS
+Imported fields remain editable      PASS
+Save through existing application API PASS
+Add form reset after save            PASS
+LinkedIn/Indeed rejection            PASS
+Unsafe URL rejection                 PASS
+Existing application edit            PASS
+Existing application delete          PASS
+```
+
+The unsafe-URL test confirmed the mobile error path did not echo sensitive query-string content.
+
+### Final Production Flow
+
+```text
+Expo mobile application
+        |
+        v
+POST /api/v1/applications/import-preview
+        |
+        v
+Render Spring Boot API
+        |
+        v
+Safe public-page fetch
+        |
+        v
+JSON-LD / HTML extraction
+        |
+        v
+Editable preview returned
+        |
+        v
+User reviews/edits
+        |
+        v
+POST /api/v1/applications
+        |
+        v
+Neon PostgreSQL
+```
+
+The import endpoint itself remains non-persistent.
+
+No production database migration was required.
+
+### Outcome
+
+Job Link Import passed:
+
+* Secure backend validation
+* Full automated backend testing
+* Frontend TypeScript validation
+* Local mobile end-to-end testing
+* Merge validation
+* Render deployment
+* Production health verification
+* Production mobile end-to-end verification
+* Existing CRUD regression checks
+
+The feature is functionally complete and ready for `v1.6.0` release closeout.
+
+---
+
 # Current Release Summary
 
 | Area                                  | Status      |
@@ -2222,6 +2746,13 @@ Production now provides both secure email verification and secure password recov
 | Refresh-token rotation                | Complete    |
 | Session restoration                   | Complete    |
 | Application CRUD                      | Complete    |
+| Job Link Import                       | Complete    |
+| Job-import editable preview           | Complete    |
+| Job-import SSRF protection            | Complete    |
+| Job-import redirect validation        | Complete    |
+| Job-import response limits            | Complete    |
+| Job-import rate limiting              | Complete    |
+| Job-import production verification    | Verified    |
 | User isolation                        | Complete    |
 | Dashboard summary                     | Complete    |
 | Search/filtering/sorting              | Complete    |
@@ -2248,21 +2779,17 @@ Production now provides both secure email verification and secure password recov
 | Password-reset enumeration protection | Complete    |
 | Password-reset rollback protection    | Complete    |
 | Flyway production schema              | V9          |
-| Backend automated tests               | 106 passing |
-| Focused password-reset tests          | 14 passing  |
+| Backend automated tests               | 144 passing |
+| Focused Job Link Import tests         | 38 passing  |
 | Frontend TypeScript validation        | Passing     |
 | Expo Doctor                           | 18/18       |
 | GitHub CI                             | Green       |
 | Render deployment                     | Healthy     |
 | Neon database                         | Healthy     |
-| Real reset email                      | Verified    |
-| Old-password rejection                | Verified    |
-| New-password login                    | Verified    |
-| Password-changed email                | Verified    |
+| Production main commit                | `5be432d`   |
+| Current release tag                   | `v1.5.0`    |
+| Next release tag                      | `v1.6.0`    |
 | Final release documentation           | In progress |
-| `v1.5.0` release tag                  | Pending     |
-
----
 
 # Production Infrastructure
 
@@ -2361,55 +2888,76 @@ This affects startup latency but not stored data or application architecture.
 - Revoke active refresh-token sessions after password reset.
 - Password reset must not implicitly verify an email address.
 - Forgot-password behaviour must not expose account existence.
+- Treat user-submitted job URLs as untrusted input.
+- Never log full submitted job URLs or query strings.
+- Revalidate every job-import redirect target.
+- Reject private, loopback, link-local and otherwise unsafe job-import destinations.
+- Keep job-page response and decompression size bounded.
+- Do not forward mobile authentication headers or user cookies to job sites.
+- Do not persist imported job data until the user explicitly saves it.
+- Keep the per-user job-import rate limiter bounded.
 
 ---
 
 # Release Closeout
 
-The functional work for the **Password Reset** release is complete.
+The functional work for the **Job Link Import** release is complete.
 
 Production currently runs:
 
 ```text
-main commit: d1e4d37
+main commit: 5be432d
 Flyway:      V9
 Backend:     UP
 Database:    healthy
 Email:       operational
-Tests:       106 passing
-Reset tests: 14 passing
+Tests:       144 passing
+Import tests: 38 passing
 Frontend:    typecheck passing
 CI:          green
+```
 
 Production verification confirmed:
 
-/status                    -> HTTP 200
-/actuator/health            -> HTTP 200
-/forgot-password unknown    -> HTTP 202
-Reset email                 -> received
-Old password                -> rejected
-New password                -> accepted
-Password-changed email      -> received
+```text
+/status                         -> HTTP 200
+/actuator/health                 -> HTTP 200
+Supported public job import      -> PASS
+Imported-field editing           -> PASS
+Save through existing CRUD       -> PASS
+Add form reset after save        -> PASS
+LinkedIn/Indeed rejection        -> PASS
+Unsafe URL rejection             -> PASS
+Existing edit/delete regression  -> PASS
+```
 
-Remaining work before v1.5.0:
+No Flyway migration was required for Job Link Import.
 
-Complete documentation updates.
-Update the root README.
-Review documentation diffs.
-Commit and merge documentation closeout.
-Create and push release tag v1.5.0.
-Remove completed temporary feature/documentation branches.
-Next Development Phase
+No application record is created by the import-preview endpoint.
+
+The user must explicitly review and save imported data.
+
+Remaining work before `v1.6.0`:
+
+1. Complete documentation updates.
+2. Update the root README.
+3. Review documentation diffs.
+4. Commit and merge documentation closeout.
+5. Run the final release validation gate.
+6. Create and push release tag `v1.6.0`.
+7. Remove any completed temporary documentation branch.
+
+# Next Development Phase
 
 Potential future development includes:
 
-Job-link import
-Expanded email integration beyond authentication
-Additional application automation
-Profile/account-management improvements
-Google Play public release preparation
-Apple TestFlight/App Store distribution after Apple Developer Program enrolment
+* Expanded email integration beyond authentication
+* Additional application automation
+* Profile/account-management improvements
+* Broader supported job-source compatibility where appropriate
+* Google Play public release preparation
+* Apple TestFlight/App Store distribution after Apple Developer Program enrolment
 
-Password Reset is no longer part of the backlog.
+Job Link Import is no longer part of the backlog.
 
-New feature development should begin after v1.5.0 is formally closed.
+New feature development should begin after `v1.6.0` is formally closed.
