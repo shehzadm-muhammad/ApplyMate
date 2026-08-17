@@ -26,6 +26,7 @@ import com.applymate.backend.auth.VerificationRateLimitException;
 import com.applymate.backend.auth.VerificationResendCooldownException;
 import org.springframework.http.HttpHeaders;
 import com.applymate.backend.auth.passwordreset.PasswordResetException;
+import com.applymate.backend.application.jobimport.JobImportException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -182,6 +183,76 @@ public class GlobalExceptionHandler {
         );
         }
 
+        @ExceptionHandler(JobImportException.class)
+    public ResponseEntity<ApiErrorResponse> handleJobImport(
+            JobImportException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status;
+        String code;
+
+        switch (exception.getReason()) {
+            case INVALID_URL -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_INVALID_URL";
+            }
+
+            case UNSAFE_URL -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_UNSUPPORTED_URL";
+            }
+
+            case UNSUPPORTED_SITE -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_UNSUPPORTED_SITE";
+            }
+
+            case TIMEOUT -> {
+                status = HttpStatus.GATEWAY_TIMEOUT;
+                code = "JOB_IMPORT_TIMEOUT";
+            }
+
+            case RESPONSE_TOO_LARGE -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_RESPONSE_TOO_LARGE";
+            }
+
+            case UNSUPPORTED_CONTENT -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_UNSUPPORTED_CONTENT";
+            }
+
+            case EXTRACTION_FAILED -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "JOB_IMPORT_EXTRACTION_FAILED";
+            }
+
+            case RATE_LIMITED -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                code = "JOB_IMPORT_RATE_LIMITED";
+            }
+
+            case UNAVAILABLE,
+                 TOO_MANY_REDIRECTS -> {
+                status = HttpStatus.BAD_GATEWAY;
+                code = "JOB_IMPORT_UNAVAILABLE";
+            }
+
+            default -> {
+                status = HttpStatus.BAD_GATEWAY;
+                code = "JOB_IMPORT_UNAVAILABLE";
+            }
+        }
+
+        return buildResponse(
+                status,
+                code,
+                exception.getMessage(),
+                request,
+                Map.of(),
+                exception.getRetryAfterSeconds()
+        );
+    }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpectedError(
             Exception exception,
