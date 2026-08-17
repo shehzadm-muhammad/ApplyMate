@@ -13,9 +13,11 @@ import {
 
 import PrimaryButton from "./PrimaryButton";
 import TextField from "./TextField";
+import { ApiError } from "../services/apiClient";
 import type {
   ApplicationStatus,
   JobApplication,
+  JobImportPreview,
 } from "../services/applicationService";
 import { colors } from "../theme/colors";
 
@@ -28,6 +30,7 @@ type ApplicationFormProps = Readonly<{
   initialValues?: ApplicationFormValues;
   submitLabel: string;
   onSubmit: (values: ApplicationFormValues) => Promise<void> | void;
+  onImportJob?: (url: string) => Promise<JobImportPreview>;
 }>;
 
 const statuses: ApplicationStatus[] = [
@@ -54,10 +57,42 @@ const emptyValues: ApplicationFormValues = {
   applicationDeadline: "",
 };
 
+function formatRetryAfter(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds} second${seconds === 1 ? "" : "s"}`;
+  }
+
+  const minutes = Math.ceil(seconds / 60);
+
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+function getImportErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    const retryAfterSeconds =
+      error.response?.retryAfterSeconds;
+
+    if (
+      error.status === 429 &&
+      retryAfterSeconds &&
+      retryAfterSeconds > 0
+    ) {
+      return `${error.message} Try again in ${formatRetryAfter(
+        retryAfterSeconds
+      )}.`;
+    }
+
+    return error.message;
+  }
+
+  return "We couldn't import this job automatically.";
+}
+
 export default function ApplicationForm({
   initialValues = emptyValues,
   submitLabel,
   onSubmit,
+  onImportJob,
 }: ApplicationFormProps) {
   const [jobUrl, setJobUrl] = useState(initialValues.jobUrl);
   const [company, setCompany] = useState(initialValues.company);
@@ -70,18 +105,32 @@ export default function ApplicationForm({
   );
 
   const [recruiter, setRecruiter] = useState(initialValues.recruiter);
+
   const [applicationDeadline, setApplicationDeadline] = useState(
     initialValues.applicationDeadline
   );
+
   const [jobDescription, setJobDescription] = useState(
     initialValues.jobDescription
   );
+
   const [requiredSkills, setRequiredSkills] = useState(
     initialValues.requiredSkills
   );
+
   const [benefits, setBenefits] = useState(initialValues.benefits);
   const [notes, setNotes] = useState(initialValues.notes);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const [importSucceeded, setImportSucceeded] =
+    useState(false);
+
+  const [importError, setImportError] = useState("");
+
+  const [importWarnings, setImportWarnings] =
+    useState<string[]>([]);
 
   const companyRef = useRef<TextInput>(null);
   const jobTitleRef = useRef<TextInput>(null);
@@ -98,8 +147,116 @@ export default function ApplicationForm({
     company.trim().length > 0 &&
     jobTitle.trim().length > 0;
 
+  const clearImportFeedback = () => {
+    setImportSucceeded(false);
+    setImportError("");
+    setImportWarnings([]);
+  };
+
+  const handleJobUrlChange = (value: string) => {
+    setJobUrl(value);
+    clearImportFeedback();
+  };
+
+  const handleImport = async () => {
+    if (!onImportJob || isImporting) {
+      return;
+    }
+
+    const requestedUrl = jobUrl.trim();
+
+    if (!requestedUrl) {
+      setImportSucceeded(false);
+      setImportWarnings([]);
+      setImportError("Paste a job link first.");
+      return;
+    }
+
+    Keyboard.dismiss();
+
+    setIsImporting(true);
+    setImportSucceeded(false);
+    setImportError("");
+    setImportWarnings([]);
+
+    try {
+      const preview =
+        await onImportJob(requestedUrl);
+
+      setJobUrl(
+        preview.jobUrl.trim() || requestedUrl
+      );
+
+      /*
+       * Never erase information the user has already entered
+       * when the importer could not detect that field.
+       */
+      setCompany(
+        (current) =>
+          preview.company.trim() || current
+      );
+
+      setJobTitle(
+        (current) =>
+          preview.jobTitle.trim() || current
+      );
+
+      setLocation(
+        (current) =>
+          preview.location.trim() || current
+      );
+
+      setSalary(
+        (current) =>
+          preview.salary.trim() || current
+      );
+
+      setRecruiter(
+        (current) =>
+          preview.recruiter.trim() || current
+      );
+
+      setApplicationDeadline(
+        (current) =>
+          preview.applicationDeadline?.trim() ||
+          current
+      );
+
+      setJobDescription(
+        (current) =>
+          preview.jobDescription.trim() || current
+      );
+
+      setRequiredSkills(
+        (current) =>
+          preview.requiredSkills.trim() || current
+      );
+
+      setBenefits(
+        (current) =>
+          preview.benefits.trim() || current
+      );
+
+      /*
+       * Status and notes intentionally remain untouched.
+       */
+      setImportWarnings(preview.warnings);
+      setImportSucceeded(true);
+    } catch (error) {
+      setImportError(
+        getImportErrorMessage(error)
+      );
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!isFormValid || isSubmitting) {
+    if (
+      !isFormValid ||
+      isSubmitting ||
+      isImporting
+    ) {
       return;
     }
 
@@ -115,7 +272,8 @@ export default function ApplicationForm({
         salary: salary.trim(),
         status,
         recruiter: recruiter.trim(),
-        applicationDeadline: applicationDeadline.trim(),
+        applicationDeadline:
+          applicationDeadline.trim(),
         jobDescription: jobDescription.trim(),
         requiredSkills: requiredSkills.trim(),
         benefits: benefits.trim(),
@@ -129,7 +287,11 @@ export default function ApplicationForm({
   return (
     <KeyboardAvoidingView
       style={styles.keyboardView}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={
+        Platform.OS === "ios"
+          ? "padding"
+          : undefined
+      }
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -137,12 +299,20 @@ export default function ApplicationForm({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.smartImportCard}>
-          <Text style={styles.smartImportTitle}>Smart job import</Text>
+          {onImportJob ? (
+            <>
+              <Text style={styles.smartImportTitle}>
+                Smart job import
+              </Text>
 
-          <Text style={styles.smartImportDescription}>
-            Paste a job link now. Automatic detail extraction will be added
-            later.
-          </Text>
+              <Text
+                style={styles.smartImportDescription}
+              >
+                Paste a public job link and ApplyMate
+                will try to fill in the details for you.
+              </Text>
+            </>
+          ) : null}
 
           <TextField
             label="Job link"
@@ -152,12 +322,82 @@ export default function ApplicationForm({
             autoCorrect={false}
             returnKeyType="next"
             value={jobUrl}
-            onChangeText={setJobUrl}
-            onSubmitEditing={() => companyRef.current?.focus()}
+            onChangeText={handleJobUrlChange}
+            onSubmitEditing={() =>
+              companyRef.current?.focus()
+            }
           />
+
+          {onImportJob ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Import job details"
+              accessibilityState={{
+                disabled:
+                  isImporting ||
+                  jobUrl.trim().length === 0,
+              }}
+              disabled={
+                isImporting ||
+                jobUrl.trim().length === 0
+              }
+              onPress={() => {
+                void handleImport();
+              }}
+              style={({ pressed }) => [
+                styles.importButton,
+                isImporting ||
+                jobUrl.trim().length === 0
+                  ? styles.importButtonDisabled
+                  : undefined,
+                pressed && !isImporting
+                  ? styles.importButtonPressed
+                  : undefined,
+              ]}
+            >
+              <Text style={styles.importButtonText}>
+                {isImporting
+                  ? "Importing..."
+                  : "Import job details"}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {importSucceeded ? (
+            <View style={styles.importFeedback}>
+              <Text style={styles.importSuccess}>
+                Job details imported. Review everything
+                before saving.
+              </Text>
+
+              {importWarnings.map((warning) => (
+                <Text
+                  key={warning}
+                  style={styles.importWarning}
+                >
+                  • {warning}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {importError ? (
+            <View style={styles.importFeedback}>
+              <Text style={styles.importError}>
+                {importError}
+              </Text>
+
+              <Text style={styles.manualEntryText}>
+                You can still enter the job details
+                manually below.
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <Text style={styles.sectionTitle}>Application details</Text>
+        <Text style={styles.sectionTitle}>
+          Application details
+        </Text>
 
         <View style={styles.form}>
           <TextField
@@ -168,7 +408,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={company}
             onChangeText={setCompany}
-            onSubmitEditing={() => jobTitleRef.current?.focus()}
+            onSubmitEditing={() =>
+              jobTitleRef.current?.focus()
+            }
           />
 
           <TextField
@@ -179,7 +421,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={jobTitle}
             onChangeText={setJobTitle}
-            onSubmitEditing={() => locationRef.current?.focus()}
+            onSubmitEditing={() =>
+              locationRef.current?.focus()
+            }
           />
 
           <TextField
@@ -190,7 +434,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={location}
             onChangeText={setLocation}
-            onSubmitEditing={() => salaryRef.current?.focus()}
+            onSubmitEditing={() =>
+              salaryRef.current?.focus()
+            }
           />
 
           <TextField
@@ -201,7 +447,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={salary}
             onChangeText={setSalary}
-            onSubmitEditing={() => recruiterRef.current?.focus()}
+            onSubmitEditing={() =>
+              recruiterRef.current?.focus()
+            }
           />
 
           <TextField
@@ -212,7 +460,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={recruiter}
             onChangeText={setRecruiter}
-            onSubmitEditing={() => deadlineRef.current?.focus()}
+            onSubmitEditing={() =>
+              deadlineRef.current?.focus()
+            }
           />
 
           <TextField
@@ -223,7 +473,9 @@ export default function ApplicationForm({
             returnKeyType="next"
             value={applicationDeadline}
             onChangeText={setApplicationDeadline}
-            onSubmitEditing={() => descriptionRef.current?.focus()}
+            onSubmitEditing={() =>
+              descriptionRef.current?.focus()
+            }
           />
 
           <TextField
@@ -260,26 +512,35 @@ export default function ApplicationForm({
           />
         </View>
 
-        <Text style={styles.statusLabel}>Status</Text>
+        <Text style={styles.statusLabel}>
+          Status
+        </Text>
 
         <View style={styles.statusList}>
           {statuses.map((option) => {
-            const isSelected = status === option;
+            const isSelected =
+              status === option;
 
             return (
               <Pressable
                 key={option}
                 accessibilityRole="button"
-                onPress={() => setStatus(option)}
+                onPress={() =>
+                  setStatus(option)
+                }
                 style={[
                   styles.statusChip,
-                  isSelected ? styles.statusChipSelected : undefined,
+                  isSelected
+                    ? styles.statusChipSelected
+                    : undefined,
                 ]}
               >
                 <Text
                   style={[
                     styles.statusText,
-                    isSelected ? styles.statusTextSelected : undefined,
+                    isSelected
+                      ? styles.statusTextSelected
+                      : undefined,
                   ]}
                 >
                   {option}
@@ -305,8 +566,16 @@ export default function ApplicationForm({
 
         <View style={styles.buttonSection}>
           <PrimaryButton
-            title={isSubmitting ? "Saving..." : submitLabel}
-            disabled={!isFormValid || isSubmitting}
+            title={
+              isSubmitting
+                ? "Saving..."
+                : submitLabel
+            }
+            disabled={
+              !isFormValid ||
+              isSubmitting ||
+              isImporting
+            }
             onPress={handleSubmit}
           />
         </View>
@@ -346,6 +615,61 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 21,
+  },
+
+  importButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    minHeight: 48,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+  },
+
+  importButtonDisabled: {
+    opacity: 0.45,
+  },
+
+  importButtonPressed: {
+    opacity: 0.8,
+  },
+
+  importButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  importFeedback: {
+    marginTop: 16,
+    gap: 6,
+  },
+
+  importSuccess: {
+    color: "#027A48",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  importWarning: {
+    color: "#8A4B08",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  importError: {
+    color: "#B42318",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  manualEntryText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
   },
 
   sectionTitle: {
