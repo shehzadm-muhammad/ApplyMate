@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ApplicationForm from "../components/ApplicationForm";
 import type { MainTabParamList } from "../navigation/mainTabTypes";
-import { saveApplication } from "../services/applicationService";
+import { importJobPreview, saveApplication } from "../services/applicationService";
 import { colors } from "../theme/colors";
 
 type Props = BottomTabScreenProps<
@@ -15,6 +16,7 @@ type Props = BottomTabScreenProps<
 export default function AddApplicationScreen({
   navigation,
 }: Readonly<Props>) {
+  const [formKey, setFormKey] = useState(0);
   return (
     <SafeAreaView style={styles.safeArea}>
       <Text style={styles.heading}>Add application</Text>
@@ -24,10 +26,13 @@ export default function AddApplicationScreen({
       </Text>
 
       <ApplicationForm
+        key={formKey}
         submitLabel="Save Application"
+        onImportJob={importJobPreview}
         onSubmit={async (values) => {
   try {
     await saveApplication(values);
+    setFormKey((current) => current + 1);
     navigation.navigate("Home");
   } catch (error) {
     console.error("Unable to save application:", error);

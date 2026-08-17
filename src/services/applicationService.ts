@@ -37,6 +37,20 @@ export type ApplicationSummary = {
   rejected: number;
 };
 
+export type JobImportPreview = {
+  jobUrl: string;
+  company: string;
+  jobTitle: string;
+  location: string;
+  salary: string;
+  jobDescription: string;
+  requiredSkills: string;
+  benefits: string;
+  recruiter: string;
+  applicationDeadline: string | null;
+  warnings: string[];
+};
+
 export type ApplicationFormValues = Omit<
   JobApplication,
   "id" | "createdAt"
@@ -220,6 +234,20 @@ export async function deleteApplication(
     `/api/v1/applications/${id}`,
     {
       method: "DELETE",
+    }
+  );
+}
+
+export async function importJobPreview(
+  url: string
+): Promise<JobImportPreview> {
+  return apiRequest<JobImportPreview>(
+    "/api/v1/applications/import-preview",
+    {
+      method: "POST",
+      body: {
+        url,
+      },
     }
   );
 }
