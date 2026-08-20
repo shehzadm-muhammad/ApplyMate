@@ -26,7 +26,13 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+       [
+        "react-native-nitro-google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.780981050021-uvq5g4ggvhouj53gdgbjihl1onqc9aah"
+        }
+      ]
     ],
     "extra": {
       "eas": {

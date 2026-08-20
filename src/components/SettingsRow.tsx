@@ -16,6 +16,7 @@ type SettingsRowProps = Readonly<{
     | "download-outline"
     | "trash-outline"
     | "document-text-outline"
+    | "mail-outline"
     | "log-out-outline";
   title: string;
   description?: string;

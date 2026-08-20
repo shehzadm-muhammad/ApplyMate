@@ -34,6 +34,11 @@ import {
   getRefreshToken,
 } from "../services/tokenStorage";
 
+import {
+  clearGmailNativeSession,
+  disconnectGmailAfterAccountDeletion,
+} from "../services/gmailAuthService";
+
 interface AuthContextValue {
   user: CurrentUserResponse | null;
   pendingVerification: PendingEmailVerification | null;
@@ -75,6 +80,7 @@ export function AuthProvider({
 
   useEffect(() => {
     return setSessionExpiredHandler(() => {
+      void clearGmailNativeSession();
       setUser(null);
     });
   }, []);
@@ -174,6 +180,8 @@ async function clearPendingVerification(): Promise<void> {
   async function signIn(request: LoginRequest): Promise<void> {
     console.log("AUTH: signIn started", request.email);
 
+    await clearGmailNativeSession();
+
     try {
       const loginResponse = await loginUser(request);
 
@@ -227,6 +235,7 @@ async function clearPendingVerification(): Promise<void> {
 
   async function signOut(): Promise<void> {
     await logoutUser();
+    await clearGmailNativeSession();
     setUser(null);
     await clearPendingVerification();
 
@@ -240,7 +249,13 @@ async function clearPendingVerification(): Promise<void> {
     const userId = user.id;
 
     await deleteAccountService(userId);
+
+    await disconnectGmailAfterAccountDeletion(
+      userId,
+    );
+
     setUser(null);
+
     await clearPendingVerification();
   }
 
