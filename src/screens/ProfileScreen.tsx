@@ -30,6 +30,27 @@ import {
 } from "../services/settingsStorage";
 import { colors } from "../theme/colors";
 
+import type { GmailConnection } from "../types/emailIntegration";
+
+import {
+  connectGmail,
+  disconnectGmail,
+  GmailAuthorizationError,
+} from "../services/gmailAuthService";
+
+import {
+  getGmailConnection,
+} from "../services/gmailConnectionStorage";
+
+import {
+  getRecruitmentEmailSuggestions,
+  syncRecruitmentEmails,
+} from "../services/emailIntegrationService";
+
+import {
+  GmailApiError,
+} from "../services/gmailApiService";
+
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Profile">,
   NativeStackScreenProps<RootStackParamList>
@@ -43,6 +64,14 @@ export default function ProfileScreen({
     JobApplication[]
   >([]);
 
+  const [
+    gmailConnection,
+    setGmailConnection,
+  ] = useState<GmailConnection | null>(null);
+
+  const [gmailBusy, setGmailBusy] =
+    useState(false);
+
   const [settings, setSettings] = useState<AppSettings>({
     notificationsEnabled: true,
     faceIdEnabled: false,
@@ -54,17 +83,37 @@ export default function ProfileScreen({
         const [
           storedApplications,
           storedSettings,
+          storedGmailConnection,
+          storedSuggestions,
         ] = await Promise.all([
           getApplications(),
           getSettings(),
+          user
+            ? getGmailConnection(user.id)
+            : Promise.resolve(null),
+          user
+            ? getRecruitmentEmailSuggestions(
+                user.id,
+              )
+            : Promise.resolve([]),
         ]);
 
         setApplications(storedApplications);
         setSettings(storedSettings);
+        setGmailConnection(
+          storedGmailConnection,
+        );
+
+        setEmailSuggestionCount(
+          storedSuggestions.filter(
+            (suggestion) =>
+              suggestion.state === "PENDING",
+          ).length,
+        );
       };
 
       void loadProfile();
-    }, [])
+    }, [user?.id])
   );
 
   const interviewCount = applications.filter(
@@ -85,6 +134,236 @@ export default function ProfileScreen({
 
     setSettings(updatedSettings);
     await saveSettings(updatedSettings);
+  };
+
+  const maskEmail = (email: string): string => {
+    const [localPart, domain] =
+      email.split("@");
+
+    if (!localPart || !domain) {
+      return email;
+    }
+
+    const firstCharacter =
+      localPart.charAt(0);
+
+    return `${firstCharacter}***@${domain}`;
+  };
+
+  const performConnectGmail = async () => {
+    if (!user || gmailBusy) {
+      return;
+    }
+
+    setGmailBusy(true);
+
+    try {
+      const connection =
+        await connectGmail(user.id);
+
+      setGmailConnection(connection);
+      setEmailSuggestionCount(0);
+
+      Alert.alert(
+        "Gmail connected",
+        `Connected as ${maskEmail(
+          connection.googleEmail,
+        )}.`,
+      );
+    } catch (error) {
+      if (error instanceof GmailAuthorizationError) {
+        if (error.code === "CANCELLED") {
+          return;
+        }
+
+        if (error.code === "ACCOUNT_ALREADY_CONNECTED") {
+          Alert.alert(
+            "Gmail already connected",
+            "This Gmail account is already connected to another ApplyMate account on this device. Disconnect it from that ApplyMate account before connecting it here.",
+          );
+
+          return;
+        }
+      }
+
+      Alert.alert(
+        "Couldn't connect Gmail",
+        "Google authorization did not complete. Please try again.",
+      );
+    } finally {
+      setGmailBusy(false);
+    }
+  };
+
+  const [gmailSyncBusy, setGmailSyncBusy] =
+    useState(false);
+
+  const [
+    emailSuggestionCount,
+    setEmailSuggestionCount,
+  ] = useState(0);
+
+  const performSyncGmail = async () => {
+    if (
+      !user ||
+      !gmailConnection ||
+      gmailSyncBusy
+    ) {
+      return;
+    }
+
+    setGmailSyncBusy(true);
+
+    try {
+      const result =
+        await syncRecruitmentEmails(
+          user.id,
+        );
+
+      const [
+        refreshedConnection,
+        suggestions,
+      ] = await Promise.all([
+        getGmailConnection(user.id),
+        getRecruitmentEmailSuggestions(
+          user.id,
+        ),
+      ]);
+
+      setGmailConnection(
+        refreshedConnection,
+      );
+
+      const pendingSuggestions =
+        suggestions.filter(
+          (suggestion) =>
+            suggestion.state ===
+            "PENDING",
+        ).length;
+
+      setEmailSuggestionCount(
+        pendingSuggestions,
+      );
+
+      Alert.alert(
+        "Email check complete",
+        [
+          `${result.candidateIdsFound} candidate email${
+            result.candidateIdsFound === 1
+              ? ""
+              : "s"
+          } found.`,
+          `${result.metadataFetched} new email${
+            result.metadataFetched === 1
+              ? ""
+              : "s"
+          } checked.`,
+          `${result.suggestionsCreated} new suggestion${
+            result.suggestionsCreated === 1
+              ? ""
+              : "s"
+          } found.`,
+        ].join("\n"),
+      );
+    } catch (error) {
+      if (
+        error instanceof
+          GmailAuthorizationError &&
+        error.code === "REAUTH_REQUIRED"
+      ) {
+        Alert.alert(
+          "Reconnect Gmail",
+          "Google needs you to reconnect Gmail before ApplyMate can check for updates.",
+        );
+
+        return;
+      }
+
+      if (
+        error instanceof GmailApiError &&
+        error.status === 429
+      ) {
+        Alert.alert(
+          "Gmail is temporarily busy",
+          "Google has temporarily limited Gmail requests. Please wait a little while and try again. Your applications were not changed.",
+        );
+
+        return;
+      }
+
+      Alert.alert(
+        "Couldn't check Gmail",
+        "ApplyMate couldn't check Gmail right now. Please try again later. Your applications were not changed.",
+      );
+    } finally {
+      setGmailSyncBusy(false);
+    }
+  };
+
+  const performDisconnectGmail = async () => {
+    if (!user || gmailBusy) {
+      return;
+    }
+
+    setGmailBusy(true);
+
+    try {
+      const result =
+        await disconnectGmail(user.id);
+
+      setGmailConnection(null);
+      setEmailSuggestionCount(0);
+
+      if (
+        result.providerRevocationConfirmed
+      ) {
+        Alert.alert(
+          "Gmail disconnected",
+          "ApplyMate no longer has access to this Gmail account.",
+        );
+      } else {
+        Alert.alert(
+          "Gmail disconnected",
+          "The connection was removed from ApplyMate, but Google access revocation could not be confirmed. You can also remove ApplyMate from your Google Account permissions.",
+        );
+      }
+    } catch {
+      Alert.alert(
+        "Couldn't disconnect Gmail",
+        "The Gmail connection could not be removed safely. Please try again.",
+      );
+    } finally {
+      setGmailBusy(false);
+    }
+  };
+
+  const handleGmail = () => {
+    if (gmailBusy) {
+      return;
+    }
+
+    if (!gmailConnection) {
+      void performConnectGmail();
+      return;
+    }
+
+    Alert.alert(
+      "Disconnect Gmail?",
+      "ApplyMate will stop using this Gmail connection. Your saved applications will not be deleted.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: () => {
+            void performDisconnectGmail();
+          },
+        },
+      ],
+    );
   };
 
   const handleExportData = async () => {
@@ -262,6 +541,91 @@ export default function ProfileScreen({
               });
             }}
           />
+        </View>
+
+        <Text style={styles.sectionTitle}>
+          Email integration
+        </Text>
+
+        <View style={styles.settingsCard}>
+          <SettingsRow
+            icon="mail-outline"
+            title={
+              gmailBusy
+                ? "Working..."
+                : gmailConnection
+                  ? "Gmail connected"
+                  : "Connect Gmail"
+            }
+            description={
+              gmailConnection
+                ? `Connected as ${maskEmail(
+                    gmailConnection.googleEmail,
+                  )}. Tap to disconnect.`
+                : "Connect Gmail to check for recruitment-related application updates."
+            }
+            onPress={
+              gmailBusy ||
+              gmailSyncBusy
+                ? undefined
+                : handleGmail
+            }
+          />
+
+          {gmailConnection ? (
+            <SettingsRow
+              icon="mail-outline"
+              title={
+                gmailSyncBusy
+                  ? "Checking Gmail..."
+                  : "Check for updates"
+              }
+              description={
+                emailSuggestionCount > 0
+                  ? `${emailSuggestionCount} pending suggestion${
+                      emailSuggestionCount === 1
+                        ? ""
+                        : "s"
+                    }. Check Gmail for new updates.`
+                  : gmailConnection.lastSyncAt
+                    ? `Last checked ${new Date(
+                        gmailConnection.lastSyncAt,
+                      ).toLocaleString()}.`
+                    : "Manually check Gmail for recruitment-related application updates."
+              }
+              onPress={
+                gmailSyncBusy ||
+                gmailBusy
+                  ? undefined
+                  : () => {
+                      void performSyncGmail();
+                    }
+              }
+            />
+          ) : null}
+
+          {gmailConnection &&
+          emailSuggestionCount > 0 ? (
+            <SettingsRow
+              icon="mail-outline"
+              title="Review email updates"
+              description={`${emailSuggestionCount} pending suggestion${
+                emailSuggestionCount === 1
+                  ? ""
+                  : "s"
+              } waiting for your review.`}
+              onPress={
+                gmailBusy ||
+                gmailSyncBusy
+                  ? undefined
+                  : () => {
+                      navigation.navigate(
+                        "EmailSuggestions",
+                      );
+                    }
+              }
+            />
+          ) : null}
         </View>
 
         <Text style={styles.sectionTitle}>Data and account</Text>

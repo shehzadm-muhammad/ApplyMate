@@ -25,6 +25,7 @@ export type JobApplication = {
   applicationDeadline: string;
 
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type ApplicationSummary = {
@@ -144,6 +145,7 @@ function mapBackendApplication(
     applicationDeadline: application.applicationDeadline ?? "",
 
     createdAt: application.createdAt,
+    updatedAt: application.updatedAt,
   };
 }
 

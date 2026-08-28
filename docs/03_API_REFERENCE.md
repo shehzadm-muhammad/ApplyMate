@@ -36,6 +36,9 @@ The API currently supports:
 
 ---
 
+Recruitment Email Integration in v1.7.0 does **not** add a new ApplyMate backend email endpoint.
+
+Gmail authorization and message retrieval occur directly between the native mobile client and Google. The existing ApplyMate API is used only when the user explicitly creates or confirms an application change.
 # Content Type
 
 Requests containing JSON should use:
@@ -187,6 +190,95 @@ Unverified accounts cannot obtain normal authenticated application access.
 The Job Link Import preview endpoint is protected and requires a verified authenticated user.
 
 ---
+
+# Recruitment Email Integration API Boundary
+
+Recruitment Email Integration is intentionally not implemented as a Spring Boot mailbox-ingestion API.
+
+## Google authorization
+
+The native mobile client requests only:
+
+```text
+https://www.googleapis.com/auth/gmail.readonly
+```
+
+The client does not request server offline access and does not send a Google access/refresh token to Render.
+
+## External Gmail API
+
+The mobile client calls the Google Gmail API directly.
+
+Relevant provider operations are conceptually:
+
+```text
+GET https://gmail.googleapis.com/gmail/v1/users/me/messages
+GET https://gmail.googleapis.com/gmail/v1/users/me/messages/{messageId}
+```
+
+Message listing is bounded.
+
+Message retrieval is staged:
+
+```text
+IDs
+ -> metadata
+ -> conditional bounded textual body
+```
+
+ApplyMate does not use:
+
+```text
+raw MIME
+attachment download
+server-side Gmail webhook
+Pub/Sub mailbox processing
+background polling
+```
+
+Gmail provider errors are handled in the mobile service layer, not by the Spring Boot API.
+
+## ApplyMate API use after review
+
+A suggestion does not create or update a backend record automatically.
+
+If the user creates a missing application from an email, the existing endpoint is used:
+
+```http
+POST /api/v1/applications
+```
+
+If the user confirms a status update for an existing application, the existing full-update endpoint is used:
+
+```http
+PUT /api/v1/applications/{applicationId}
+```
+
+Before that `PUT`, the mobile client reloads the user's current applications and re-evaluates stale/backwards-stage safety.
+
+If the backend update fails, the local suggestion remains pending.
+
+Ignoring a suggestion causes no ApplyMate API mutation.
+
+## No Gmail backend contract
+
+There are no v1.7.0 Spring Boot routes such as:
+
+```text
+/api/v1/gmail
+/api/v1/email-sync
+/api/v1/email-suggestions
+```
+
+There is no Gmail table and no Flyway migration.
+
+Production schema remains:
+
+```text
+V9
+```
+
+This keeps provider tokens and Gmail message data outside the ApplyMate server boundary.
 
 # Application Status Values
 
@@ -1907,10 +1999,16 @@ Production backend:
 Render
 ```
 
-Current production/main commit:
+Current release:
 
 ```text
-5be432d
+v1.7.0
+```
+
+Validated Gmail feature implementation commit before documentation closeout:
+
+```text
+7bf3314
 ```
 
 Production database:
@@ -2081,3 +2179,15 @@ Latest frontend validation:
 tsc --noEmit
 PASS
 ```
+
+Recruitment Email Integration release-candidate verification additionally confirmed:
+
+* Recruitment Email Integration uses no new backend route
+* Production application create/update endpoints still work from the Gmail review flow
+* Application state changes occur only after explicit mobile confirmation
+* Stale/backwards email suggestions are blocked before backend mutation
+* Existing application CRUD/reminders/authentication regressions passed
+* Final production `/api/v1/status` returned HTTP `200`
+* Final production `/actuator/health` returned HTTP `200`
+
+The Gmail provider path itself was tested directly from a standalone Android EAS preview build. It is outside the ApplyMate REST API contract.

@@ -17,10 +17,12 @@ It allows authenticated users to:
 * Securely reset a forgotten password by email
 * Import supported public job links into an editable application preview
 * Permanently delete their account and associated data
-
+* Optionally connect Gmail and manually check for recruitment-email updates
+* Review, confirm or ignore email-derived status suggestions
+* Create a missing application directly from an email-update workflow
 ## Current Phase
 
-**Job Link Import & Production Release Closeout**
+**Recruitment Email Integration & v1.7.0 Release Closeout**
 
 The following phases are complete:
 
@@ -37,40 +39,37 @@ The following phases are complete:
 * Persistent-session authentication
 * Account deletion
 * Privacy-policy and account-deletion webpages
-* Mobile Distribution & Release Readiness
 * Production email verification
-* Resend transactional email integration
-* Email-verification production migration rollout
-* Resend secret-handling hardening
-* Post-rollout database cleanup
-* Secure password-reset backend
-* Mobile forgot-password and reset-password flow
-* Password-reset transactional email delivery
-* Password-reset session revocation
-* Password-reset automated security validation
-* Password-reset production rollout and end-to-end verification
-* Secure backend job-link import preview
-* Job-link SSRF and redirect protection
-* Structured job-data extraction
-* Editable mobile job-import workflow
-* Job-import rate limiting and safe error handling
-* Job-link import production rollout and end-to-end verification
+* Secure password reset
+* Secure Job Link Import
+* Native Gmail connection foundation
+* Direct Gmail API integration
+* Deterministic recruitment-email detection
+* Deterministic application matching
+* Manual Gmail sync and processed-message deduplication
+* Email Updates review/confirm/ignore workflow
+* Current-status/stale-email protection
+* Create Application from unmatched recruitment email
+* Gmail local-state migration and account isolation
+* Standalone Android preview-build verification of the complete Gmail workflow
 
-The application is running successfully against the production Spring Boot backend and Neon PostgreSQL database.
+The Spring Boot/Neon production stack remains healthy and unchanged by the Gmail feature at the backend/database level.
 
-Email verification, password reset and Job Link Import are live and verified end-to-end in production.
+Recruitment Email Integration has been validated on Android against the real Gmail API and the production ApplyMate application API using an authorised Google OAuth test account.
 
+Public unrestricted Gmail rollout is still gated by Google's restricted-scope verification process because the feature uses `gmail.readonly`.
 ## Current Git State
 
 * Stable branch: `main`
-* Current production/main commit: `5be432d`
-* Current release tag: `v1.5.0`
-* Next planned release tag: `v1.6.0`
-* Current milestone: Job Link Import & Production Release Closeout
+* Release branch during closeout: `feat/email-integration`
+* Previous release tag: `v1.6.0`
+* Current release: `v1.7.0`
+* Validated feature implementation commit before documentation closeout: `7bf3314`
+* Current milestone: Recruitment Email Integration & v1.7.0 Release Closeout
 
-The Job Link Import feature has been merged to `main`, pushed to `origin/main`, deployed to Render and verified against production.
+The v1.7.0 implementation branch is clean and aligned with its remote at the validated feature commit.
 
-The `v1.6.0` tag will be created after documentation is updated and final release-closeout checks are complete.
+The final `v1.7.0` tag is intentionally **not** created until the documentation closeout is merged to `main`. This keeps the release tag aligned with the exact commit that documents itself as the current release.
 
 ## Technology Stack
 
@@ -84,6 +83,9 @@ The `v1.6.0` tag will be created after documentation is updated and final releas
 * AsyncStorage
 * Expo Notifications
 * EAS Build
+* `react-native-nitro-google-signin`
+* `react-native-nitro-modules`
+* Google Identity Services / Gmail API
 
 ### Backend
 
@@ -131,35 +133,34 @@ The `v1.6.0` tag will be created after documentation is updated and final releas
 
 ```text
 React Native / Expo application
-               |
-               | HTTPS + JSON
-               | JWT access token
-               | Refresh-token session
-               v
-Render
-Spring Boot API
-       |                |                 |
-       |                | HTTPS           | HTTPS
-       |                v                 v
-       |              Resend        Public job pages
-       |                |                 |
-       |                v                 v
-       |        Verification emails   Import preview
-       |        Password-reset emails JSON-LD / HTML
-       |        Password-changed emails
-       |        verify@applymate.website
        |
-       | Encrypted PostgreSQL connection
-       v
-Neon PostgreSQL
+       +---------------- HTTPS + JSON ----------------> Render Spring Boot API
+       |                                                  |
+       |                                                  +--> Neon PostgreSQL
+       |                                                  +--> Resend
+       |                                                  +--> Public job pages
+       |
+       +----------- OAuth + HTTPS --------------------> Google / Gmail API
+                    gmail.readonly
 ```
 
-The mobile application communicates only with the Spring Boot API.
+Normal account, application, reminder and authentication operations continue to use the Spring Boot API.
 
-It never connects directly to PostgreSQL, Resend or third-party job pages.
+Job Link Import remains backend-controlled: public job pages are fetched only by the Spring Boot service, which performs URL/redirect validation and returns a transient editable preview.
 
-For Job Link Import, the backend performs the outbound fetch, validates the destination and redirects, extracts a non-persistent preview, and returns safe editable fields to the mobile application.
+Recruitment Email Integration is mobile/local-first and deliberately bypasses the ApplyMate backend for Gmail data. The native client authorises the Google account and calls the Gmail API directly.
 
+The Gmail path sends **none** of the following through Render:
+
+```text
+Google access token
+Gmail message body
+Gmail snippet
+raw MIME
+attachment content
+```
+
+No Gmail data is stored in PostgreSQL. Only a user-confirmed application change is sent through the existing authenticated application API.
 ## Production Services
 
 ### Backend
@@ -663,6 +664,150 @@ After a successful save, the Add Application form resets to a fresh state.
 
 The Edit Application screen remains an edit-only workflow and does not expose re-import behaviour.
 
+## Recruitment Email Integration
+
+v1.7.0 provides an optional Gmail-first recruitment-email workflow.
+
+### OAuth and provider boundary
+
+Google scope:
+
+```text
+https://www.googleapis.com/auth/gmail.readonly
+```
+
+Implementation:
+
+* Native Google Identity Services through `react-native-nitro-google-signin`
+* `offlineAccess: false`
+* No server auth code
+* No backend Google refresh token
+* Direct mobile-to-Gmail API traffic
+* Google OAuth app currently External/Testing for authorised test users
+* Unrestricted public Gmail rollout pending Google's restricted-scope verification
+
+Expo Go is not supported for this feature because the app now depends on a native Google/Nitro module. Android development/preview builds have been compiled and tested successfully.
+
+### Manual sync and staged retrieval
+
+Sync is user-triggered from Profile.
+
+The Gmail client:
+
+1. Lists bounded candidate message IDs.
+2. Fetches metadata such as From, Subject, Date and snippet for unseen candidates.
+3. Runs deterministic recruitment-email detection.
+4. Fetches only bounded inline textual body content when metadata is insufficient.
+5. Never requests raw MIME or attachments.
+6. Discards fetched body text after processing.
+7. Persists no body or snippet.
+
+The first search uses a bounded lookback. Subsequent sync uses an overlap window and processed-message IDs to avoid duplicate suggestions.
+
+### Local storage
+
+Connection and account-ownership metadata use secure device storage.
+
+Processed Gmail IDs and suggestion metadata use bounded AsyncStorage state namespaced by:
+
+```text
+ApplyMate user ID
++
+Google account ID
+```
+
+The integration state is retention-limited and capped. A migration moves older Gmail processing state out of a single large SecureStore JSON item into AsyncStorage.
+
+Locally stored suggestion metadata can include:
+
+```text
+provider message/thread IDs
+received timestamp
+detected category/confidence
+matched application ID/confidence
+suggested status
+subject
+sender display
+review state
+```
+
+It does not include the Gmail body or snippet.
+
+### Deterministic detection and matching
+
+No AI is used.
+
+Detection categories:
+
+```text
+APPLICATION_RECEIVED
+ASSESSMENT
+INTERVIEW
+OFFER
+REJECTION
+FOLLOW_UP
+UNKNOWN
+```
+
+Matching uses deterministic company/title/domain/date evidence.
+
+Precision rules suppress low-confidence/noisy items rather than turning the Email Updates screen into a general inbox.
+
+### Review and confirmation safety
+
+Suggestions never update an application automatically.
+
+The review screen lets the user:
+
+* Choose/change an existing application
+* Create a missing application
+* Ignore the suggestion
+* Confirm an actionable change
+
+If a new application is created from an email, safely derived company/job-title/status values can prefill the normal Add Application form; all fields remain editable.
+
+Before Confirm, ApplyMate reloads current applications and resolves the action again.
+
+Safety rules include:
+
+* Normal stages never move backwards because of an older email.
+* An already-rejected application is not automatically revived.
+* Rejection emails are compared with the application's latest `updatedAt` to prevent an older rejection overwriting newer progress.
+* Same-stage email updates can be marked handled without an unnecessary backend write.
+* The suggestion is marked confirmed only after any required application API update succeeds.
+
+### Account isolation and cleanup
+
+Gmail connection/integration state is scoped to the current ApplyMate user.
+
+On the same device, one Gmail account cannot be silently claimed by another ApplyMate account while it is still owned by the first account.
+
+Disconnect:
+
+* Revokes Google access when provider revocation can be confirmed
+* Removes local Gmail connection metadata
+* Removes local processed/suggestion state
+* Leaves saved applications and reminders untouched
+
+Account deletion performs best-effort Gmail cleanup as part of local account cleanup.
+
+Logout clears the active native Google session while keeping the user's namespaced connection metadata available for safe restoration when appropriate.
+
+### v1 boundaries
+
+v1.7.0 intentionally has:
+
+```text
+Gmail only
+manual sync only
+no background worker
+no Pub/Sub
+no Outlook/Yahoo/IMAP
+no AI classifier
+no automatic application mutation
+no Gmail backend/Flyway endpoint
+```
+
 ## Application Statuses
 
 ### Frontend
@@ -774,6 +919,7 @@ Password-reset codes are cryptographically bound to the owning user's ID.
 
 Job-import previews are transient and are not persisted by the import endpoint. Persistence occurs only when the authenticated user submits the existing application save flow.
 
+Gmail integration state is additionally namespaced by the authenticated ApplyMate user ID and selected Google account ID. Gmail messages themselves are not persisted in the backend database.
 ## Mobile Distribution
 
 Expo Application Services is configured for Android and iOS.
@@ -846,6 +992,24 @@ Verified behaviour included:
 
 The email-verification, password-reset and Job Link Import flows have additionally been tested on a real mobile device against the production backend using Expo.
 
+The v1.7.0 Android standalone EAS preview build has also been verified without Metro.
+
+Gmail-specific release-candidate checks included:
+
+```text
+Google account selection          PASS
+gmail.readonly consent            PASS
+Manual Gmail sync                 PASS
+Processed-ID dedupe               PASS
+Suggestion review                 PASS
+No backwards-stage mutation       PASS
+Stale rejection protection        PASS
+Create Application from email     PASS
+Explicit Confirm before update    PASS
+Account isolation                 PASS
+Disconnect cleanup                PASS
+Reconnect                         PASS
+```
 ## iOS Distribution
 
 The Expo/EAS project is configured with the permanent iOS bundle identifier:
@@ -1108,13 +1272,19 @@ The following remain device-side:
 * Notification permission state
 * Face ID preference
 * Device-specific settings
+* Gmail connection/ownership metadata
+* Gmail processed-message IDs
+* Recruitment-email suggestion metadata and review state
 
 Reminder records themselves are backend-synchronised.
+
+Gmail processing state is local-first and never becomes PostgreSQL data. Only a user-confirmed application create/update uses the normal backend API.
 
 Pending email-verification state is stored locally so the verification screen can be restored after an application restart.
 
 Password-reset codes and new passwords are **not** persisted locally.
 
+Gmail message bodies and snippets are also **not** persisted locally.
 ## Environment Strategy
 
 ### Local development
@@ -1161,58 +1331,52 @@ Secret values must never be committed or included in documentation.
 Current automated and manual validation includes:
 
 * TypeScript compiler checks
+* Email-integration deterministic logic checks
 * Expo Doctor
 * Expo web export
-* JUnit
-* MockMvc
-* Mockito
+* JUnit / MockMvc / Mockito
 * Testcontainers
-* Maven tests
-* Docker verification
+* Maven clean verification
+* Docker production-image verification
 * GitHub Actions
-* PowerShell API smoke testing
-* Android emulator testing
-* Real-device Expo testing
-* Production mobile smoke testing
-* Real Resend email-delivery testing
-* Flyway production migration validation
-* Password-reset transaction rollback testing
-* Password-reset session-revocation testing
-* Job-import URL/SSRF validation testing
-* Job-import redirect and response-limit testing
-* Job-import extraction testing
-* Job-import service and controller testing
-* Production Job Link Import end-to-end testing
+* Android native development-build testing
+* Standalone EAS preview-build testing
+* Production API smoke testing
+* Real Gmail OAuth/Gmail API testing
+* Account-isolation testing
+* Existing ApplyMate CRUD/reminder regression testing
 
-Latest backend test result:
+Latest v1.7.0 release gate:
 
 ```text
-Tests run: 144
-Failures: 0
-Errors: 0
-Skipped: 0
-BUILD SUCCESS
+Frontend typecheck                    PASS
+Email integration logic checks        PASS
+Expo dependency check                 PASS
+Expo web export                       PASS
+Backend Maven clean verify            PASS
+Docker image build                    PASS
+Docker runtime user = applymate       PASS
+Standalone Android preview smoke      PASS
+Production /api/v1/status             HTTP 200 / UP
+Production /actuator/health           HTTP 200 / UP
 ```
 
-Focused Job Link Import validation:
+Latest Expo Doctor:
 
 ```text
-Tests run: 38
-Failures: 0
-Errors: 0
-Skipped: 0
-BUILD SUCCESS
+17/18 checks passed
 ```
 
-Latest frontend validation:
+The only warning is React Native Directory metadata reporting `react-native-nitro-google-signin` as untested on the New Architecture. The warning is not suppressed. The native library has nevertheless passed the project's actual Expo SDK 54 Android development and standalone preview builds plus real OAuth/Gmail API runtime testing.
+
+Historical Job Link Import validation remains:
 
 ```text
-tsc --noEmit
-PASS
+Focused Job Link Import tests: 38 passing
+Previous complete backend release baseline: 144 passing
 ```
 
-The Job Link Import feature was also verified manually against the production Render backend from the mobile application.
-
+The Gmail feature changes no Java backend code and introduces no Flyway migration.
 ## Security Rules
 
 * Never commit `.env` or `.env.local`
@@ -1245,7 +1409,15 @@ The Job Link Import feature was also verified manually against the production Re
 * Never persist imported job data until the user reviews and explicitly saves it
 * Run CI before release changes are merged
 * Run smoke tests after production deployment changes
-
+* Request only Google `gmail.readonly` for Gmail integration.
+* Never send Google access tokens or Gmail message content through the ApplyMate backend.
+* Never persist Gmail access tokens, message bodies or snippets in PostgreSQL.
+* Never fetch raw Gmail MIME or attachments for v1.
+* Keep Gmail body retrieval bounded and transient.
+* Namespace Gmail integration state by ApplyMate user and Google account.
+* Never apply an email-derived application change without explicit user confirmation.
+* Revalidate current application state immediately before confirmation.
+* Prevent backwards/stale status mutations.
 ## Portability
 
 ApplyMate uses standard PostgreSQL and JDBC configuration.
@@ -1260,78 +1432,97 @@ Transactional email provider transport is centralised through the backend `Resen
 
 ## Release Status
 
-The functional work for **Job Link Import** is complete, merged to `main`, deployed to production and verified end-to-end.
+The functional work for **Recruitment Email Integration** is complete and release-candidate verified.
 
-Current production/main commit:
+Current release:
 
 ```text
-5be432d
+v1.7.0
 ```
 
-Completed release work includes:
+Previous release:
 
-1. Authenticated `POST /api/v1/applications/import-preview`
-2. Non-persistent import-preview architecture
-3. Safe URL parsing and hostname canonicalisation
-4. Private/loopback/link-local destination blocking
-5. Redirect-by-redirect safety validation
-6. LinkedIn and Indeed unsupported-domain handling
-7. Direct outbound connections without user cookies or authentication headers
-8. Connection and read timeouts
-9. 2 MiB streaming response limit
-10. Safe compressed/decompressed response handling
-11. Content-type validation
-12. JSON-LD Schema.org `JobPosting` extraction
-13. Deterministic HTML fallback extraction
-14. Plain-text sanitisation
-15. Save-limit normalisation and truncation
-16. Minimum extraction-success thresholds
-17. Per-user 10-imports-per-10-minutes rate limiting
-18. Bounded cleanup of expired rate-limit entries
-19. Structured safe import error handling
-20. Existing Add Application form integration
-21. Editable imported preview fields
-22. Status and notes preserved during import
-23. Manual-entry fallback after import failure
-24. Unsaved Add Application draft preservation
-25. Add Application reset after successful save
-26. Edit Application kept unchanged
-27. 38 focused Job Link Import tests
-28. 144-test complete backend suite
-29. Frontend TypeScript validation
-30. Local mobile end-to-end verification
-31. Merge commit `5be432d`
-32. Push to `origin/main`
-33. Render production deployment
-34. Production API health verification
-35. Production successful-import verification
-36. Production imported-field editing verification
-37. Production save/reset verification
-38. Production LinkedIn/Indeed rejection verification
-39. Production unsafe-URL rejection verification
-40. Production existing edit/delete regression verification
+```text
+v1.6.0
+```
 
-No Flyway migration was required for Job Link Import.
+Validated feature implementation commit before documentation closeout:
 
-No application data is persisted by the import endpoint.
+```text
+7bf3314
+```
+
+Release work completed includes:
+
+1. Native Google Identity Services integration
+2. Exact `gmail.readonly` scope
+3. Direct mobile-to-Gmail API architecture
+4. No Gmail backend endpoint or Flyway migration
+5. Secure per-user/per-Google-account connection ownership
+6. Manual Gmail sync
+7. Bounded candidate search
+8. Metadata-first retrieval
+9. Conditional bounded text-body retrieval
+10. No raw MIME/attachment fetching
+11. No Gmail body/snippet persistence
+12. Processed-message deduplication
+13. Bounded local suggestion storage
+14. SecureStore-to-AsyncStorage processing-state migration
+15. Deterministic recruitment-email detection
+16. Deterministic application matching
+17. Precision suppression for weak/noisy suggestions
+18. Email Updates review screen
+19. Choose/change existing application
+20. Create Application from unmatched email
+21. Safe form prefilling
+22. Confirm/Ignore controls
+23. No silent application updates
+24. Current-status revalidation before Confirm
+25. Normal-stage regression prevention
+26. `updatedAt` chronology protection for stale rejection
+27. Backend update before marking suggestion confirmed
+28. Gmail/account isolation between ApplyMate users
+29. Disconnect/revoke cleanup while preserving applications
+30. 401 cached-token refresh recovery
+31. Empty Gmail list-response handling
+32. Real Gmail OAuth/API testing
+33. Standalone Android EAS preview verification
+34. Existing ApplyMate feature regression testing
+35. Backend Maven clean verify
+36. Docker production-image verification
+37. Production API/health HTTP 200 revalidation
+
+The feature uses no new backend route and production Flyway remains:
+
+```text
+V9
+```
+
+Google OAuth is currently validated in External/Testing mode with authorised test users.
+
+Because `gmail.readonly` is a Restricted scope, unrestricted public Gmail access remains dependent on Google's verification process. v1.7.0 documentation must not imply that external approval has already been granted.
 
 Remaining release-closeout work:
 
-1. Update shared project documentation
-2. Update the root README
-3. Commit and merge documentation closeout
-4. Create the `v1.6.0` release tag
-5. Remove completed temporary documentation branches if any
-
+1. Commit and push this documentation refresh
+2. Open/merge the release PR and require green CI
+3. Verify the final `main` commit
+4. Re-run final production health checks
+5. Create and push tag `v1.7.0` on the exact documented `main` commit
+6. Verify `tag == main == origin/main`
+7. Remove completed release branches
 ## Next Development Phase
+
+After v1.7.0 is formally tagged, new product work should start on a dedicated branch.
 
 Potential future work includes:
 
-* Email integration beyond authentication emails
-* Additional automation features
+* Google restricted-scope verification for unrestricted public Gmail rollout
+* Additional email providers only after Gmail v1 is stable
+* Additional application automation
 * Profile/account-management improvements
 * Broader job-source compatibility where technically and legally appropriate
 * Google Play public release preparation
 * Apple TestFlight/App Store distribution after Apple Developer Program enrolment
 
-New product development should begin after the `v1.6.0` release is formally closed.
+The v1.7.0 Gmail implementation itself is complete and should not be expanded during release closeout.
