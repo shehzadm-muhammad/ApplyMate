@@ -8,6 +8,10 @@ import {
   type OneTapSuccessData,
 } from "react-native-nitro-google-signin";
 
+import {
+  clearEmailIntegrationState,
+} from "./emailIntegrationStorage";
+
 import type {
   GmailConnection,
   GmailDisconnectResult,
@@ -512,6 +516,11 @@ export async function disconnectGmail(
       }
     }
   } finally {
+    await clearEmailIntegrationState(
+      applyMateUserId,
+      connection.googleAccountId,
+    );
+
     await removeGmailConnection(
       applyMateUserId,
     );
