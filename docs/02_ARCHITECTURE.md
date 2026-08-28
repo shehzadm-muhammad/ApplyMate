@@ -11,6 +11,10 @@ ApplyMate is a full-stack mobile application consisting of:
 * Email verification during registration
 * Secure password reset
 * Secure public job-link import previews
+* Optional Gmail recruitment-email integration
+* Native Google Identity Services
+* Direct Gmail API `gmail.readonly` access
+* Deterministic recruitment-email detection and application matching
 * Resend transactional email delivery
 * A PostgreSQL relational database
 * Flyway database migrations
@@ -19,95 +23,105 @@ ApplyMate is a full-stack mobile application consisting of:
 * Local device notification scheduling
 * A Docker-based production backend
 * GitHub Actions continuous integration
-* Expo Application Services for mobile builds
+* Expo Application Services for native mobile builds
 * GitHub Pages for public privacy and account-deletion information
 
-The application uses one mobile client, one backend service and one PostgreSQL database.
+The normal system uses one mobile client, one backend service and one PostgreSQL database.
 
 Transactional authentication email is sent from the backend through Resend.
 
-Supported public job pages are fetched only by the backend. The mobile client never connects directly to third-party job sites for import.
+Supported public job pages are fetched only by the backend.
 
----
-
+Recruitment Email Integration is an explicit local-first exception to the normal backend boundary: after user consent, the native mobile client connects directly to Google Identity Services and the Gmail API. Gmail data is not routed through Render or PostgreSQL.
 # Production Architecture
 
 ```text
 +------------------------------------------+
 |        React Native / Expo Client        |
 |                                          |
-|  TypeScript                              |
-|  React Navigation                        |
-|  Expo SecureStore                        |
-|  AsyncStorage                            |
-|  Expo Notifications                      |
-|                                          |
-|  Auth state                              |
-|  Pending verification state              |
-|  Forgot/reset password screens           |
-|  Editable job-import form workflow       |
+| TypeScript / React Navigation            |
+| Expo SecureStore / AsyncStorage          |
+| Expo Notifications                       |
+| Google Identity Services (native)        |
 +--------------------+---------------------+
                      |
-                     | HTTPS + JSON
-                     | JWT access token
-                     | Refresh-token session
-                     v
-+------------------------------------------+
-|                  Render                  |
-|                                          |
-|  Spring Boot Docker Service              |
-|  Java 21                                 |
-|  Spring Security                         |
-|  Validation                              |
-|  JPA / Hibernate                         |
-|  Flyway                                  |
-|  Spring RestClient                       |
-|  jsoup                                   |
-|  Actuator Health Check                   |
-+-----------+----------------+-------------+
-            |                |
-       JDBC over TLS       HTTPS
-            |                |
-            v                v
-+------------------+   +---------------------------+
-|       Neon       |   |          Resend           |
-|                  |   |                           |
-| PostgreSQL 17    |   | Transactional email       |
-| app_users        |   |                           |
-| job_applications |   | Verified domain:          |
-| reminders        |   | applymate.website         |
-| refresh_tokens   |   |                           |
-| email_           |   | Sender:                   |
-| verification_    |   | verify@applymate.website |
-| codes            |   +-------------+-------------+
-| password_reset_  |                 |
-| challenges       |                 | Email
-| flyway_schema_   |                 v
-| history          |          User's email inbox
-+------------------+
-
-            Render outbound HTTPS
-                     |
-                     v
-         +--------------------------+
-         | Supported public job     |
-         | pages                    |
-         |                          |
-         | JSON-LD JobPosting       |
-         | HTML fallback            |
-         +--------------------------+
+          +----------+--------------------------------+
+          |                                           |
+          | HTTPS + JSON                              | OAuth + HTTPS
+          | JWT + refresh session                     | gmail.readonly
+          v                                           v
++------------------------------------+     +----------------------------+
+|               Render               |     |       Google / Gmail       |
+|                                    |     |                            |
+| Spring Boot Docker Service         |     | Account selection          |
+| Java 21                            |     | Gmail API                   |
+| Spring Security                    |     | staged message retrieval   |
+| JPA / Hibernate / Flyway           |     +----------------------------+
+| Spring RestClient / jsoup          |
++-------------+----------------------+
+              |
+      +-------+-----------------------------+
+      |                                     |
+   JDBC/TLS                              HTTPS
+      |                           +---------+----------+
+      v                           v                    v
++------------------+      +-------------+     +----------------------+
+| Neon PostgreSQL  |      |   Resend    |     | Public job pages     |
+| Flyway V9        |      | auth email  |     | safe server fetch    |
++------------------+      +-------------+     +----------------------+
 ```
 
-The mobile application communicates only with the Spring Boot API.
+### Backend-owned data path
 
-It never connects directly to PostgreSQL, Resend or third-party job pages.
+The Spring Boot API remains authoritative for:
 
-For Job Link Import, the backend validates the submitted URL, performs the outbound fetch, revalidates redirects, extracts an editable non-persistent preview and returns safe fields to the mobile client.
+* Accounts/authentication
+* Job applications
+* Reminders
+* Dashboard summaries
+* Job Link Import preview fetching
+* Account deletion
 
-Local operating-system notifications are scheduled by the mobile application and do not require a direct database connection.
+The mobile app never connects directly to PostgreSQL or Resend.
 
----
+Public job pages remain backend-only fetch targets.
 
+### Gmail data path
+
+Gmail is intentionally processed on-device:
+
+```text
+Native Google authorization
+        |
+        v
+gmail.readonly access token
+        |
+        v
+Gmail API
+        |
+        v
+message IDs / metadata
+        |
+        +-- conditional bounded inline text body
+        |
+        v
+deterministic local processing
+        |
+        v
+bounded local suggestions
+        |
+        v
+user Confirm
+        |
+        v
+existing Spring Boot application endpoint
+```
+
+No Google access token, Gmail message body, snippet, raw MIME or attachment content is sent through the ApplyMate backend.
+
+No Gmail table or Flyway migration exists.
+
+Local operating-system notifications remain scheduled by the mobile application.
 # Production Services
 
 ## Backend
@@ -137,10 +151,16 @@ Health endpoint:
 https://applymate-api-bami.onrender.com/actuator/health
 ```
 
-Current production release commit before documentation closeout:
+Current release:
 
 ```text
-5be432d
+v1.7.0
+```
+
+Validated v1.7.0 feature implementation commit before documentation closeout:
+
+```text
+7bf3314
 ```
 
 Render supplies the production HTTP port through the platform environment.
@@ -287,7 +307,15 @@ ApplyMate follows these principles:
 * Production infrastructure can be replaced without redesigning the mobile client.
 
 ---
-
+* Gmail data remains local-first and does not transit the ApplyMate backend.
+* Gmail OAuth requests only `gmail.readonly`.
+* The Gmail integration does not request offline server access or a backend refresh token.
+* Gmail message bodies and snippets are never persisted by ApplyMate.
+* Raw Gmail MIME and attachments are outside the v1 scope.
+* Email-derived suggestions never mutate an application without explicit confirmation.
+* Current application state is reloaded and re-evaluated immediately before confirmation.
+* Old-stage and stale-rejection updates are blocked deterministically.
+* Gmail local state is namespaced by ApplyMate user and Google account.
 # Frontend Architecture
 
 The frontend source is located under:
@@ -443,6 +471,35 @@ The reset code and new password remain transient screen state and are not persis
 
 ---
 
+## Recruitment Email Review Navigation
+
+Authenticated Gmail review is a secondary root-stack flow rather than a new tab.
+
+```text
+Profile
+  |
+  +-- Connect Gmail
+  +-- Check for updates
+  +-- Review email updates
+          |
+          v
+   EmailSuggestions
+          |
+          +-- Choose existing application
+          |
+          +-- Create application
+                  |
+                  v
+             MainApp/AddApplication
+                  |
+                  v
+            Save application
+                  |
+                  v
+          return to EmailSuggestions
+```
+
+The Add Application tab accepts optional email-prefill navigation parameters only for the create-from-email flow. Manual Add-tab presses clear those parameters so stale email data cannot leak into a normal new-application draft.
 # Authentication Context
 
 `AuthContext` coordinates:
@@ -536,6 +593,14 @@ reminderStorage.ts
 settingsStorage.ts
 tokenStorage.ts
 pendingVerificationStorage.ts
+gmailAuthService.ts
+gmailConnectionStorage.ts
+gmailApiService.ts
+emailIntegrationService.ts
+emailIntegrationStorage.ts
+emailSuggestionResolver.ts
+recruitmentEmailDetector.ts
+recruitmentEmailMatcher.ts
 ```
 
 ## Central API Client
@@ -1403,6 +1468,307 @@ The Edit Application screen does not supply the import callback and remains an e
 
 ---
 
+# Recruitment Email Integration Architecture
+
+## Native Google Authorization
+
+The Gmail feature uses:
+
+```text
+react-native-nitro-google-signin
+react-native-nitro-modules
+```
+
+with Expo SDK 54 native builds.
+
+Exact scope:
+
+```text
+https://www.googleapis.com/auth/gmail.readonly
+```
+
+Configuration intentionally uses:
+
+```text
+offlineAccess: false
+```
+
+ApplyMate does not request a Google server auth code and does not maintain a Google refresh token in Spring Boot.
+
+Expo Go is unsupported for the v1.7.0 application because the native Nitro module must exist in the binary.
+
+## Connection Ownership
+
+Gmail connection metadata is stored per ApplyMate user.
+
+A device-local ownership registry prevents the same Google account from being silently claimed by two different ApplyMate accounts at the same time.
+
+Connection matching uses the Google account identifier with email as a defensive fallback.
+
+Logout clears the active native Google session. Disconnect performs provider revocation when possible and removes local connection/integration state.
+
+## Access-Token Lifecycle
+
+Access tokens are obtained on demand from the native Google identity layer.
+
+If Gmail returns HTTP `401`, ApplyMate follows the Android stale-cached-token recovery path:
+
+```text
+401 from Gmail
+   |
+   v
+clearCachedAccessToken(stale token)
+   |
+   v
+getTokens()
+   |
+   v
+retry Gmail operation exactly once
+```
+
+The retry is bounded to one refresh attempt.
+
+No Google token is written into PostgreSQL or AsyncStorage by the email-integration services.
+
+## Gmail API Retrieval
+
+The API base is:
+
+```text
+https://gmail.googleapis.com/gmail/v1/users/me
+```
+
+The v1 sync path uses message listing and message retrieval only.
+
+### Candidate listing
+
+Recruitment-oriented search terms are bounded and deduplicated.
+
+The initial sync uses a finite lookback window. Later syncs use an overlap around the last successful sync timestamp.
+
+Candidate IDs are capped per sync so one large inbox cannot create an unbounded client workload.
+
+### Metadata first
+
+For each unseen message:
+
+```text
+format=metadata
+```
+
+ApplyMate reads only the fields needed for deterministic classification, such as:
+
+```text
+From
+Subject
+Date
+internalDate
+snippet
+message ID
+thread ID
+```
+
+### Body on demand
+
+Only when metadata suggests a recruitment message but remains insufficient for classification does the client request:
+
+```text
+format=full
+```
+
+The parser traverses only bounded inline:
+
+```text
+text/plain
+text/html
+```
+
+parts.
+
+Parts with filenames are ignored.
+
+ApplyMate never calls the Gmail attachment API and never requests raw MIME.
+
+Encoded/body text is size-bounded, HTML is reduced to text, and body content becomes unreachable after the current message is processed.
+
+## Empty and Error Responses
+
+The Gmail API wrapper handles:
+
+* Successful JSON responses
+* Successful empty/204 responses where an explicit fallback is safe
+* Structured Gmail error reasons
+* Timeouts
+* Invalid JSON
+* Authentication failures
+
+No Gmail body or token is logged.
+
+## Deterministic Detection
+
+`recruitmentEmailDetector.ts` uses weighted deterministic patterns rather than AI.
+
+Outputs include:
+
+```text
+category
+confidence
+score
+reason
+requiresBody
+```
+
+Supported categories:
+
+```text
+APPLICATION_RECEIVED
+ASSESSMENT
+INTERVIEW
+OFFER
+REJECTION
+FOLLOW_UP
+UNKNOWN
+```
+
+Low-confidence and unrelated items are not surfaced.
+
+## Deterministic Matching
+
+`recruitmentEmailMatcher.ts` scores evidence including:
+
+* Normalised company name
+* Exact/partial job title
+* Sender domain
+* Job URL domain
+* Plausible application/email chronology
+
+High/medium matches can link a suggestion to an existing application.
+
+Ambiguous matches remain unselected so the user must choose or create the application.
+
+## Suggestion Resolution
+
+`emailSuggestionResolver.ts` is the single decision layer for current-state safety.
+
+Possible outcomes:
+
+```text
+ACTIONABLE
+NO_CHANGE
+STALE
+NEEDS_APPLICATION
+INFORMATIONAL
+```
+
+Rules include:
+
+* Same status -> no backend status write required
+* Earlier normal stage -> stale / never move backwards
+* Current Rejected -> do not automatically revive
+* Rejection email older than latest application update -> stale
+* Missing application -> require choose/create
+* Weak unmatched noise -> suppress
+
+The resolver is used when deciding what to surface and again immediately before confirmation.
+
+## Confirmation Transaction Boundary
+
+A suggestion itself never mutates backend data.
+
+Confirm:
+
+```text
+reload current applications
+        |
+        v
+resolve again
+        |
+        +-- stale/unsafe -> reject confirmation
+        |
+        +-- no change -> mark suggestion handled
+        |
+        +-- actionable
+                |
+                v
+        PUT existing application
+                |
+                v
+        only after success:
+        suggestion -> CONFIRMED
+```
+
+If the backend update fails, the suggestion remains pending.
+
+## Create Application From Email
+
+For an unmatched suggestion, the user can enter the existing Add Application form.
+
+A deterministic prefill helper may populate:
+
+```text
+company
+job title
+status
+```
+
+only when safely derivable from the email subject/sender/category.
+
+The user reviews the normal editable form and saves through the existing application create endpoint.
+
+The newly created application is then returned to the Email Suggestions screen as the selected application.
+
+## Local Persistence
+
+SecureStore holds Gmail connection/ownership metadata.
+
+AsyncStorage holds bounded processing state:
+
+```text
+processed message IDs
+suggestion metadata
+suggestion review state
+```
+
+State is keyed by both:
+
+```text
+ApplyMate user ID
+Google account ID
+```
+
+Retention:
+
+```text
+180 days
+```
+
+Caps:
+
+```text
+processed message IDs: 500
+suggestions:             75
+```
+
+The v1.7.0 migration moves legacy processing JSON out of SecureStore using a write-new-first/delete-legacy-after-success strategy.
+
+Suggestion storage intentionally excludes Gmail body and snippet content.
+
+## Disconnect and Account Deletion
+
+Disconnect removes both current AsyncStorage processing state and legacy SecureStore processing state, plus Gmail connection metadata.
+
+Saved applications and reminders are not removed by Gmail disconnect.
+
+Account deletion invokes best-effort Gmail cleanup after backend account deletion and clears local integration state.
+
+## Public Rollout Boundary
+
+The Google OAuth application has been validated in External/Testing mode.
+
+Because `gmail.readonly` is a Restricted scope, unrestricted public Gmail use requires Google's verification process.
+
+This is an external approval gate, not a reason to route Gmail data through the ApplyMate backend.
+
 # Transactional Email Architecture
 
 ## Shared Resend Transport
@@ -2001,7 +2367,7 @@ The application does not depend on Neon-specific authentication or client librar
 ```text
 Developer computer
 ├── Expo / Metro on port 8081
-├── Android emulator / Expo Go / physical device
+├── Android emulator / native Expo development client / physical device
 ├── Spring Boot on port 8080
 └── Docker
     └── PostgreSQL 17 on port 5432
@@ -2088,16 +2454,16 @@ Maven test/package
 JUnit / MockMvc / Mockito / integration tests
 ```
 
-Current complete backend suite:
+Latest v1.7.0 backend gate:
 
 ```text
-144 tests
-0 failures
-0 errors
-0 skipped
+mvnw clean verify
+PASS
 ```
 
-Focused Job Link Import suite:
+The Gmail feature changes no Java backend code or Flyway migrations.
+
+Historical focused Job Link Import suite:
 
 ```text
 38 tests
@@ -2448,6 +2814,30 @@ Password-changed email arrives
 
 ---
 
+v1.7.0 Android Gmail release-candidate verification additionally passed:
+
+* Native standalone EAS preview launch without Metro
+* Google account selection
+* Gmail `gmail.readonly` consent
+* Real Gmail API sync
+* Cached-token 401 recovery
+* Empty-list response handling
+* Processed-message deduplication
+* Local suggestion storage migration
+* Email Updates review
+* Old-stage downgrade prevention
+* Stale-rejection protection using `updatedAt`
+* Missing-application create flow
+* Explicit Confirm before application mutation
+* Ignore without mutation
+* Cross-ApplyMate-account Gmail state isolation
+* Disconnect cleanup and reconnect
+* Existing application/reminder regression checks
+* Final production `/api/v1/status` and `/actuator/health` HTTP `200`
+
+Latest Expo Doctor is `17/18`; the sole warning is the unsuppressed React Native Directory "Untested on New Architecture" metadata entry for `react-native-nitro-google-signin`. Actual Android native builds and runtime testing passed.
+
+Unrestricted public Gmail availability remains pending Google restricted-scope verification.
 # Job Link Import Production Rollout Architecture
 
 The Job Link Import feature was developed and validated without a database migration or AI dependency.
