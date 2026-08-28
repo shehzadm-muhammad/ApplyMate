@@ -1,11 +1,14 @@
 import {
   getApplications,
+  updateApplication,
+  type ApplicationFormValues,
   type ApplicationStatus,
   type JobApplication,
 } from "./applicationService";
 
 import {
   getAuthorizedGmailAccessToken,
+  refreshAuthorizedGmailAccessToken,
 } from "./gmailAuthService";
 
 import {
@@ -14,6 +17,7 @@ import {
 } from "./gmailConnectionStorage";
 
 import {
+  GmailApiError,
   getGmailMessageMetadata,
   getGmailMessageTextBody,
   listRecruitmentMessageIds,
@@ -32,89 +36,42 @@ import {
   saveEmailIntegrationState,
 } from "./emailIntegrationStorage";
 
+import {
+  resolveRecruitmentEmailSuggestion,
+  shouldSurfaceRecruitmentSuggestion,
+  targetStatusForRecruitmentCategory,
+} from "./emailSuggestionResolver";
+
 import type {
   EmailSyncResult,
-  RecruitmentEmailCategory,
   RecruitmentEmailSuggestion,
 } from "../types/emailIntegration";
 
-function mapCategoryToStatus(
-  category: RecruitmentEmailCategory,
-): ApplicationStatus | null {
-  switch (category) {
-    case "APPLICATION_RECEIVED":
-      return "Applied";
+export type EmailSuggestionActionErrorCode =
+  | "NOT_FOUND"
+  | "ALREADY_REVIEWED"
+  | "APPLICATION_REQUIRED"
+  | "APPLICATION_NOT_FOUND"
+  | "NO_STATUS_CHANGE"
+  | "STATUS_REGRESSION";
 
-    case "ASSESSMENT":
-      return "Assessment";
-
-    case "INTERVIEW":
-      return "Interview";
-
-    case "OFFER":
-      return "Offer";
-
-    case "REJECTION":
-      return "Rejected";
-
-    case "FOLLOW_UP":
-    case "UNKNOWN":
-      return null;
+export class EmailSuggestionActionError extends Error {
+  constructor(
+    public readonly code:
+      EmailSuggestionActionErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name =
+      "EmailSuggestionActionError";
   }
 }
 
-function statusRank(
-  status: ApplicationStatus,
-): number {
-  switch (status) {
-    case "Saved":
-      return 0;
-    case "Applied":
-      return 1;
-    case "Assessment":
-      return 2;
-    case "Interview":
-      return 3;
-    case "Offer":
-      return 4;
-    case "Rejected":
-      return 5;
-  }
-}
-
-function safeSuggestedStatus(
-  application: JobApplication | undefined,
-  detectedStatus: ApplicationStatus | null,
-): ApplicationStatus | null {
-  if (
-    !application ||
-    !detectedStatus
-  ) {
-    return detectedStatus;
-  }
-
-  /*
-   * Never suggest regression to an earlier
-   * normal recruitment stage.
-   */
-  if (
-    detectedStatus !== "Rejected" &&
-    application.status !== "Rejected" &&
-    statusRank(detectedStatus) <
-      statusRank(application.status)
-  ) {
-    return null;
-  }
-
-  if (
-    application.status ===
-      detectedStatus
-  ) {
-    return null;
-  }
-
-  return detectedStatus;
-}
+export type EmailSuggestionConfirmationResult = {
+  applicationId: string;
+  status: ApplicationStatus;
+  applicationUpdated: boolean;
+};
 
 function createSuggestionId(
   googleAccountId: string,
@@ -123,8 +80,33 @@ function createSuggestionId(
   return `${googleAccountId}:${providerMessageId}`;
 }
 
-export async function syncRecruitmentEmails(
+function toApplicationFormValues(
+  application: JobApplication,
+  status: ApplicationStatus,
+): ApplicationFormValues {
+  return {
+    jobUrl: application.jobUrl,
+    company: application.company,
+    jobTitle: application.jobTitle,
+    location: application.location,
+    salary: application.salary,
+    status,
+    notes: application.notes,
+
+    jobDescription:
+      application.jobDescription,
+    requiredSkills:
+      application.requiredSkills,
+    benefits: application.benefits,
+    recruiter: application.recruiter,
+    applicationDeadline:
+      application.applicationDeadline,
+  };
+}
+
+async function syncRecruitmentEmailsWithToken(
   applyMateUserId: string,
+  accessToken: string,
 ): Promise<EmailSyncResult> {
   const connection =
     await getGmailConnection(
@@ -136,11 +118,6 @@ export async function syncRecruitmentEmails(
       "Gmail is not connected.",
     );
   }
-
-  const accessToken =
-    await getAuthorizedGmailAccessToken(
-      applyMateUserId,
-    );
 
   const [
     applications,
@@ -229,11 +206,6 @@ export async function syncRecruitmentEmails(
       processedAt,
     });
 
-    /*
-     * Full body text is deliberately not added
-     * to storage and becomes unreachable after
-     * this loop iteration.
-     */
     if (
       detection.category ===
         "UNKNOWN" ||
@@ -259,33 +231,12 @@ export async function syncRecruitmentEmails(
           )
         : undefined;
 
-    const suggestedStatus =
-      safeSuggestedStatus(
-        matchedApplication,
-        mapCategoryToStatus(
-          detection.category,
-        ),
-      );
-
-    const suggestionId =
-      createSuggestionId(
-        connection.googleAccountId,
-        reference.providerMessageId,
-      );
-
-    if (
-      suggestions.some(
-        (suggestion) =>
-          suggestion.id ===
-          suggestionId,
-      )
-    ) {
-      continue;
-    }
-
     const suggestion:
       RecruitmentEmailSuggestion = {
-        id: suggestionId,
+        id: createSuggestionId(
+          connection.googleAccountId,
+          reference.providerMessageId,
+        ),
 
         applyMateUserId,
         googleAccountId:
@@ -309,7 +260,10 @@ export async function syncRecruitmentEmails(
         matchConfidence:
           match.confidence,
 
-        suggestedStatus,
+        suggestedStatus:
+          targetStatusForRecruitmentCategory(
+            detection.category,
+          ),
 
         detectionReason:
           detection.reason,
@@ -324,6 +278,25 @@ export async function syncRecruitmentEmails(
         state: "PENDING",
         createdAt: processedAt,
       };
+
+    if (
+      suggestions.some(
+        (existing) =>
+          existing.id ===
+          suggestion.id,
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      !shouldSurfaceRecruitmentSuggestion(
+        suggestion,
+        matchedApplication,
+      )
+    ) {
+      continue;
+    }
 
     suggestions.push(suggestion);
     suggestionsCreated += 1;
@@ -342,15 +315,11 @@ export async function syncRecruitmentEmails(
     },
   );
 
-  const savedConnection = {
-    ...connection,
-    lastSyncAt: completedAt,
-  };
-
   const saved =
-    await saveGmailConnection(
-      savedConnection,
-    );
+    await saveGmailConnection({
+      ...connection,
+      lastSyncAt: completedAt,
+    });
 
   if (!saved) {
     throw new Error(
@@ -371,6 +340,40 @@ export async function syncRecruitmentEmails(
   };
 }
 
+export async function syncRecruitmentEmails(
+  applyMateUserId: string,
+): Promise<EmailSyncResult> {
+  const accessToken =
+    await getAuthorizedGmailAccessToken(
+      applyMateUserId,
+    );
+
+  try {
+    return await syncRecruitmentEmailsWithToken(
+      applyMateUserId,
+      accessToken,
+    );
+  } catch (error) {
+    if (
+      error instanceof GmailApiError &&
+      error.status === 401
+    ) {
+      const freshAccessToken =
+        await refreshAuthorizedGmailAccessToken(
+          applyMateUserId,
+          accessToken,
+        );
+
+      return syncRecruitmentEmailsWithToken(
+        applyMateUserId,
+        freshAccessToken,
+      );
+    }
+
+    throw error;
+  }
+}
+
 export async function getRecruitmentEmailSuggestions(
   applyMateUserId: string,
 ): Promise<RecruitmentEmailSuggestion[]> {
@@ -383,11 +386,269 @@ export async function getRecruitmentEmailSuggestions(
     return [];
   }
 
+  const [
+    state,
+    applications,
+  ] = await Promise.all([
+    getEmailIntegrationState(
+      applyMateUserId,
+      connection.googleAccountId,
+    ),
+    getApplications(),
+  ]);
+
+  return state.suggestions.filter(
+    (suggestion) => {
+      if (
+        suggestion.state !==
+        "PENDING"
+      ) {
+        return true;
+      }
+
+      const application =
+        suggestion.matchedApplicationId
+          ? applications.find(
+              (candidate) =>
+                candidate.id ===
+                suggestion.matchedApplicationId,
+            )
+          : undefined;
+
+      return shouldSurfaceRecruitmentSuggestion(
+        suggestion,
+        application,
+      );
+    },
+  );
+}
+
+export async function ignoreRecruitmentEmailSuggestion(
+  applyMateUserId: string,
+  suggestionId: string,
+): Promise<void> {
+  const connection =
+    await getGmailConnection(
+      applyMateUserId,
+    );
+
+  if (!connection) {
+    throw new EmailSuggestionActionError(
+      "NOT_FOUND",
+      "The Gmail connection is no longer available.",
+    );
+  }
+
   const state =
     await getEmailIntegrationState(
       applyMateUserId,
       connection.googleAccountId,
     );
 
-  return state.suggestions;
+  const index =
+    state.suggestions.findIndex(
+      (suggestion) =>
+        suggestion.id ===
+          suggestionId &&
+        suggestion.applyMateUserId ===
+          applyMateUserId &&
+        suggestion.googleAccountId ===
+          connection.googleAccountId,
+    );
+
+  if (index < 0) {
+    throw new EmailSuggestionActionError(
+      "NOT_FOUND",
+      "The email suggestion could not be found.",
+    );
+  }
+
+  const suggestion =
+    state.suggestions[index];
+
+  if (
+    suggestion.state !== "PENDING"
+  ) {
+    throw new EmailSuggestionActionError(
+      "ALREADY_REVIEWED",
+      "This email suggestion has already been reviewed.",
+    );
+  }
+
+  state.suggestions[index] = {
+    ...suggestion,
+    state: "IGNORED",
+  };
+
+  await saveEmailIntegrationState(
+    applyMateUserId,
+    connection.googleAccountId,
+    state,
+  );
+}
+
+export async function confirmRecruitmentEmailSuggestion(
+  applyMateUserId: string,
+  suggestionId: string,
+  selectedApplicationId?: string,
+): Promise<EmailSuggestionConfirmationResult> {
+  const connection =
+    await getGmailConnection(
+      applyMateUserId,
+    );
+
+  if (!connection) {
+    throw new EmailSuggestionActionError(
+      "NOT_FOUND",
+      "The Gmail connection is no longer available.",
+    );
+  }
+
+  const state =
+    await getEmailIntegrationState(
+      applyMateUserId,
+      connection.googleAccountId,
+    );
+
+  const index =
+    state.suggestions.findIndex(
+      (suggestion) =>
+        suggestion.id ===
+          suggestionId &&
+        suggestion.applyMateUserId ===
+          applyMateUserId &&
+        suggestion.googleAccountId ===
+          connection.googleAccountId,
+    );
+
+  if (index < 0) {
+    throw new EmailSuggestionActionError(
+      "NOT_FOUND",
+      "The email suggestion could not be found.",
+    );
+  }
+
+  const suggestion =
+    state.suggestions[index];
+
+  if (
+    suggestion.state !== "PENDING"
+  ) {
+    throw new EmailSuggestionActionError(
+      "ALREADY_REVIEWED",
+      "This email suggestion has already been reviewed.",
+    );
+  }
+
+  const applicationId =
+    selectedApplicationId ??
+    suggestion.matchedApplicationId;
+
+  if (!applicationId) {
+    throw new EmailSuggestionActionError(
+      "APPLICATION_REQUIRED",
+      "Choose the application this email belongs to.",
+    );
+  }
+
+  /*
+   * Always reload current applications here.
+   * Never trust application status captured
+   * during the earlier Gmail sync.
+   */
+  const applications =
+    await getApplications();
+
+  const application =
+    applications.find(
+      (candidate) =>
+        candidate.id === applicationId,
+    );
+
+  if (!application) {
+    throw new EmailSuggestionActionError(
+      "APPLICATION_NOT_FOUND",
+      "The selected application no longer exists.",
+    );
+  }
+
+  const resolution =
+    resolveRecruitmentEmailSuggestion(
+      suggestion,
+      application,
+    );
+
+  if (
+    resolution.kind === "STALE"
+  ) {
+    throw new EmailSuggestionActionError(
+      "STATUS_REGRESSION",
+      resolution.reason,
+    );
+  }
+
+  if (
+    resolution.kind ===
+      "INFORMATIONAL" ||
+    !resolution.targetStatus
+  ) {
+    throw new EmailSuggestionActionError(
+      "NO_STATUS_CHANGE",
+      resolution.reason,
+    );
+  }
+
+  let applicationUpdated = false;
+
+  if (
+    resolution.kind ===
+    "ACTIONABLE"
+  ) {
+    await updateApplication(
+      application.id,
+      toApplicationFormValues(
+        application,
+        resolution.targetStatus,
+      ),
+    );
+
+    applicationUpdated = true;
+  }
+
+  /*
+   * NO_CHANGE is also considered successfully
+   * handled, but no backend write is necessary.
+   */
+  state.suggestions[index] = {
+    ...suggestion,
+    matchedApplicationId:
+      application.id,
+    matchConfidence: "HIGH",
+    suggestedStatus:
+      resolution.targetStatus,
+    matchReason:
+      application.id ===
+      suggestion.matchedApplicationId
+        ? suggestion.matchReason
+        : "Application selected by the user during review.",
+    state: "CONFIRMED",
+  };
+
+  /*
+   * Only mark confirmed after any required
+   * application update has succeeded.
+   */
+  await saveEmailIntegrationState(
+    applyMateUserId,
+    connection.googleAccountId,
+    state,
+  );
+
+  return {
+    applicationId:
+      application.id,
+    status:
+      resolution.targetStatus,
+    applicationUpdated,
+  };
 }

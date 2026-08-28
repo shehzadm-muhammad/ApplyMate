@@ -390,9 +390,122 @@ export async function getAuthorizedGmailAccessToken(
       connection.googleEmail,
     );
 
+  if (owner !== applyMateUserId) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "This Gmail connection is not owned by the current ApplyMate account.",
+    );
+  }
+
+  const googleUser =
+    await restoreMatchingGoogleSession(
+      connection,
+    );
+
+  if (!googleUser) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "Gmail needs to be reconnected.",
+    );
+  }
+
+  let current =
+    GoogleOneTapSignIn.getCurrentUser();
+
   if (
-    owner !== applyMateUserId
+    !current ||
+    !googleAccountMatchesConnection(
+      current,
+      connection,
+    )
   ) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "The active Google account does not match this ApplyMate account.",
+    );
+  }
+
+  /*
+   * Request Gmail permission only when the
+   * currently restored Google session does not
+   * already report the approved scope.
+   */
+  if (
+    !current.scopes.includes(
+      GMAIL_READONLY_SCOPE,
+    )
+  ) {
+    await GoogleOneTapSignIn.requestScopes([
+      GMAIL_READONLY_SCOPE,
+    ]);
+
+    current =
+      GoogleOneTapSignIn.getCurrentUser();
+
+    if (
+      !current ||
+      !googleAccountMatchesConnection(
+        current,
+        connection,
+      ) ||
+      !current.scopes.includes(
+        GMAIL_READONLY_SCOPE,
+      )
+    ) {
+      throw new GmailAuthorizationError(
+        "REAUTH_REQUIRED",
+        "Gmail authorization could not be confirmed.",
+      );
+    }
+  }
+
+  /*
+   * getTokens() is the library's normal API for
+   * retrieving the currently authorised access
+   * token used for Google API requests.
+   */
+  const { accessToken } =
+    await GoogleOneTapSignIn.getTokens();
+
+  if (!accessToken) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "A Gmail access token could not be obtained.",
+    );
+  }
+
+  /*
+   * The token remains transient and is never
+   * persisted or logged.
+   */
+  return accessToken;
+}
+
+export async function refreshAuthorizedGmailAccessToken(
+  applyMateUserId: string,
+  staleAccessToken: string,
+): Promise<string> {
+  ensureGoogleConfigured();
+
+  const connection =
+    await getGmailConnection(
+      applyMateUserId,
+    );
+
+  if (!connection) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "Gmail is not connected for this ApplyMate account.",
+    );
+  }
+
+  const owner =
+    await getGmailConnectionOwner(
+      connection.googleAccountId,
+      connection.googleEmail,
+    );
+
+  if (owner !== applyMateUserId) {
     throw new GmailAuthorizationError(
       "REAUTH_REQUIRED",
       "This Gmail connection is not owned by the current ApplyMate account.",
@@ -432,21 +545,46 @@ export async function getAuthorizedGmailAccessToken(
     );
   }
 
+  try {
+    await GoogleOneTapSignIn.clearCachedAccessToken(
+      staleAccessToken,
+    );
+  } catch {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "The expired Gmail authorization could not be refreshed.",
+    );
+  }
+
   const { accessToken } =
     await GoogleOneTapSignIn.getTokens();
 
   if (!accessToken) {
     throw new GmailAuthorizationError(
       "REAUTH_REQUIRED",
-      "A Gmail access token could not be obtained.",
+      "A fresh Gmail access token could not be obtained.",
     );
   }
 
-  /*
-   * Caller may use the token only for the
-   * immediate Gmail API request.
-   * Never persist or log it.
-   */
+  const refreshedUser =
+    GoogleOneTapSignIn.getCurrentUser();
+
+  if (
+    !refreshedUser ||
+    !googleAccountMatchesConnection(
+      refreshedUser,
+      connection,
+    ) ||
+    !refreshedUser.scopes.includes(
+      GMAIL_READONLY_SCOPE,
+    )
+  ) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "The refreshed Gmail authorization could not be confirmed.",
+    );
+  }
+
   return accessToken;
 }
 

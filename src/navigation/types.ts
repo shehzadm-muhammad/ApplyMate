@@ -1,6 +1,16 @@
+import type {
+  NavigatorScreenParams,
+} from "@react-navigation/native";
+
+import type {
+  MainTabParamList,
+} from "./mainTabTypes";
+
 export type RootStackParamList = {
   Splash: undefined;
+
   Welcome: undefined;
+
   Register: undefined;
 
   VerifyEmail:
@@ -26,7 +36,16 @@ export type RootStackParamList = {
     email: string;
   };
 
-  MainApp: undefined;
+  MainApp:
+    | NavigatorScreenParams<MainTabParamList>
+    | undefined;
+
+  EmailSuggestions:
+    | {
+        suggestionId?: string;
+        selectedApplicationId?: string;
+      }
+    | undefined;
 
   ApplicationDetails: {
     applicationId: string;

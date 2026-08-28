@@ -36,6 +36,7 @@ type GmailListResponse = {
     id: string;
     threadId: string;
   }>;
+  resultSizeEstimate?: number;
 };
 
 type GmailHeader = {
@@ -65,6 +66,7 @@ type GmailMessageResponse = {
 export class GmailApiError extends Error {
   constructor(
     public readonly status: number,
+    public readonly reason: string,
     message: string,
   ) {
     super(message);
@@ -75,6 +77,7 @@ export class GmailApiError extends Error {
 async function fetchGmailJson<T>(
   url: string,
   accessToken: string,
+  emptySuccessValue?: T,
 ): Promise<T> {
   const controller = new AbortController();
 
@@ -91,18 +94,78 @@ async function fetchGmailJson<T>(
       signal: controller.signal,
     });
 
+    /*
+     * Read the body exactly once as text.
+     *
+     * React Native's response.json() throws a raw
+     * SyntaxError when a successful response body is
+     * unexpectedly empty/truncated. Converting it here
+     * lets ApplyMate fail safely with a GmailApiError
+     * instead of leaking a generic JSON parser error.
+     */
+    const responseText =
+      await response.text();
+
     if (!response.ok) {
-      /*
-       * Deliberately do not log or retain Google's
-       * response body. It could contain provider data.
-       */
+      let reason = "unknown";
+
+      if (responseText.trim()) {
+        try {
+          const errorPayload =
+            JSON.parse(responseText) as {
+              error?: {
+                status?: string;
+                errors?: Array<{
+                  reason?: string;
+                }>;
+              };
+            };
+
+          reason =
+            errorPayload.error?.errors?.find(
+              (item) =>
+                typeof item.reason === "string",
+            )?.reason ??
+            errorPayload.error?.status ??
+            "unknown";
+        } catch {
+          // Keep only the generic machine-readable reason.
+        }
+      }
+
       throw new GmailApiError(
         response.status,
+        reason,
         "Gmail API request failed.",
       );
     }
 
-    return (await response.json()) as T;
+    if (!responseText.trim()) {
+      if (
+        response.status === 204 &&
+        emptySuccessValue !== undefined
+      ) {
+        return emptySuccessValue;
+      }
+
+      throw new GmailApiError(
+        response.status,
+        "emptyResponse",
+        "Gmail API returned an empty response.",
+      );
+    }
+
+    try {
+      return JSON.parse(
+        responseText,
+      ) as T;
+    } catch {
+      throw new GmailApiError(
+        response.status,
+        "invalidJson",
+        "Gmail API returned an invalid JSON response.",
+      );
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -181,13 +244,18 @@ export async function listRecruitmentMessageIds(
         ),
         maxResults:
           RESULTS_PER_SEARCH.toString(),
-        fields: "messages(id,threadId)",
+        fields:
+          "messages(id,threadId),resultSizeEstimate",
       });
 
     const response =
       await fetchGmailJson<GmailListResponse>(
         `${GMAIL_API_BASE}/messages?${params.toString()}`,
         accessToken,
+        {
+          messages: [],
+          resultSizeEstimate: 0,
+        },
       );
 
     for (const message of response.messages ?? []) {

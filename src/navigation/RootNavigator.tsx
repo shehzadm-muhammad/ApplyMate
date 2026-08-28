@@ -14,6 +14,7 @@ import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
+import EmailSuggestionsScreen from "../screens/EmailSuggestionsScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -59,6 +60,17 @@ export default function RootNavigator() {
           <Stack.Screen
             name="MainApp"
             component={MainTabNavigator}
+          />
+
+          <Stack.Screen
+            name="EmailSuggestions"
+            component={EmailSuggestionsScreen}
+            options={{
+              headerShown: true,
+              headerTitle: "",
+              headerShadowVisible: false,
+              headerBackTitle: "Profile",
+            }}
           />
 
           <Stack.Screen

@@ -103,7 +103,25 @@ export default function MainTabNavigator() {
       <Tab.Screen
         name="AddApplication"
         component={AddApplicationScreen}
-        options={{ tabBarLabel: "Add" }}
+        options={{
+          tabBarLabel: "Add",
+        }}
+        listeners={({
+          navigation,
+        }) => ({
+          tabPress: () => {
+            navigation.setParams({
+              sourceEmailSuggestionId:
+                undefined,
+              initialCompany:
+                undefined,
+              initialJobTitle:
+                undefined,
+              initialStatus:
+                undefined,
+            });
+          },
+        })}
       />
 
       <Tab.Screen
