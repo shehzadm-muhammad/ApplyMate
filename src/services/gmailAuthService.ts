@@ -24,6 +24,10 @@ import {
   saveGmailConnection,
 } from "./gmailConnectionStorage";
 
+import {
+  GMAIL_INTEGRATION_ENABLED,
+} from "../config/featureFlags";
+
 const GOOGLE_WEB_CLIENT_ID =
   "780981050021-h0ev6qpqndcftpc3eh6tj6f5otkcu6cf.apps.googleusercontent.com";
 
@@ -227,6 +231,12 @@ export async function clearGmailNativeSession(): Promise<void> {
 export async function connectGmail(
   applyMateUserId: string,
 ): Promise<GmailConnection> {
+  if (!GMAIL_INTEGRATION_ENABLED) {
+    throw new GmailAuthorizationError(
+      "AUTHORIZATION_FAILED",
+      "Gmail integration is not enabled in this build.",
+    );
+  }
   ensureGoogleConfigured();
 
   try {
@@ -370,6 +380,12 @@ export async function connectGmail(
 export async function getAuthorizedGmailAccessToken(
   applyMateUserId: string,
 ): Promise<string> {
+  if (!GMAIL_INTEGRATION_ENABLED) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "Gmail integration is not enabled in this build.",
+    );
+  }
   ensureGoogleConfigured();
 
   const connection =
@@ -485,6 +501,12 @@ export async function refreshAuthorizedGmailAccessToken(
   applyMateUserId: string,
   staleAccessToken: string,
 ): Promise<string> {
+  if (!GMAIL_INTEGRATION_ENABLED) {
+    throw new GmailAuthorizationError(
+      "REAUTH_REQUIRED",
+      "Gmail integration is not enabled in this build.",
+    );
+  }
   ensureGoogleConfigured();
 
   const connection =

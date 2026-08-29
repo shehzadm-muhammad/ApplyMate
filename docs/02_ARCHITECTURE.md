@@ -121,6 +121,36 @@ No Google access token, Gmail message body, snippet, raw MIME or attachment cont
 
 No Gmail table or Flyway migration exists.
 
+### Gmail production release gate
+
+Public Gmail availability is controlled at build time by:
+
+```text
+EXPO_PUBLIC_GMAIL_ENABLED
+```
+
+Authoritative values:
+
+```text
+production  -> false
+preview     -> true
+development -> true
+```
+
+The committed frontend template defaults to `false`.
+
+When disabled:
+
+* Profile does not render Gmail controls.
+* `connectGmail` fails before Google authorization.
+* Gmail access-token retrieval/sync fails before restricted-scope authorization.
+* Gmail authorization refresh is blocked before scope requests.
+* Disconnect/cleanup remains callable so previously connected authorised-test state can still be removed.
+
+Both code paths containing `requestScopes([GMAIL_READONLY_SCOPE])` are therefore unreachable through enabled production functionality when the gate is off.
+
+The Gmail data architecture remains device-to-Google and does not route Gmail content or Google access tokens through Render, Neon or Resend.
+
 Local operating-system notifications remain scheduled by the mobile application.
 # Production Services
 
@@ -154,13 +184,25 @@ https://applymate-api-bami.onrender.com/actuator/health
 Current release:
 
 ```text
+v1.8.0
+```
+
+Previous release:
+
+```text
 v1.7.0
 ```
 
-Validated v1.7.0 feature implementation commit before documentation closeout:
+v1.7.0 baseline tag/commit:
 
 ```text
-7bf3314
+092f523427a19b8b55896d2701fe000249221dac
+```
+
+Store marketing version:
+
+```text
+1.0.0
 ```
 
 Render supplies the production HTTP port through the platform environment.
@@ -242,6 +284,12 @@ Expo project:
 @zaib_367/ApplyMate
 ```
 
+EAS project ID:
+
+```text
+51084402-f9c2-459f-b2ee-d97854a31c0e
+```
+
 Permanent identifiers:
 
 ```text
@@ -249,7 +297,48 @@ Android: com.zaib367.applymate
 iOS:     com.zaib367.applymate
 ```
 
-Preview and production EAS environments use the deployed Render API.
+Store marketing version:
+
+```text
+1.0.0
+```
+
+EAS build profiles:
+
+```text
+development   -> development client / internal distribution
+preview       -> internal standalone testing
+ios-simulator -> ios.simulator=true, production environment
+production    -> store distribution / remote auto-increment
+```
+
+EAS environments:
+
+```text
+production:  EXPO_PUBLIC_API_URL=<production Render API>
+             EXPO_PUBLIC_GMAIL_ENABLED=false
+preview:     EXPO_PUBLIC_API_URL=<production Render API>
+             EXPO_PUBLIC_GMAIL_ENABLED=true
+development: EXPO_PUBLIC_GMAIL_ENABLED=true
+```
+
+Native release validation completed during v1.8.0 finalisation:
+
+```text
+Android production AAB: PASS
+Build ID: b4f877a4-7120-4af2-b5b1-cb8c0f933675
+
+iOS Simulator build: PASS
+Build ID: 9d9d5aba-6054-4693-bf57-f2647d444ed4
+```
+
+The iOS app declares:
+
+```text
+ITSAppUsesNonExemptEncryption=false
+```
+
+The Simulator build proves native iOS compilation. App Store signing/TestFlight/submission still requires paid Apple Developer Program access.
 
 ## Public Web Pages
 
@@ -574,6 +663,14 @@ For Android emulator testing, ADB reverse may be used when connecting to a local
 The public API URL may appear in the frontend bundle.
 
 Secrets must never use the `EXPO_PUBLIC_` prefix.
+
+Gmail availability is also build-time frontend configuration:
+
+```text
+EXPO_PUBLIC_GMAIL_ENABLED=false
+```
+
+Only the exact string `true` enables the feature. Missing, malformed or any other value fails safe to disabled. Production EAS is explicitly `false`; authorised preview/development builds are `true`.
 
 ---
 
@@ -3062,4 +3159,8 @@ The following boundaries remain in place:
 * New database changes must use Flyway.
 * Applied Flyway migrations must not be modified.
 * Public privacy/deletion pages remain separate from authenticated API functionality.
-* Standalone iOS distribution remains deferred until Apple Developer Program enrolment.
+* Native iOS compilation is validated through the EAS Simulator profile; App Store distribution remains deferred until Apple Developer Program enrolment.
+* Unrestricted production builds must keep `EXPO_PUBLIC_GMAIL_ENABLED=false` until Google approves the restricted `gmail.readonly` scope.
+* Gmail scope requests must remain behind the production release gate.
+* The release/build/store handoff procedures are authoritative in `docs/07_FINAL_HANDOFF_RUNBOOK.md`.
+* Store metadata/privacy declarations are maintained in `docs/08_STORE_SUBMISSION_PACK.md`.

@@ -51,6 +51,10 @@ import {
   GmailApiError,
 } from "../services/gmailApiService";
 
+import {
+  GMAIL_INTEGRATION_ENABLED,
+} from "../config/featureFlags";
+
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, "Profile">,
   NativeStackScreenProps<RootStackParamList>
@@ -543,6 +547,8 @@ export default function ProfileScreen({
           />
         </View>
 
+        {GMAIL_INTEGRATION_ENABLED ? (
+        <>
         <Text style={styles.sectionTitle}>
           Email integration
         </Text>
@@ -627,6 +633,8 @@ export default function ProfileScreen({
             />
           ) : null}
         </View>
+        </>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Data and account</Text>
 
