@@ -1220,7 +1220,7 @@ This approval item is external to the completed v1.7.0 implementation and must r
 
 # Current Release — v1.8.0
 
-**Status: Final Handoff & Store Ready — final merge/tag mechanics pending**
+**Status: Final Handoff & Store Ready**
 
 Completed:
 
@@ -1232,23 +1232,36 @@ Completed:
 - [x] 144 backend tests
 - [x] Maven package
 - [x] Production Docker validation
-- [x] Android production AAB build
-- [x] iOS Simulator native build
+- [x] Android production AAB pipeline validation
+- [x] iOS Simulator native build validation
 - [x] Final deployment/handoff runbook
 - [x] Store submission pack
 - [x] Gmail public-release feature gate
 - [x] Production Gmail disabled pending Google approval
 - [x] Privacy/deletion disclosure update
 - [x] Six core project documents reconciled to v1.8.0
-- [ ] Run final all-gates validation on final branch
-- [ ] Commit/push finalisation branch
-- [ ] Merge finalisation branch to `main`
-- [ ] Confirm CI green
-- [ ] Rebuild final Android AAB from exact final `main` commit
-- [ ] Re-run iOS Simulator validation from exact final `main` commit
-- [ ] Create annotated `v1.8.0` tag
-- [ ] Verify `tag == main == origin/main`
-- [ ] Delete completed release branch
+- [x] Final all-gates validation on release branch
+- [x] Finalisation branch committed and pushed
+- [x] Release content merged to `main`
+- [x] Production status/health revalidated
+
+Release-content merge commit:
+
+```text
+7f9078d54bb736f2fb0830837c0fd261ec212a7a
+```
+
+Durable release-closure controls:
+
+```text
+required CI -> green
+final native validation -> frozen release source/configuration
+annotated tag -> exact frozen main release commit
+final Git identity -> v1.8.0 tag == main == origin/main
+completed release branch -> removed after closure
+```
+
+These are operational release controls, not future product-roadmap items.
 
 External gates that do not reopen product development:
 
@@ -1258,7 +1271,7 @@ External gates that do not reopen product development:
 
 # Development Freeze
 
-After the `v1.8.0` tag, the product roadmap is closed.
+The product roadmap is closed for `v1.8.0`.
 
 Permitted work:
 

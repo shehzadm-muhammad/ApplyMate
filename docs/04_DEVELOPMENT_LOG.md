@@ -3457,26 +3457,34 @@ This affects startup latency but not stored data or application architecture.
 
 # Release Closeout
 
-The `v1.8.0` finalisation branch contains the final handoff/store-readiness work.
+The `v1.8.0` release-hardening content was committed as:
 
-Remaining release mechanics after documentation update:
+```text
+7c93dab86a95142c7aa939e8a1b4d50ddff972a7
+release: finalize v1.8.0 handoff and store readiness
+```
 
-1. Run the complete frontend/backend/Docker/EAS validation against the final branch.
-2. Commit/push the finalisation branch.
-3. Merge to `main`.
-4. Confirm GitHub Actions are green.
-5. Verify production status/health.
-6. Rebuild final Android AAB from the exact final `main` commit.
-7. Re-run iOS Simulator validation from the exact final `main` commit.
-8. Create annotated `v1.8.0` on that exact commit.
-9. Verify `tag == main == origin/main`.
-10. Delete completed branches and leave clean `main`.
+and merged to `main` as:
 
-The documentation names v1.8.0 before tagging by design so the tag points to a commit that already documents itself correctly.
+```text
+7f9078d54bb736f2fb0830837c0fd261ec212a7a
+merge: finalize v1.8.0 handoff and store readiness
+```
+
+The merge contains the validated release commit as its second parent and was pushed with a clean worktree.
+
+Release closure is defined by durable operational controls rather than a mutable pending checklist in this log:
+
+1. Required GitHub Actions checks must be green for the frozen release commit.
+2. Final Android production AAB and iOS Simulator validation must use the frozen release source/configuration.
+3. The annotated `v1.8.0` tag must identify the exact frozen `main` release commit.
+4. Final Git identity must satisfy `v1.8.0 tag == main == origin/main`.
+5. Completed release branches are removed after closure.
+6. Store submission remains separate and requires the relevant Apple/Google developer accounts.
 
 # Development Freeze
 
-After the final `v1.8.0` tag, ApplyMate feature development is frozen.
+For `v1.8.0` and later, ApplyMate feature development is frozen.
 
 Permitted future work is limited to:
 

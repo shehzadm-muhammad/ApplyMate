@@ -51,9 +51,21 @@ Store marketing version:
 1.0.0
 ```
 
-v1.8.0 is the **Final Handoff & Store Readiness** release. This document intentionally names v1.8.0 before the final annotated tag is created. The tag must only be created after final validation, merge to `main`, green CI and exact commit-identity verification.
+v1.8.0 is the **Final Handoff & Store Readiness** release.
 
-After v1.8.0, product feature development is frozen except for genuine bugs, store/compliance work, Google OAuth verification, security maintenance and provider-required maintenance.
+Release-content merge commit:
+
+```text
+7f9078d54bb736f2fb0830837c0fd261ec212a7a
+```
+
+The annotated `v1.8.0` tag must identify the exact frozen `main` release commit after required CI and final native validation. The durable closure invariant is:
+
+```text
+v1.8.0 tag == main == origin/main
+```
+
+For v1.8.0 and later, product feature development is frozen except for genuine bugs, store/compliance work, Google OAuth verification, security maintenance and provider-required maintenance.
 
 ---
 
@@ -1703,7 +1715,7 @@ Do not:
 
 # 45. Current Known Release Constraints
 
-At v1.8.0 handoff/freeze preparation:
+At v1.8.0 release closeout:
 
 ```text
 Clean-clone reproducibility:               PASS
@@ -1725,7 +1737,7 @@ Before actual store submission, rebuild the final binary from the exact frozen/t
 
 ApplyMate feature development is frozen.
 
-After the final `v1.8.0` store-ready release is tagged:
+For the `v1.8.0` store-ready release and later:
 
 ```text
 new product features: NO

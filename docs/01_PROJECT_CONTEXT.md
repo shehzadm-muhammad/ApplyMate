@@ -57,14 +57,20 @@ Public Gmail remains intentionally disabled in unrestricted production builds wh
 ## Current Git State
 
 * Stable branch: `main`
-* Finalisation branch: `release/final-handoff-store-readiness`
 * Previous release: `v1.7.0`
 * Current release: `v1.8.0`
 * v1.7.0 baseline tag/commit: `092f523427a19b8b55896d2701fe000249221dac`
+* v1.8.0 release-content merge commit: `7f9078d54bb736f2fb0830837c0fd261ec212a7a`
 * Production Flyway: `V9`
 * Store marketing version: `1.0.0`
 
-The final `v1.8.0` annotated tag is intentionally created only after this documentation and release-hardening work is merged to `main`, required CI is green, the final native release validation is complete and `main == origin/main`. Documentation therefore names `v1.8.0` as the current release before tagging, without falsely claiming that the final tag already exists.
+The `v1.8.0` annotated tag is required to point at the exact frozen `main` release commit after required CI and final native validation. The permanent closure invariant is:
+
+```text
+v1.8.0 tag == main == origin/main
+```
+
+Operational tag/build verification belongs in Git, GitHub Actions and EAS release metadata rather than as a time-sensitive pending/created statement in this document.
 
 ## Technology Stack
 
@@ -1450,13 +1456,15 @@ Google `gmail.readonly` remains a Restricted scope. Public Gmail is disabled in 
 
 Flyway remains `V9`; the v1.8.0 Gmail release gate requires no backend API or database migration.
 
-Tag status at documentation time:
+Release identity:
 
 ```text
-v1.8.0 annotated tag: pending final validation / merge / green CI
+Release: v1.8.0
+Release-content merge commit: 7f9078d54bb736f2fb0830837c0fd261ec212a7a
+Final closure invariant: v1.8.0 tag == main == origin/main
 ```
 
-After the v1.8.0 final tag, feature development is frozen except for genuine bug fixes, store/compliance work, Google OAuth verification, security maintenance and provider-required maintenance.
+For `v1.8.0` and later, feature development is frozen except for genuine bug fixes, store/compliance work, Google OAuth verification, security maintenance and provider-required maintenance.
 
 ## Development Freeze
 
