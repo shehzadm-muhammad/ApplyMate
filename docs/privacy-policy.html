@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,101 +10,182 @@
   <main>
     <h1>ApplyMate Privacy Policy</h1>
 
-    <p><strong>Last updated:</strong> 7 August 2026</p>
+```
+<p><strong>Last updated:</strong> 29 August 2026</p>
 
-    <p>
-      ApplyMate is a mobile application that helps users organise and track
-      their job applications.
-    </p>
+<p>
+  ApplyMate is a mobile application that helps users organise and track
+  job applications, application progress and reminders.
+</p>
 
-    <h2>Information we collect</h2>
+<h2>Information we collect</h2>
 
-    <p>When you create an ApplyMate account, we may process:</p>
+<p>When you create and use an ApplyMate account, we may process:</p>
 
-    <ul>
-      <li>Your first and last name</li>
-      <li>Your email address</li>
-      <li>Your encrypted/hashed account password</li>
-      <li>Job application information that you choose to enter</li>
-      <li>Application statuses, notes and related details</li>
-      <li>Reminder information that you create</li>
-      <li>Authentication and session information required to keep your account secure</li>
-    </ul>
+<ul>
+  <li>Your first and last name</li>
+  <li>Your email address</li>
+  <li>Your securely hashed account password</li>
+  <li>Job application information that you choose to enter</li>
+  <li>Application statuses, salary information, notes and related job details</li>
+  <li>Reminder information that you create</li>
+  <li>Authentication and session information required to secure your account</li>
+</ul>
 
-    <h2>How we use your information</h2>
+<h2>How we use your information</h2>
 
-    <p>Your information is used to:</p>
+<p>Your information is used to:</p>
 
-    <ul>
-      <li>Create and maintain your ApplyMate account</li>
-      <li>Authenticate you securely</li>
-      <li>Store and display your job applications</li>
-      <li>Provide dashboard statistics</li>
-      <li>Provide reminder functionality</li>
-      <li>Maintain your signed-in session</li>
-      <li>Protect user accounts and isolate data between users</li>
-    </ul>
+<ul>
+  <li>Create and maintain your ApplyMate account</li>
+  <li>Verify your email address</li>
+  <li>Authenticate you securely</li>
+  <li>Provide password recovery and account-security notifications</li>
+  <li>Store and display your job applications</li>
+  <li>Provide dashboard statistics</li>
+  <li>Provide reminder functionality</li>
+  <li>Maintain your signed-in session</li>
+  <li>Protect user accounts and isolate data between users</li>
+</ul>
 
-    <h2>Notifications</h2>
+<h2>Gmail integration</h2>
 
-    <p>
-      ApplyMate may request permission to schedule local notifications on your
-      device for reminders you create. Notification scheduling is handled on
-      your device.
-    </p>
+<p>
+  ApplyMate contains an optional Gmail recruitment-email integration.
+  Public production access to this integration may be disabled while
+  required Google verification is pending.
+</p>
 
-    <h2>Data storage and security</h2>
+<p>
+  When Gmail integration is enabled and you explicitly choose to connect a
+  Google account, ApplyMate requests read-only Gmail access using the
+  <code>gmail.readonly</code> permission.
+</p>
 
-    <p>
-      ApplyMate's backend services use secure HTTPS connections. Account
-      passwords are not stored in plain text.
-    </p>
+<p>
+  ApplyMate may read Gmail message identifiers, sender information, subject,
+  date, snippets and limited textual message content where needed to identify
+  recruitment-related emails and suggest possible updates to your job
+  applications.
+</p>
 
-    <p>
-      Authentication refresh tokens are stored securely on the mobile device,
-      and only hashed refresh-token values are stored by the backend.
-    </p>
+<p>
+  Gmail access is user-initiated. ApplyMate does not silently change an
+  application based on an email. A suggested application update is sent to
+  the normal ApplyMate application API only after you explicitly confirm it.
+</p>
 
-    <p>
-      Production application data is stored using managed cloud infrastructure.
-    </p>
+<h3>Google data storage and transfer</h3>
 
-    <h2>Data sharing</h2>
+<ul>
+  <li>Gmail API requests are made directly from the mobile device to Google.</li>
+  <li>Google access tokens are not sent to the ApplyMate backend.</li>
+  <li>Gmail message bodies and snippets are not stored in the ApplyMate PostgreSQL database.</li>
+  <li>Raw MIME content and Gmail attachments are not retrieved by the integration.</li>
+  <li>Fetched message text is processed transiently and is not persisted as Gmail message content.</li>
+  <li>Only limited local processing state, such as processed-message identifiers and suggestion metadata, may be stored on your device.</li>
+  <li>Disconnecting Gmail removes ApplyMate's local Gmail connection and processing state.</li>
+</ul>
 
-    <p>
-      ApplyMate does not sell personal information.
-    </p>
+<p>
+  ApplyMate's use of information received from Google APIs complies with the
+  Google API Services User Data Policy, including the applicable Limited Use
+  requirements.
+</p>
 
-    <p>
-      Data may be processed by infrastructure providers that are necessary to
-      operate the application, such as hosting and database providers.
-    </p>
+<h2>Notifications</h2>
 
-    <h2>Account deletion</h2>
+<p>
+  ApplyMate may request permission to schedule local notifications on your
+  device for reminders you create. Reminder-notification scheduling is
+  handled on your device.
+</p>
 
-    <p>
-      You can permanently delete your ApplyMate account from within the app by
-      opening Profile and selecting Delete Account.
-    </p>
+<h2>Data storage and security</h2>
 
-    <p>
-      Deleting your account removes your ApplyMate account and associated
-      application and reminder data.
-    </p>
+<p>
+  ApplyMate's backend services use HTTPS/TLS connections. Account passwords
+  are not stored in plain text.
+</p>
 
-    <p>
-      If you no longer have access to the app, visit our
-      <a href="delete-account.html">account deletion page</a>.
-    </p>
+<p>
+  Authentication refresh tokens are stored securely on the mobile device,
+  and only protected/hashed refresh-session information is stored by the
+  backend.
+</p>
 
-    <h2>Contact</h2>
+<p>
+  Production ApplyMate application data is stored using managed cloud
+  infrastructure.
+</p>
 
-    <p>
-      For privacy or support questions, contact:
-      <a href="mailto:support.applymate@gmail.com">
-        support.applymate@gmail.com
-      </a>
-    </p>
+<h2>Service providers</h2>
+
+<p>
+  ApplyMate uses service providers necessary to operate the application,
+  including:
+</p>
+
+<ul>
+  <li>Render for backend application hosting</li>
+  <li>Neon for managed PostgreSQL database hosting</li>
+  <li>Resend for transactional account emails</li>
+  <li>Google for optional Google account authorisation and Gmail API access</li>
+  <li>Expo Application Services for mobile application build and distribution infrastructure</li>
+</ul>
+
+<h2>Data sharing and advertising</h2>
+
+<p>
+  ApplyMate does not sell personal information.
+</p>
+
+<p>
+  ApplyMate does not currently contain advertising or behavioural
+  advertising SDKs and does not use personal information for cross-app
+  advertising tracking.
+</p>
+
+<p>
+  Data may be processed by service providers where necessary to deliver
+  ApplyMate functionality, maintain infrastructure, provide transactional
+  email or fulfil a user-requested Google integration.
+</p>
+
+<h2>Account deletion</h2>
+
+<p>
+  You can permanently delete your ApplyMate account from within the app by
+  opening Profile and selecting Delete Account.
+</p>
+
+<p>
+  Account deletion removes the ApplyMate user account and associated
+  applications, reminders, active authentication sessions and related
+  backend account data.
+</p>
+
+<p>
+  The mobile application also clears account-specific local ApplyMate state,
+  including local authentication information, reminder-notification state
+  and Gmail integration state associated with the deleted account.
+</p>
+
+<p>
+  If you no longer have access to the app, visit our
+  <a href="delete-account.html">account deletion page</a>.
+</p>
+
+<h2>Contact</h2>
+
+<p>
+  For privacy, account-deletion or support questions, contact:
+  <a href="mailto:support.applymate@gmail.com">
+    support.applymate@gmail.com
+  </a>
+</p>
+```
+
   </main>
 </body>
 </html>

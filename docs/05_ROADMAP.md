@@ -2,82 +2,56 @@
 
 ## Current Phase
 
-**Recruitment Email Integration & v1.7.0 Release Closeout**
+**Final Handoff & Store Submission Readiness**
 
-Recruitment Email Integration is functionally complete and has passed Android standalone release-candidate testing.
+Product roadmap status: **FROZEN**.
 
-Current architecture:
-
-```text
-React Native / Expo
-        |
-        +----> Render Spring Boot API
-        |         +--> Neon PostgreSQL
-        |         +--> Resend
-        |         +--> supported public job pages
-        |
-        +----> Google Identity Services / Gmail API
-                 gmail.readonly
-                 manual sync
-                 local deterministic processing
-```
+Sections below describing future ideas are retained as historical backlog/context only. They are not approved development commitments. After v1.8.0, ApplyMate feature development is frozen except for genuine bugs, store/compliance requirements, Google OAuth verification, security maintenance and provider-required maintenance.
 
 Current release:
 
 ```text
-v1.7.0
+v1.8.0
 ```
 
 Previous release:
 
 ```text
-v1.6.0
+v1.7.0
 ```
 
-Validated feature implementation commit before documentation closeout:
+Store marketing version:
 
 ```text
-7bf3314
+1.0.0
 ```
 
-Current production Flyway version:
+Current production Flyway:
 
 ```text
 V9
 ```
 
-Latest v1.7.0 release gate:
+Final handoff/store-readiness gates completed so far:
 
 ```text
-Frontend typecheck                   PASS
-Email integration logic checks       PASS
-Expo web export                      PASS
-Expo Doctor                          17/18 known Nitro metadata warning
-Backend Maven clean verify           PASS
-Docker production image              PASS
-Android standalone EAS preview       PASS
-Production /api/v1/status            HTTP 200 / UP
-Production /actuator/health          HTTP 200 / UP
+Full handoff audit                    PASS
+Independent clean clone               PASS
+Frontend npm ci/typecheck/export      PASS
+Expo dependencies                     PASS
+Expo Doctor                           17/18 known Nitro warning
+Backend clean verify                  144/144 PASS
+Backend package                       PASS
+Production Docker image               PASS
+Android production AAB                PASS
+iOS Simulator native build            PASS
+Handoff runbook                       COMPLETE
+Store submission pack                 COMPLETE
+Production Gmail gate                 PASS / OFF
+Production Gmail UI in export         ABSENT
 ```
 
-Gmail implementation verification:
-
-```text
-Connect/consent                      PASS
-Manual sync                          PASS
-Deduplication                        PASS
-Review/confirm/ignore                PASS
-No normal-stage downgrade            PASS
-Stale rejection protection           PASS
-Create Application from email        PASS
-Account isolation                    PASS
-Disconnect/reconnect                 PASS
-No backend/Flyway Gmail change       PASS
-```
-
-Unrestricted public Gmail availability remains pending Google restricted-scope verification.
-
----
+Unrestricted public Gmail remains pending Google restricted-scope verification. Store submission itself remains account-gated and is not part of the completed product-feature scope.
 
 # Phase 1 — Frontend MVP
 
@@ -504,23 +478,30 @@ https://shehzadm-muhammad.github.io/ApplyMate/
 
 ## 6.8 iOS Distribution
 
-**Status: Configuration complete; standalone distribution deferred**
+**Status: Native compilation validated; App Store distribution account-gated**
 
 - [x] Configure permanent bundle identifier
 - [x] Configure EAS project
 - [x] Configure production API environment
-- [x] Test development flow using Expo Go
-- [x] Review Apple Developer requirements
+- [x] Add `ios-simulator` EAS profile
+- [x] Run credential-free native iOS Simulator EAS build
+- [x] Confirm native iOS compilation succeeds
+- [x] Add `ITSAppUsesNonExemptEncryption=false` declaration
 - [ ] Enrol in Apple Developer Program
-- [ ] Generate standalone iOS build
+- [ ] Generate App Store production `.ipa`
 - [ ] Test through TestFlight
 - [ ] Submit to App Store
 
-Standalone iOS/TestFlight/App Store distribution requires paid Apple Developer Program enrolment.
+Validated Simulator build:
 
-This remains intentionally deferred.
+```text
+Build ID: 9d9d5aba-6054-4693-bf57-f2647d444ed4
+Version: 1.0.0
+Build number: 1
+Result: PASS
+```
 
----
+Paid Apple Developer Program enrolment is required only for App Store distribution credentials/TestFlight/submission, not for the native compilation proof already completed.
 
 ## 6.9 Release Validation
 
@@ -562,43 +543,52 @@ v1.3.0
 
 # Phase 7 — Public Store Release
 
-**Status: Future**
+**Status: Submission pack/build pipeline ready; developer-account submission deferred**
 
-This phase remains intentionally separate from the current portfolio/internal distribution milestone.
+The product and release pipeline are prepared for store submission, but actual store submission is intentionally deferred until the relevant paid developer accounts exist.
 
 ## Google Play
 
-- [ ] Create or verify Google Play Console developer access
-- [ ] Prepare Play Store listing
-- [ ] Prepare store description
-- [ ] Prepare screenshots
-- [ ] Prepare promotional assets
-- [ ] Complete Data Safety questionnaire
-- [ ] Supply Privacy Policy URL
-- [ ] Supply account-deletion URL
-- [ ] Generate production Android App Bundle
-- [ ] Upload to Play Console
-- [ ] Configure internal/closed testing
-- [ ] Complete physical-device testing where required
-- [ ] Resolve Play review/testing issues
-- [ ] Submit public release
+- [ ] Create/verify Google Play Console developer access
+- [x] Prepare Play Store metadata and descriptions
+- [x] Prepare screenshot/graphic asset plan
+- [x] Draft Data Safety answers from actual code/services
+- [x] Supply source-controlled Privacy Policy URL
+- [x] Supply source-controlled account-deletion URL
+- [x] Generate/validate a production Android App Bundle
+- [x] Verify existing EAS-managed Android signing credentials
+- [ ] Create Play Console application
+- [ ] Enable/configure Play App Signing
+- [ ] Add Play App Signing SHA-1 to Google OAuth configuration before public Gmail enablement
+- [ ] Configure Play submission service account
+- [ ] Rebuild final AAB from frozen `v1.8.0` commit
+- [ ] Upload/submit after account creation
 
 ## Apple App Store
 
 - [ ] Enrol in Apple Developer Program
-- [ ] Configure App Store Connect
-- [ ] Generate iOS distribution build
-- [ ] Upload to TestFlight
-- [ ] Test on authorised physical iOS devices
-- [ ] Prepare App Store listing
-- [ ] Prepare screenshots
-- [ ] Complete App Privacy information
-- [ ] Supply Privacy Policy URL
-- [ ] Verify account deletion
-- [ ] Resolve App Review issues
-- [ ] Submit public release
+- [ ] Configure App Store Connect application record
+- [x] Prepare App Store metadata and descriptions
+- [x] Prepare iPhone/iPad screenshot plan
+- [x] Draft App Privacy answers from actual code/services
+- [x] Supply Privacy Policy URL
+- [x] Verify in-app and external account deletion paths
+- [x] Validate native iOS compilation via Simulator EAS build
+- [ ] Generate signed App Store production `.ipa`
+- [ ] Upload to TestFlight/App Store Connect
+- [ ] Submit after paid account enrolment
 
----
+## Gmail public availability
+
+- [x] Confirm `gmail.readonly` remains Restricted
+- [x] Keep authorised test-user Gmail flow working in preview/development
+- [x] Add production feature gate
+- [x] Set production `EXPO_PUBLIC_GMAIL_ENABLED=false`
+- [x] Hide Gmail UI and guard scope requests in production
+- [ ] Complete Google's restricted-scope production verification
+- [ ] Enable public Gmail only after approval and revalidation
+
+Store/account gates do not reopen product feature development.
 
 # Phase 8 — Account & Authentication Improvements
 
@@ -1228,115 +1218,57 @@ This approval item is external to the completed v1.7.0 implementation and must r
 
 ---
 
-# Current Release Closeout — v1.7.0
+# Current Release — v1.8.0
 
-Recruitment Email Integration is functionally complete and release-candidate verified.
+**Status: Final Handoff & Store Ready — final merge/tag mechanics pending**
 
-Current release state:
+Completed:
 
-```text
-Release:
-v1.7.0
+- [x] Full handoff audit
+- [x] Independent clean-clone validation
+- [x] Frontend install/typecheck/export validation
+- [x] Expo dependency validation
+- [x] Expo Doctor review
+- [x] 144 backend tests
+- [x] Maven package
+- [x] Production Docker validation
+- [x] Android production AAB build
+- [x] iOS Simulator native build
+- [x] Final deployment/handoff runbook
+- [x] Store submission pack
+- [x] Gmail public-release feature gate
+- [x] Production Gmail disabled pending Google approval
+- [x] Privacy/deletion disclosure update
+- [x] Six core project documents reconciled to v1.8.0
+- [ ] Run final all-gates validation on final branch
+- [ ] Commit/push finalisation branch
+- [ ] Merge finalisation branch to `main`
+- [ ] Confirm CI green
+- [ ] Rebuild final Android AAB from exact final `main` commit
+- [ ] Re-run iOS Simulator validation from exact final `main` commit
+- [ ] Create annotated `v1.8.0` tag
+- [ ] Verify `tag == main == origin/main`
+- [ ] Delete completed release branch
 
-Validated feature implementation commit:
-7bf3314
+External gates that do not reopen product development:
 
-Flyway:
-V9
+- Apple Developer Program enrolment before App Store distribution
+- Google Play developer account/application before Play submission
+- Google restricted-scope verification before public Gmail is enabled
 
-Backend/Flyway Gmail changes:
-none
+# Development Freeze
 
-Frontend typecheck:
-PASS
+After the `v1.8.0` tag, the product roadmap is closed.
 
-Email logic:
-PASS
-
-Expo web export:
-PASS
-
-Expo Doctor:
-17/18 (known unsuppressed Nitro metadata warning)
-
-Backend Maven clean verify:
-PASS
-
-Docker:
-PASS
-
-Android standalone preview:
-PASS
-
-Production API:
-/api/v1/status -> HTTP 200 / UP
-
-Production health:
-/actuator/health -> HTTP 200 / UP
-```
-
-Gmail end-to-end verification:
+Permitted work:
 
 ```text
-Native Google authorization          PASS
-gmail.readonly                       PASS
-Manual sync                          PASS
-Deduplication                        PASS
-Review/confirm/ignore                PASS
-No backwards normal-stage update     PASS
-Stale rejection protection           PASS
-Create Application from email        PASS
-Account isolation                    PASS
-Disconnect cleanup/reconnect         PASS
-Existing ApplyMate regression        PASS
+genuine bugs
+store/compliance requirements
+Google OAuth verification
+security maintenance
+provider/API maintenance
+operational documentation corrections
 ```
 
-Remaining work before tagging:
-
-* [ ] Commit this six-document refresh
-* [ ] Push the release branch
-* [ ] Open/merge PR with green CI
-* [ ] Pull and verify final `main`
-* [ ] Re-run final production health/status
-* [ ] Create `v1.7.0` tag on the exact documented main commit
-* [ ] Push `v1.7.0`
-* [ ] Verify tag == `main` == `origin/main`
-* [ ] Remove completed release branches
-
-Google restricted-scope verification remains a separate external gate for unrestricted public Gmail availability and does not require a backend architectural change.
-
----
-
-# Current Immediate Task
-
-Complete the `v1.7.0` Recruitment Email Integration release closeout.
-
-The functional scope is frozen.
-
-Next actions:
-
-```text
-Documentation commit
-    -> push feature branch
-    -> PR / green CI
-    -> merge to main
-    -> verify production health
-    -> tag v1.7.0
-    -> verify tag == main == origin/main
-    -> delete completed branches
-```
-
-After `v1.7.0` is formally tagged, future work should begin on a dedicated branch.
-
-Possible next work:
-
-```text
-Google OAuth restricted-scope verification/public Gmail rollout
-Additional email providers
-Profile/account improvements
-Additional application automation
-Broader supported job-source compatibility
-Public store preparation
-```
-
-Recruitment Email Integration is complete and should not be expanded during release closeout.
+Historical future phases/backlog above remain reference material only and are not approved implementation scope.

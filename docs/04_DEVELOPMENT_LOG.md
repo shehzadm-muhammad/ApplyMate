@@ -1,44 +1,29 @@
 ## Current Status
 
-* **Current phase:** Recruitment Email Integration & v1.7.0 Release Closeout
+* **Current phase:** Final Handoff & Store Submission Readiness
 * **Stable branch:** `main`
-* **Release branch during closeout:** `feat/email-integration`
-* **Previous release:** `v1.6.0`
-* **Current release:** `v1.7.0`
-* **Validated feature implementation commit:** `7bf3314`
+* **Finalisation branch:** `release/final-handoff-store-readiness`
+* **Previous release:** `v1.7.0`
+* **Current release:** `v1.8.0`
+* **v1.7.0 baseline:** `092f523427a19b8b55896d2701fe000249221dac`
 * **Production Flyway version:** `V9`
-* **Frontend TypeScript validation:** `PASS`
-* **Email integration logic checks:** `PASS`
-* **Expo web export:** `PASS`
-* **Backend Maven clean verify:** `PASS`
-* **Docker image validation:** `PASS`
-* **Android standalone preview:** `PASS`
+* **Store marketing version:** `1.0.0`
+* **Clean-clone frontend:** `PASS`
+* **Backend Maven clean verify:** `144/144 PASS`
+* **Production Docker validation:** `PASS`
+* **Android production AAB:** `PASS`
+* **iOS Simulator native build:** `PASS`
+* **Production Gmail gate:** `PASS / OFF`
 * **Production API:** `UP`
 * **Production health:** `UP`
 
-The v1.7.0 release adds optional Gmail recruitment-email integration without introducing a backend Gmail endpoint or database migration.
-
-Current architecture:
-
-```text
-React Native / Expo
-        |
-        +----> Render Spring Boot API
-        |         +--> Neon PostgreSQL
-        |         +--> Resend
-        |         +--> supported public job pages
-        |
-        +----> Google Identity Services / Gmail API
-                 gmail.readonly
-                 direct mobile access
-```
-
-The release has passed real Gmail OAuth/API testing, the four production-flow safety scenarios, account isolation, disconnect/reconnect, storage migration, existing ApplyMate regression checks, standalone EAS preview testing and final production API health verification.
+ApplyMate feature development is complete. v1.8.0 finalises handoff, store-build validation, compliance documentation and safe public Gmail gating without adding a backend Gmail endpoint or database migration.
 
 Google unrestricted public Gmail access remains externally gated by restricted-scope verification.
+
 # July 2026
 
-## 12 July 2026 â€” Project Initialisation
+## 12 July 2026 — Project Initialisation
 
 ### Completed
 
@@ -55,7 +40,7 @@ ApplyMate had a working React Native foundation with a defined visual identity a
 
 ---
 
-## 13 July 2026 â€” Authentication Interface
+## 13 July 2026 — Authentication Interface
 
 ### Completed
 
@@ -72,7 +57,7 @@ The frontend authentication experience was visually and structurally complete be
 
 ---
 
-## 14 July 2026 â€” Application Tracking Screens
+## 14 July 2026 — Application Tracking Screens
 
 ### Completed
 
@@ -88,7 +73,7 @@ Users could navigate through the primary job-application tracking interface.
 
 ---
 
-## 16 July 2026 â€” Frontend MVP Completed
+## 16 July 2026 — Frontend MVP Completed
 
 ### Completed
 
@@ -107,7 +92,7 @@ The complete mobile application interface could be demonstrated independently be
 
 ---
 
-## 17 July 2026 â€” Backend Foundation
+## 17 July 2026 — Backend Foundation
 
 ### Completed
 
@@ -133,7 +118,7 @@ ApplyMate gained a working backend, persistent PostgreSQL database and stateless
 
 ---
 
-## 18â€“22 July 2026 â€” Authentication and Application API Development
+## 18–22 July 2026 — Authentication and Application API Development
 
 ### Completed
 
@@ -156,7 +141,7 @@ The backend could securely manage application records for individual authenticat
 
 ---
 
-## 23 July 2026 â€” Backend MVP Completed
+## 23 July 2026 — Backend MVP Completed
 
 ### Completed
 
@@ -178,7 +163,7 @@ The Spring Boot backend provided all server functionality required by the initia
 
 ---
 
-## 24 July 2026 â€” Frontend API Integration
+## 24 July 2026 — Frontend API Integration
 
 ### Completed
 
@@ -208,7 +193,7 @@ The backend became the system of record for accounts and job applications.
 
 ---
 
-## 25 July 2026 â€” Dashboard Summary Integration
+## 25 July 2026 — Dashboard Summary Integration
 
 ### Completed
 
@@ -228,7 +213,7 @@ Dashboard statistics were generated from authoritative backend data.
 
 ---
 
-## 28 July 2026 â€” MVP Polish Completed
+## 28 July 2026 — MVP Polish Completed
 
 ### Frontend
 
@@ -265,7 +250,7 @@ The integrated ApplyMate MVP was complete and ready for deployment-readiness wor
 
 ---
 
-## 28 July 2026 â€” Deployment & Production Readiness
+## 28 July 2026 — Deployment & Production Readiness
 
 ### Documentation
 
@@ -331,7 +316,7 @@ ApplyMate gained repeatable CI and a production-ready backend image.
 
 ---
 
-## 29 July 2026 â€” Neon Production Database
+## 29 July 2026 — Neon Production Database
 
 ### Completed
 
@@ -349,7 +334,7 @@ ApplyMate gained a hosted production database.
 
 ---
 
-## 29 July 2026 â€” Render Production Backend
+## 29 July 2026 — Render Production Backend
 
 ### Completed
 
@@ -382,7 +367,7 @@ ApplyMate's Spring Boot backend became publicly accessible over HTTPS.
 
 ---
 
-## 29 July 2026 â€” Production Backend Smoke Testing
+## 29 July 2026 — Production Backend Smoke Testing
 
 Verified:
 
@@ -418,7 +403,7 @@ The Render + Neon backend passed the production workflow.
 
 ---
 
-## 29 July 2026 â€” Mobile Production Integration
+## 29 July 2026 — Mobile Production Integration
 
 Configured:
 
@@ -456,7 +441,7 @@ Expo mobile application
 
 # August 2026
 
-## 29 Julyâ€“8 August 2026 â€” Mobile Distribution & Release Readiness
+## 29 July–8 August 2026 — Mobile Distribution & Release Readiness
 
 ### Expo Application Services
 
@@ -543,7 +528,7 @@ Reminder data now follows the authenticated account while notification schedulin
 
 ---
 
-## 3â€“7 August 2026 â€” Persistent Session Authentication
+## 3–7 August 2026 — Persistent Session Authentication
 
 ### Problem
 
@@ -631,7 +616,7 @@ ApplyMate gained persistent authenticated mobile sessions.
 
 ---
 
-## 7â€“8 August 2026 â€” Account Deletion
+## 7–8 August 2026 — Account Deletion
 
 ### Backend
 
@@ -683,7 +668,7 @@ ApplyMate gained permanent self-service account deletion.
 
 ---
 
-## 8 August 2026 â€” Privacy & Account-Deletion Pages
+## 8 August 2026 — Privacy & Account-Deletion Pages
 
 Created public support contact:
 
@@ -725,7 +710,7 @@ ApplyMate gained public privacy and deletion information for future store-readin
 
 ---
 
-## 8 August 2026 â€” Android Release Candidate Verification
+## 8 August 2026 — Android Release Candidate Verification
 
 The Android internal-distribution build was tested against production.
 
@@ -758,7 +743,7 @@ v1.3.0
 
 # Email Verification Feature
 
-## 8â€“10 August 2026 â€” Email Verification Backend Development
+## 8–10 August 2026 — Email Verification Backend Development
 
 A new feature branch was created for production email verification.
 
@@ -854,11 +839,11 @@ Correct password
     v
 Check email verification
     |
-    â”œâ”€â”€ unverified
-    â”‚      -> 403 EMAIL_VERIFICATION_REQUIRED
-    â”‚      -> no tokens
-    â”‚
-    â””â”€â”€ verified
+    ├── unverified
+    │      -> 403 EMAIL_VERIFICATION_REQUIRED
+    │      -> no tokens
+    │
+    └── verified
            -> normal login
 ```
 
@@ -1105,7 +1090,7 @@ Backend Docker image
 
 # Production Email Verification Rollout
 
-## 10 August 2026 â€” PR #6 and Controlled Production Deployment
+## 10 August 2026 — PR #6 and Controlled Production Deployment
 
 Feature commit:
 
@@ -1209,7 +1194,7 @@ Production status remained:
 
 # Production Email Delivery Incident
 
-## 11 August 2026 â€” Initial Production Registration Failure
+## 11 August 2026 — Initial Production Registration Failure
 
 The first brand-new production registration created:
 
@@ -1298,7 +1283,7 @@ Dashboard                      PASS
 
 # Resend Secret-Safety Hotfix
 
-## 11 August 2026 â€” Security Hardening
+## 11 August 2026 — Security Hardening
 
 Created branch:
 
@@ -1360,7 +1345,7 @@ GitHub CI passed all three jobs.
 
 ---
 
-## PR #7 â€” Hotfix Merge
+## PR #7 — Hotfix Merge
 
 Merged:
 
@@ -1400,7 +1385,7 @@ The hotfix therefore passed production smoke testing.
 
 # Flyway Rollout Cleanup
 
-## 11 August 2026 â€” V8
+## 11 August 2026 — V8
 
 Once the old backend rollout window was fully closed, V7's temporary default was no longer required.
 
@@ -1446,7 +1431,7 @@ BUILD SUCCESS
 
 ---
 
-## PR #8 â€” V8 Merge
+## PR #8 — V8 Merge
 
 V8 commit:
 
@@ -3190,46 +3175,178 @@ Because `gmail.readonly` is a Restricted scope, unrestricted public Gmail availa
 
 Recruitment Email Integration is functionally complete for v1.7.0 release closeout.
 
+# 29 August 2026 — Final Handoff & Store Readiness
+
+## Checkpoint 1 — Full Handoff Audit
+
+* Audited repository, EAS configuration, app identifiers, environment configuration, backend deployment, external dependencies, Gmail integration, public privacy/deletion pages, CI and documentation.
+* Confirmed no additional product feature development was required.
+* Identified the principal remaining release items as reproducibility proof, operational handoff, store/compliance packaging and Gmail public-release gating.
+
+## Checkpoint 2 — Clean-Clone Reproducibility
+
+A completely separate fresh clone was created at the exact v1.7.0 baseline:
+
+```text
+092f523427a19b8b55896d2701fe000249221dac
+```
+
+Validated:
+
+```text
+npm ci                              PASS
+TypeScript                          PASS
+Expo dependency check               PASS
+Expo Doctor                         17/18 known Nitro metadata warning
+Expo web export                     PASS
+Gmail deterministic logic           PASS
+Backend tests                       144/144 PASS
+Backend package                     PASS
+Production Docker image             PASS
+Docker non-root user/healthcheck     PASS
+Git worktree                        CLEAN
+```
+
+The initial local Maven failure was diagnosed rather than patched. The root cause was Docker Compose project-name/named-volume collision between parallel ApplyMate clones. Re-running with a unique Compose project and Java 21 produced 144 tests with zero failures/errors.
+
+Operational lessons recorded:
+
+* Use Java 21 as the authoritative backend JDK.
+* Use unique Docker Compose project names for parallel clones.
+* Treat `docker compose down -v` as destructive local database reset.
+* Do not copy undocumented local state into a clean clone.
+
+## Checkpoint 3 — Native Release Builds
+
+Added release configuration:
+
+```text
+ios-simulator profile
+ios.simulator=true
+ITSAppUsesNonExemptEncryption=false
+```
+
+Validated EAS project/identifiers/environment, then built:
+
+```text
+Android production/store AAB
+Build ID: b4f877a4-7120-4af2-b5b1-cb8c0f933675
+Result: PASS
+
+iOS Simulator native build
+Build ID: 9d9d5aba-6054-4693-bf57-f2647d444ed4
+Result: PASS
+```
+
+The iOS build required no paid App Store distribution credentials and proved native compilation. Apple production signing/TestFlight/App Store submission remains account-gated.
+
+## Checkpoint 4 — Authoritative Handoff Runbook
+
+Added:
+
+```text
+docs/07_FINAL_HANDOFF_RUNBOOK.md
+```
+
+The runbook documents architecture, prerequisites, build commands, EAS profiles, Render, Neon/Flyway, Resend, DNS/domain dependencies, Google Cloud/Gmail, environment-variable names, health checks, rollback/recovery, service-account handoff and exact store-build/submission commands.
+
+Secret-pattern verification passed.
+
+## Checkpoint 5 — Store Submission Pack
+
+Added:
+
+```text
+docs/08_STORE_SUBMISSION_PACK.md
+```
+
+Prepared:
+
+* Apple/Google metadata
+* Descriptions/keywords/categories
+* Public URLs
+* Age-rating guidance
+* Release notes
+* Screenshot plan
+* Reviewer notes and reviewer-account procedure
+* Apple App Privacy draft
+* Google Play Data Safety draft
+* Third-party service/SDK inventory
+
+No Gmail public-marketing claims are included while restricted-scope approval is pending.
+
+## Checkpoint 6 — Gmail Public-Release Hardening
+
+Google `gmail.readonly` remained a Restricted scope, so unrestricted production exposure was not considered safe.
+
+Added:
+
+```text
+EXPO_PUBLIC_GMAIL_ENABLED
+```
+
+Authoritative EAS state:
+
+```text
+production  = false
+preview     = true
+development = true
+```
+
+The committed default is `false`.
+
+Hardening behaviour:
+
+* Gmail UI hidden when disabled.
+* `connectGmail` blocked before authorization when disabled.
+* Gmail token retrieval/sync blocked before scope request when disabled.
+* Gmail authorization refresh blocked when disabled.
+* Disconnect/cleanup left available.
+* Existing authorised-test Gmail behaviour preserved when enabled.
+
+Validation:
+
+```text
+TypeScript                       PASS
+Flag false                       PASS
+Flag true                        PASS
+Existing Gmail logic             PASS
+Production-like web export       PASS
+Expo dependencies                PASS
+Production bundle Gmail UI text  ABSENT
+```
+
+No backend/Flyway change was required.
+
+## Final Release Decision
+
+```text
+v1.8.0 — Final Handoff & Store Readiness
+Store marketing version: 1.0.0
+```
+
+Documentation must identify v1.8.0 as the current release before the final annotated tag is created. The tag is created only after final validation, merge to `main` and green CI.
+
 # Current Release Summary
 
-| Area                                      | Status |
-| ----------------------------------------- | ------ |
-| Frontend MVP                              | Complete |
-| Backend MVP                               | Complete |
-| PostgreSQL integration                    | Complete |
-| JWT + rotating refresh sessions           | Complete |
-| Email verification                        | Complete |
-| Password reset                            | Complete |
-| Job Link Import                           | Complete |
-| Recruitment Email Integration             | Complete |
-| Gmail provider                            | v1 implemented |
-| Gmail scope                               | `gmail.readonly` |
-| Gmail sync                                | Manual |
-| Gmail backend ingestion                   | None |
-| AI email classification                   | None |
-| Email suggestion review                   | Complete |
-| Explicit Confirm before mutation          | Enforced |
-| Stage regression protection               | Enforced |
-| Stale rejection chronology protection     | Enforced |
-| Create Application from email             | Complete |
-| Gmail account isolation                   | Verified |
-| Gmail local-state migration               | Complete |
-| Production Flyway schema                  | V9 |
-| Frontend TypeScript validation            | Passing |
-| Email integration logic checks            | Passing |
-| Expo web export                           | Passing |
-| Expo Doctor                               | 17/18 known Nitro metadata warning |
-| Backend Maven clean verify                | Passing |
-| Docker production image                   | Passing |
-| Docker runtime user                       | `applymate` |
-| Android standalone preview                | Passing |
-| Production API                            | Healthy |
-| Neon database                             | Healthy |
-| Current release                           | `v1.7.0` |
-| Previous release                          | `v1.6.0` |
-| Validated feature implementation commit   | `7bf3314` |
-| Google unrestricted Gmail approval        | Pending external verification |
-| Final release documentation               | In progress |
+| Area | Current state |
+| --- | --- |
+| Current phase | Final Handoff & Store Submission Readiness |
+| Current release | `v1.8.0` |
+| Previous release | `v1.7.0` |
+| v1.7.0 baseline | `092f523427a19b8b55896d2701fe000249221dac` |
+| Store marketing version | `1.0.0` |
+| Production Flyway | `V9` |
+| Backend tests | `144/144 PASS` |
+| Docker production image | `PASS` |
+| Android production AAB | `PASS` |
+| iOS Simulator native build | `PASS` |
+| Production Gmail availability | `OFF` |
+| Preview/development Gmail | `ON for authorised test users` |
+| Public Gmail approval | `Pending Google restricted-scope verification` |
+
+The v1.8.0 release adds no product feature beyond the already completed v1.7.0 Gmail implementation. It is a final release-engineering, compliance, reproducibility and handoff release.
+
 # Production Infrastructure
 
 ## Mobile
@@ -3340,75 +3457,40 @@ This affects startup latency but not stored data or application architecture.
 
 # Release Closeout
 
-The functional work for the **Recruitment Email Integration / v1.7.0** release is complete.
+The `v1.8.0` finalisation branch contains the final handoff/store-readiness work.
 
-Validated release-candidate state:
+Remaining release mechanics after documentation update:
 
-```text
-Feature implementation commit: 7bf3314
-Flyway:                       V9
-Backend code diff:            none
-Flyway diff:                  none
-Frontend typecheck:           PASS
-Email logic checks:           PASS
-Expo web export:              PASS
-Expo Doctor:                  17/18 known warning
-Backend Maven clean verify:   PASS
-Docker image:                 PASS
-Android standalone preview:  PASS
-Production API:               UP
-Production health:            UP
-```
+1. Run the complete frontend/backend/Docker/EAS validation against the final branch.
+2. Commit/push the finalisation branch.
+3. Merge to `main`.
+4. Confirm GitHub Actions are green.
+5. Verify production status/health.
+6. Rebuild final Android AAB from the exact final `main` commit.
+7. Re-run iOS Simulator validation from the exact final `main` commit.
+8. Create annotated `v1.8.0` on that exact commit.
+9. Verify `tag == main == origin/main`.
+10. Delete completed branches and leave clean `main`.
 
-Gmail release verification confirmed:
+The documentation names v1.8.0 before tagging by design so the tag points to a commit that already documents itself correctly.
 
-```text
-Connect + gmail.readonly            PASS
-Manual sync                         PASS
-Processed-ID dedupe                 PASS
-Suggestion review                   PASS
-Old-stage downgrade blocked         PASS
-Stale rejection blocked             PASS
-Create Application from email       PASS
-Forward update after Confirm        PASS
-Ignore leaves application unchanged PASS
-Account isolation                   PASS
-Disconnect cleanup                  PASS
-Reconnect                           PASS
-```
+# Development Freeze
 
-No Gmail backend endpoint or Flyway migration was required.
+After the final `v1.8.0` tag, ApplyMate feature development is frozen.
 
-No Gmail message body, snippet, raw MIME or attachment content is persisted by ApplyMate.
+Permitted future work is limited to:
 
-Google unrestricted public Gmail availability remains subject to external restricted-scope verification.
+* Genuine bug fixes
+* Apple/Google store compliance
+* Google OAuth restricted-scope verification/public Gmail enablement
+* Security maintenance
+* Provider/API compatibility maintenance
+* Operational documentation corrections
 
-Remaining work before the `v1.7.0` tag:
+External account gates remain:
 
-1. Commit and push the six-document release refresh.
-2. Open/merge the release PR with green CI.
-3. Pull and verify final `main`.
-4. Re-run final production status/health checks.
-5. Create and push `v1.7.0` on the exact documented main commit.
-6. Verify `v1.7.0^{}` equals `main` and `origin/main`.
-7. Remove completed release branches.
+* Apple Developer Program enrolment
+* Google Play developer account/application
+* Google restricted-scope approval
 
----
-
-# Next Development Phase
-
-After `v1.7.0` is formally tagged, new feature work should begin on a dedicated branch.
-
-Potential next work includes:
-
-* Google restricted-scope verification and unrestricted public Gmail rollout
-* Additional email providers after Gmail v1 is stable
-* Additional application automation
-* Profile/account-management improvements
-* Broader supported job-source compatibility where appropriate
-* Google Play public release preparation
-* Apple TestFlight/App Store distribution after Apple Developer Program enrolment
-
-Job Link Import and Recruitment Email Integration are complete implementation milestones.
-
-No new feature scope should be added during the v1.7.0 release closeout.
+Job Link Import and Recruitment Email Integration remain completed implementation milestones. No new feature scope is approved.

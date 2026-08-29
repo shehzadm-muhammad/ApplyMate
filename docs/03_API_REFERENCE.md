@@ -36,9 +36,9 @@ The API currently supports:
 
 ---
 
-Recruitment Email Integration in v1.7.0 does **not** add a new ApplyMate backend email endpoint.
+Recruitment Email Integration was introduced in v1.7.0 and still does **not** add a new ApplyMate backend email endpoint in v1.8.0.
 
-Gmail authorization and message retrieval occur directly between the native mobile client and Google. The existing ApplyMate API is used only when the user explicitly creates or confirms an application change.
+Gmail authorization and message retrieval occur directly between the native mobile client and Google. The existing ApplyMate API is used only when the user explicitly creates or confirms an application change. v1.8.0 adds a mobile build-time production gate; it does not change the REST contract.
 # Content Type
 
 Requests containing JSON should use:
@@ -279,6 +279,32 @@ V9
 ```
 
 This keeps provider tokens and Gmail message data outside the ApplyMate server boundary.
+
+## v1.8.0 Gmail production gate
+
+v1.8.0 introduces no Spring Boot Gmail endpoint and no Flyway migration.
+
+The public-release control exists only in the mobile client:
+
+```text
+EXPO_PUBLIC_GMAIL_ENABLED
+```
+
+```text
+production  = false
+preview     = true
+development = true
+```
+
+When the flag is disabled, Gmail UI is not rendered and Gmail connect/token-refresh paths fail before restricted-scope `requestScopes` can be reached. Disconnect/cleanup remains available for previously connected authorised-test state.
+
+Therefore:
+
+```text
+REST API contract: unchanged
+Flyway schema:     V9
+Gmail backend API: none
+```
 
 # Application Status Values
 
@@ -2002,13 +2028,19 @@ Render
 Current release:
 
 ```text
+v1.8.0
+```
+
+Previous release:
+
+```text
 v1.7.0
 ```
 
-Validated Gmail feature implementation commit before documentation closeout:
+v1.7.0 baseline tag/commit:
 
 ```text
-7bf3314
+092f523427a19b8b55896d2701fe000249221dac
 ```
 
 Production database:
@@ -2065,6 +2097,18 @@ POST /api/v1/applications/import-preview
 with a verified authenticated user and supported public job URL
 -> HTTP 200
 ```
+
+---
+
+# Release/API Compatibility
+
+```text
+Current repository release: v1.8.0
+Previous release:           v1.7.0
+Production Flyway:          V9
+```
+
+v1.8.0 is a release-hardening/documentation/store-readiness release. It does not add or remove REST endpoints and does not alter database schema.
 
 ---
 
@@ -2191,3 +2235,16 @@ Recruitment Email Integration release-candidate verification additionally confir
 * Final production `/actuator/health` returned HTTP `200`
 
 The Gmail provider path itself was tested directly from a standalone Android EAS preview build. It is outside the ApplyMate REST API contract.
+
+Final v1.8.0 handoff validation additionally confirmed:
+
+```text
+Backend tests:          144 / 0 failures / 0 errors
+Backend package:        PASS
+Production Docker:      PASS
+Android production AAB: PASS
+iOS Simulator build:    PASS
+Production Gmail gate:  PASS
+```
+
+No API migration is required when moving from v1.7.0 to v1.8.0.
